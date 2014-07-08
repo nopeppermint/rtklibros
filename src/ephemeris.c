@@ -1,7 +1,7 @@
 /*------------------------------------------------------------------------------
 * ephemeris.c : satellite ephemeris and clock functions
 *
-*          Copyright (C) 2010 by T.TAKASU, All rights reserved.
+*          Copyright (C) 2010-2013 by T.TAKASU, All rights reserved.
 *
 * references :
 *     [1] IS-GPS-200D, Navstar GPS Space Segment/Navigation User Interfaces,
@@ -20,6 +20,11 @@
 *     [8] Quasi-Zenith Satellite System Navigation Service Interface Control
 *         Specification for QZSS (IS-QZSS) V1.1, Japan Aerospace Exploration
 *         Agency, July 31, 2009
+*     [9] BeiDou navigation satellite system signal in space interface control
+*         document open service signal B1I (version 1.0), China Satellite
+*         Navigation office, December 2012
+*     [10] RTCM Standard 10403.1 - Amendment 5, Differential GNSS (Global
+*         Navigation Satellite Systems) Services - version 3, July 1, 2011
 *
 * version : $Revision:$ $Date:$
 * history : 2010/07/28 1.1  moved from rtkcmn.c
@@ -36,6 +41,9 @@
 *                           change api satpos(),satposs()
 *                           enable valid unhealthy satellites and output status
 *                           fix bug on exception by glonass ephem computation
+*           2013/01/10 1.5  support beidou (compass)
+*                           use newton's method to solve kepler eq.
+*                           update ssr correction algorithm
 *-----------------------------------------------------------------------------*/
 #include "rtklib.h"
 
@@ -49,8 +57,15 @@ static const char rcsid[]="$Id:$";
 #define MU_GPS   3.9860050E14     /* gravitational constant         ref [1] */
 #define MU_GLO   3.9860044E14     /* gravitational constant         ref [2] */
 #define MU_GAL   3.986004418E14   /* earth gravitational constant   ref [7] */
+#define MU_CMP   3.986004418E14   /* earth gravitational constant   ref [9] */
 #define J2_GLO   1.0826257E-3     /* 2nd zonal harmonic of geopot   ref [2] */
+
 #define OMGE_GLO 7.292115E-5      /* earth angular velocity (rad/s) ref [2] */
+#define OMGE_GAL 7.2921151467E-5  /* earth angular velocity (rad/s) ref [7] */
+#define OMGE_CMP 7.292115E-5      /* earth angular velocity (rad/s) ref [9] */
+
+#define SIN_5 -0.0871557427476582 /* sin(-5.0 deg) */
+#define COS_5  0.9961946980917456 /* cos(-5.0 deg) */
 
 #define ERREPH_GLO 5.0            /* error of glonass ephemeris (m) */
 #define TSTEP    60.0             /* integration step glonass ephemeris (s) */
@@ -58,7 +73,8 @@ static const char rcsid[]="$Id:$";
 #define DEFURASSR 0.15            /* default accurary of ssr corr (m) */
 #define MAXECORSSR 10.0           /* max orbit correction of ssr (m) */
 #define MAXCCORSSR (1E-6*CLIGHT)  /* max clock correction of ssr (m) */
-#define MAXAGESSR 300.0           /* max age of differential of ssr corr (s) */
+#define MAXAGESSR 70.0            /* max age of ssr orbit and clock (s) */
+#define MAXAGESSR_HRCLK 10.0      /* max age of ssr high-rate clock (s) */
 #define STD_BRDCCLK 30.0          /* error of broadcast clock (m) */
 
 /* variance by ura ephemeris (ref [1] 20.3.3.3.1.1) --------------------------*/
@@ -155,7 +171,9 @@ extern double eph2clk(gtime_t time, const eph_t *eph)
 extern void eph2pos(gtime_t time, const eph_t *eph, double *rs, double *dts,
                     double *var)
 {
-    double tk,M,E,Ek,sinE,cosE,u,r,i,O,sin2u,cos2u,x,y,sinO,cosO,cosi,mu;
+    double tk,M,E,Ek,sinE,cosE,u,r,i,O,sin2u,cos2u,x,y,sinO,cosO,cosi,mu,omge;
+    double xg,yg,zg,sino,coso;
+    int n,sys,prn;
     
     trace(4,"eph2pos : time=%s sat=%2d\n",time_str(time,3),eph->sat);
     
@@ -165,13 +183,26 @@ extern void eph2pos(gtime_t time, const eph_t *eph, double *rs, double *dts,
     }
     tk=timediff(time,eph->toe);
     
-    mu=satsys(eph->sat,NULL)==SYS_GAL?MU_GAL:MU_GPS;
-    
+    switch ((sys=satsys(eph->sat,&prn))) {
+        case SYS_GAL: mu=MU_GAL; omge=OMGE_GAL; break;
+        case SYS_CMP: mu=MU_CMP; omge=OMGE_CMP; break;
+        default:      mu=MU_GPS; omge=OMGE;     break;
+    }
     M=eph->M0+(sqrt(mu/(eph->A*eph->A*eph->A))+eph->deln)*tk;
-    for (E=M,sinE=Ek=0.0;fabs(E-Ek)>1E-12;) {
+    
+#if 0
+    for (n=0,E=M,sinE=Ek=0.0;fabs(E-Ek)>1E-12;n++) {
         Ek=E; sinE=sin(Ek); E=M+eph->e*sinE;
     }
     cosE=cos(E);
+#else
+    for (n=0,E=M,Ek=0.0;fabs(E-Ek)>1E-12;n++) {
+        Ek=E; E-=(E-eph->e*sin(E)-M)/(1.0-eph->e*cos(E));
+    }
+    sinE=sin(E); cosE=cos(E);
+#endif
+    trace(4,"kepler: sat=%2d e=%8.5f n=%2d del=%10.3e\n",eph->sat,eph->e,n,E-Ek);
+    
     u=atan2(sqrt(1.0-eph->e*eph->e)*sinE,cosE-eph->e)+eph->omg;
     r=eph->A*(1.0-eph->e*cosE);
     i=eph->i0+eph->idot*tk;
@@ -179,16 +210,32 @@ extern void eph2pos(gtime_t time, const eph_t *eph, double *rs, double *dts,
     u+=eph->cus*sin2u+eph->cuc*cos2u;
     r+=eph->crs*sin2u+eph->crc*cos2u;
     i+=eph->cis*sin2u+eph->cic*cos2u;
-    O=eph->OMG0+(eph->OMGd-OMGE)*tk-OMGE*eph->toes;
-    x=r*cos(u); y=r*sin(u); sinO=sin(O); cosO=cos(O); cosi=cos(i);
-    rs[0]=x*cosO-y*cosi*sinO;
-    rs[1]=x*sinO+y*cosi*cosO;
-    rs[2]=y*sin(i);
+    x=r*cos(u); y=r*sin(u); cosi=cos(i);
+    
+    /* beidou geo satellite (ref [9]) */
+    if (sys==SYS_CMP&&prn<=5) {
+        O=eph->OMG0+eph->OMGd*tk-omge*eph->toes;
+        sinO=sin(O); cosO=cos(O);
+        xg=x*cosO-y*cosi*sinO;
+        yg=x*sinO+y*cosi*cosO;
+        zg=y*sin(i);
+        sino=sin(omge*tk); coso=cos(omge*tk);
+        rs[0]= xg*coso+yg*sino*COS_5+zg*sino*SIN_5;
+        rs[1]=-xg*sino+yg*coso*COS_5+zg*coso*SIN_5;
+        rs[2]=-yg*SIN_5+zg*COS_5;
+    }
+    else {
+        O=eph->OMG0+(eph->OMGd-omge)*tk-omge*eph->toes;
+        sinO=sin(O); cosO=cos(O);
+        rs[0]=x*cosO-y*cosi*sinO;
+        rs[1]=x*sinO+y*cosi*cosO;
+        rs[2]=y*sin(i);
+    }
     tk=timediff(time,eph->toc);
     *dts=eph->f0+eph->f1*tk+eph->f2*tk*tk;
     
     /* relativity correction */
-    *dts-=2.0*sqrt(MU_GPS*eph->A)*eph->e*sinE/SQR(CLIGHT);
+    *dts-=2.0*sqrt(mu*eph->A)*eph->e*sinE/SQR(CLIGHT);
     
     /* position and clock error variance */
     *var=var_uraeph(eph->sva);
@@ -405,7 +452,7 @@ static int ephclk(gtime_t time, gtime_t teph, int sat, const nav_t *nav,
     
     sys=satsys(sat,NULL);
     
-    if (sys==SYS_GPS||sys==SYS_GAL||sys==SYS_QZS) {
+    if (sys==SYS_GPS||sys==SYS_GAL||sys==SYS_QZS||sys==SYS_CMP) {
         if (!(eph=seleph(teph,sat,-1,nav))) return 0;
         *dts=eph2clk(time,eph);
     }
@@ -437,7 +484,7 @@ static int ephpos(gtime_t time, gtime_t teph, int sat, const nav_t *nav,
     
     *svh=-1;
     
-    if (sys==SYS_GPS||sys==SYS_GAL||sys==SYS_QZS) {
+    if (sys==SYS_GPS||sys==SYS_GAL||sys==SYS_QZS||sys==SYS_CMP) {
         if (!(eph=seleph(teph,sat,iode,nav))) return 0;
         
         eph2pos(time,eph,rs,dts,var);
@@ -501,40 +548,52 @@ static int satpos_ssr(gtime_t time, gtime_t teph, int sat, const nav_t *nav,
                       int opt, double *rs, double *dts, double *var, int *svh)
 {
     const ssr_t *ssr;
-    double t,er[3],ea[3],ec[3],rc[3],deph[3],dclk,dant[3]={0};
+    double t1,t2,t3,er[3],ea[3],ec[3],rc[3],deph[3],dclk,dant[3]={0};
     int i;
     
     trace(4,"satpos_ssr: time=%s sat=%2d\n",time_str(time,3),sat);
     
     ssr=nav->ssr+sat-1;
     
-    /* satellite postion and clock by broadcast ephemeris */
-    if (!ephpos(time,teph,sat,nav,ssr->iode,rs,dts,var,svh)) return 0;
+    if (!ssr->t0[0].time||!ssr->t0[1].time) return 0;
     
-    /* satellite antenna offset correction */
-    if (opt) {
-        satantoff(time,rs,nav->pcvs+sat-1,dant);
-    }
-    /* age of ssr correction (s) (ref [4]) */
-    t=timediff(time,ssr->t0);
-    if (ssr->udint>1.0) t-=ssr->udint/2.0;
-    if (fabs(t)>MAXAGESSR) {
-        trace(3,"age of ssr correction error: %s t=%.1f\n",time_str(time,0),t);
+    /* inconsistency between orbit and clock correction */
+    if (ssr->iod[0]!=ssr->iod[1]) {
+        trace(2,"inconsist ssr correction: %s sat=%2d iod=%d %d\n",
+              time_str(time,0),sat,ssr->iod[0],ssr->iod[1]);
         *svh=-1;
         return 0;
     }
-    /* ssr orbit correction (ref [4]) */
-    for (i=0;i<3;i++) deph[i]=ssr->deph[i]+ssr->ddeph[i]*t;
+    t1=timediff(time,ssr->t0[0]);
+    t2=timediff(time,ssr->t0[1]);
+    t3=timediff(time,ssr->t0[2]);
     
-    /* ssr clock correction (ref [4]) */
-    dclk=ssr->dclk[0]+ssr->dclk[1]*t+ssr->dclk[2]*t*t+ssr->hrclk;
+    /* ssr orbit and clock correction (ref [4]) */
+    if (fabs(t1)>MAXAGESSR||fabs(t2)>MAXAGESSR) {
+        trace(2,"age of ssr error: %s sat=%2d t=%.0f %.0f\n",time_str(time,0),
+              t1,t2);
+        *svh=-1;
+        return 0;
+    }
+    if (ssr->udi[0]>=1.0) t1-=ssr->udi[0]/2.0;
+    if (ssr->udi[1]>=1.0) t2-=ssr->udi[0]/2.0;
     
+    for (i=0;i<3;i++) deph[i]=ssr->deph[i]+ssr->ddeph[i]*t1;
+    dclk=ssr->dclk[0]+ssr->dclk[1]*t2+ssr->dclk[2]*t2*t2;
+    
+    /* ssr highrate clock correction (ref [4]) */
+    if (ssr->iod[0]==ssr->iod[2]&&ssr->t0[2].time&&fabs(t3)<MAXAGESSR_HRCLK) {
+        dclk+=ssr->hrclk;
+    }
     if (norm(deph,3)>MAXECORSSR||fabs(dclk)>MAXCCORSSR) {
         trace(3,"invalid ssr correction: %s deph=%.1f dclk=%.1f\n",
               time_str(time,0),norm(deph,3),dclk);
         *svh=-1;
         return 0;
     }
+    /* satellite postion and clock by broadcast ephemeris */
+    if (!ephpos(time,teph,sat,nav,ssr->iode,rs,dts,var,svh)) return 0;
+    
     /* radial-along-cross directions in ecef */
     if (!normv3(rs+3,ea)) return 0;
     cross3(rs,rs+3,rc);
@@ -544,9 +603,14 @@ static int satpos_ssr(gtime_t time, gtime_t teph, int sat, const nav_t *nav,
     }
     cross3(ea,ec,er);
     
+    /* satellite antenna offset correction */
+    if (opt) {
+        satantoff(time,rs,nav->pcvs+sat-1,dant);
+    }
     for (i=0;i<3;i++) {
         rs[i]+=-(er[i]*deph[0]+ea[i]*deph[1]+ec[i]*deph[2])+dant[i];
     }
+    /* t_corr = t_sv - (dts(brdc) + dclk(ssr) / CLIGHT) (ref [10] eq.3.12-7) */
     dts[0]+=dclk/CLIGHT;
     
     /* variance by ssr ura */

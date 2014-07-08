@@ -28,7 +28,7 @@ void __fastcall TTimeDialog::FormShow(TObject *Sender)
 	p+=sprintf(p,"%s UTC\n\n",s2);
 	p+=sprintf(p,"GPS Week: %d\n",week);
 	p+=sprintf(p,"GPS Time: %.0f s\n",tow);
-	p+=sprintf(p,"Day of Year: %03.0f\n",doy);
+	p+=sprintf(p,"Day of Year: %03d\n",(int)floor(doy));
 	p+=sprintf(p,"Day of Week: %d\n",(int)floor(tow/86400.0));
 	p+=sprintf(p,"Time of Day: %.0f s\n",fmod(tow,86400.0));
 	sprintf(p,"Leap Seconds: %.0f s\n",timediff(Time,utc));

@@ -1,17 +1,19 @@
 //---------------------------------------------------------------------------
 #include <vcl.h>
-#include <vcl\inifiles.hpp>
+#include <inifiles.hpp>
 #pragma hdrstop
 
 #include "rtklib.h"
 #include "aboutdlg.h"
+#include "gmview.h"
 #include "browsmain.h"
+#include "staoptdlg.h"
 //---------------------------------------------------------------------------
 #pragma package(smart_init)
 #pragma resource "*.dfm"
 TMainForm *MainForm;
 
-#define PRGNAME			"Ntrip Source Table Browser"
+#define PRGNAME			"Ntrip Browser"
 #define NTRIP_HOME		"rtcm-ntrip.org:2101" // caster list home
 #define NTRIP_TIMEOUT	10000				// response timeout (ms)
 #define NTRIP_CYCLE		50					// processing cycle (ms)
@@ -62,8 +64,16 @@ static char *getsrctbl(const char *path)
 __fastcall TMainForm::TMainForm(TComponent* Owner)
 	: TForm(Owner)
 {
-	strinitcom();
-	Caption=PRGNAME;
+    char file[1024]="srctblbrows.exe",*p;
+    
+    ::GetModuleFileName(NULL,file,sizeof(file));
+    if (!(p=strrchr(file,'.'))) p=file+strlen(file);
+    strcpy(p,".ini");
+    IniFile=file;
+    
+    strinitcom();
+    
+    StaList=new TStringList;
 }
 //---------------------------------------------------------------------------
 void __fastcall TMainForm::FormShow(TObject *Sender)
@@ -71,23 +81,39 @@ void __fastcall TMainForm::FormShow(TObject *Sender)
 	AnsiString colw0="74,116,56,244,18,52,62,28,50,50,18,18,120,28,18,18,40,600,";
 	AnsiString colw1="112,40,96,126,18,28,50,50,160,40,600,0,0,0,0,0,0,0,";
 	AnsiString colw2="80,126,18,18,300,300,300,600,0,0,0,0,0,0,0,0,0,0,";
-	TIniFile *ini=new TIniFile("srctblbrows.ini");
-	AnsiString list,colw;
-	int i,w;
-	char *p,*q,buff[1024];
+	TIniFile *ini=new TIniFile(IniFile);
+	AnsiString title,list,colw,cmd,url="",s,stas;
+	int i,w,argc=0;
+	char *p,*q,buff[8192],*argv[32];
 	
 	FontScale=Screen->PixelsPerInch;
 	Table0->DefaultRowHeight=16*FontScale/96;
 	Table1->DefaultRowHeight=16*FontScale/96;
 	Table2->DefaultRowHeight=16*FontScale/96;
 	
-	Address->Text=ini->ReadString("srctbl","address","");
+    cmd=GetCommandLine();
+    strcpy(buff,cmd.c_str());
+    
+    for (p=strtok(buff," ");p&&argc<32;p=strtok(NULL," ")) {
+        argv[argc++]=p;
+    }
+    if (argc>=2) url=argv[1];
+	
+	Caption=title.sprintf("%s ver.%s",PRGNAME,VER_RTKLIB);
+	
 	list=ini->ReadString("srctbl","addrlist","");
 	for (p=list.c_str();*p;) {
 		if (!(q=strchr(p,'@'))) break;
-		if (q-p>sizeof(buff)-1) continue;
+		if (q-p>(int)sizeof(buff)-1) continue;
 		strncpy(buff,p,q-p); buff[q-p]='\0'; p=q+1;
 		Address->AddItem(buff,NULL);
+	}
+    if (url!="") {
+        Address->Text=url;
+        UpdateTable();
+    }
+	else {
+		Address->Text=ini->ReadString("srctbl","address","");
 	}
 	colw=ini->ReadString("srctbl","colwidth0",colw0);
 	for (i=0,p=colw.c_str();i<18&&*p;i++,p=q+1) {
@@ -104,15 +130,25 @@ void __fastcall TMainForm::FormShow(TObject *Sender)
 		if (!(q=strchr(p,','))) break; else *q='\0';
 		Table2->ColWidths[i]=atoi(p)*FontScale/96;
 	}
+    StaList->Clear();
+    for (int i=0;i<10;i++) {
+        stas=ini->ReadString("sta",s.sprintf("station%d",i),"");
+        strcpy(buff,stas.c_str());
+        for (p=strtok(buff,",");p;p=strtok(NULL,",")) {
+            StaList->Add(p);
+        }
+    }
 	delete ini;
 	
 	ShowTable();
+	UpdateEnable();
 }
 //---------------------------------------------------------------------------
 void __fastcall TMainForm::FormClose(TObject *Sender, TCloseAction &Action)
 {
-	TIniFile *ini=new TIniFile("srctblbrows.ini");
-	AnsiString s,list,colw;
+	TIniFile *ini=new TIniFile(IniFile);
+	AnsiString s,list,colw,sta;
+    char buff[8192]="",*p;
 	
 	ini->WriteString("srctbl","address",Address->Text);
 	for (int i=0;i<Address->Items->Count;i++) {
@@ -134,16 +170,26 @@ void __fastcall TMainForm::FormClose(TObject *Sender, TCloseAction &Action)
 		colw=colw+s.sprintf("%d,",Table2->ColWidths[i]*96/FontScale);
 	}
 	ini->WriteString("srctbl","colwidth2",colw);
+    
+    for (int i=0,j=0;i<10;i++) {
+        p=buff; *p='\0';
+        for (int k=0;k<256&&j<StaList->Count;k++) {
+            sta=StaList->Strings[j++];
+            p+=sprintf(p,"%s%s",k==0?"":",",sta.c_str());
+        }
+        ini->WriteString ("sta",s.sprintf("station%d",i),buff);
+    }
 	delete ini;
 }
 //---------------------------------------------------------------------------
 void __fastcall TMainForm::MenuOpenClick(TObject *Sender)
 {
 	FILE *fp;
+	AnsiString OpenDialog_FileName=OpenDialog->FileName;
 	char buff[2048];
 	if (!OpenDialog->Execute()) return;
 	SrcTable="";
-	if (!(fp=fopen(OpenDialog->FileName.c_str(),"rb"))) return;
+	if (!(fp=fopen(OpenDialog_FileName.c_str(),"rb"))) return;
 	while (fgets(buff,sizeof(buff),fp)) {
 		SrcTable+=buff;
 	}
@@ -156,8 +202,9 @@ void __fastcall TMainForm::MenuOpenClick(TObject *Sender)
 void __fastcall TMainForm::MenuSaveClick(TObject *Sender)
 {
 	FILE *fp;
+	AnsiString SaveDialog_FileName=SaveDialog->FileName;
 	if (!SaveDialog->Execute()) return;
-	if (!(fp=fopen(SaveDialog->FileName.c_str(),"wb"))) return;
+	if (!(fp=fopen(SaveDialog_FileName.c_str(),"wb"))) return;
 	fwrite(SrcTable.c_str(),1,SrcTable.Length(),fp);
 	fclose(fp);
 	ShowMsg("source table saved");
@@ -209,6 +256,22 @@ void __fastcall TMainForm::MenuAboutClick(TObject *Sender)
 	AboutDialog->ShowModal();
 }
 //---------------------------------------------------------------------------
+void __fastcall TMainForm::BtnMapClick(TObject *Sender)
+{
+	Timer->Enabled=true;
+	GoogleMapView->Show();
+}
+//---------------------------------------------------------------------------
+void __fastcall TMainForm::Table0SelectCell(TObject *Sender, int ACol, int ARow, bool &CanSelect)
+{
+	AnsiString title;
+	if (0<ARow&&ARow<Table0->RowCount) {
+		title=Table0->Cells[0][ARow];
+		GoogleMapView->HighlightMark(title);
+		GoogleMapView->Caption="NTRIP STR Map: "+Address->Text+"/"+title;
+	}
+}
+//---------------------------------------------------------------------------
 void __fastcall TMainForm::BtnListClick(TObject *Sender)
 {
 	UpdateCaster();
@@ -254,9 +317,18 @@ void __fastcall TMainForm::TypeChange(TObject *Sender)
 	ShowTable();
 }
 //---------------------------------------------------------------------------
+void __fastcall TMainForm::TimerTimer(TObject *Sender)
+{
+	if (!GoogleMapView->GetState()) return;
+	UpdateMap();
+	Timer->Enabled=false;
+}
+//---------------------------------------------------------------------------
 void __fastcall TMainForm::Table0MouseDown(TObject *Sender,
 	  TMouseButton Button, TShiftState Shift, int X, int Y)
 {
+	AnsiString title;
+	double lat,lon;
 	int col,row;
 	Table0->MouseToCell(X,Y,col,row);
 	if (row==0) SortTable(Table0,col);
@@ -280,11 +352,12 @@ void __fastcall TMainForm::Table2MouseDown(TObject *Sender,
 //---------------------------------------------------------------------------
 void __fastcall TMainForm::UpdateCaster(void)
 {
+	AnsiString Address_Text=Address->Text;
 	AnsiString text,item[3];
 	char buff[MAXLINE],*p,*q,*r,*srctbl,*addr=NTRIP_HOME;
 	int i,n;
 	
-	if (Address->Text!="") addr=Address->Text.c_str();
+	if (Address_Text!="") addr=Address_Text.c_str();
 
 	if (!(srctbl=getsrctbl(addr))) return;
 	
@@ -304,9 +377,10 @@ void __fastcall TMainForm::UpdateCaster(void)
 //---------------------------------------------------------------------------
 void __fastcall TMainForm::UpdateTable(void)
 {
+	AnsiString Address_Text=Address->Text;
 	char *srctbl,*addr=NTRIP_HOME;
 
-	if (Address->Text!="") addr=Address->Text.c_str();
+	if (Address_Text!="") addr=Address_Text.c_str();
 
 	if ((srctbl=getsrctbl(addr))) {
 		SrcTable=srctbl;
@@ -383,6 +457,7 @@ void __fastcall TMainForm::ShowTable(void)
 		}
 		j++;
 	}
+	UpdateMap();
 }
 //---------------------------------------------------------------------------
 void __fastcall TMainForm::SortTable(TStringGrid *table, int col)
@@ -391,8 +466,10 @@ void __fastcall TMainForm::SortTable(TStringGrid *table, int col)
 	for (int i=1;i<table->RowCount;i++) {
 		int j=i;
 		for (int k=i+1;k<table->RowCount;k++) {
-			char *s1=table->Cells[col][j].c_str();
-			char *s2=table->Cells[col][k].c_str();
+			AnsiString Cell1=table->Cells[col][j];
+			AnsiString Cell2=table->Cells[col][k];
+			char *s1=Cell1.c_str();
+			char *s2=Cell2.c_str();
 			if (sscanf(s1,"%lf",&v1)&&sscanf(s2,"%lf",&v2)) {
 				if (v1>v2) j=k;
 			}
@@ -409,8 +486,52 @@ void __fastcall TMainForm::SortTable(TStringGrid *table, int col)
 //---------------------------------------------------------------------------
 void __fastcall TMainForm::ShowMsg(const char *msg)
 {
-	StatusBar->SimpleText=msg;
+	AnsiString str=msg;
+	Message->Caption=str;
 	Application->ProcessMessages();
+}
+//---------------------------------------------------------------------------
+void __fastcall TMainForm::UpdateMap(void)
+{
+	AnsiString title,msg;
+	double lat,lon;
+	
+	if (Address->Text=="") {
+		GoogleMapView->Caption="NTRIP STR Map";
+	}
+	else {
+		GoogleMapView->Caption="NTRIP STR Map: "+Address->Text;
+	}
+	GoogleMapView->ClearMark();
+	
+	for (int i=1;i<Table0->RowCount;i++) {
+		if (Table0->Cells[8][i]=="") continue;
+		lat=Table0->Cells[8][i].ToDouble();
+		lon=Table0->Cells[9][i].ToDouble();
+		title=Table0->Cells[0][i];
+		msg="<b>"+Table0->Cells[0][i]+"</b>: "+
+			Table0->Cells[1][i]+" ("+Table0->Cells[7][i]+"), POS: "+
+			Table0->Cells[8][i]+", "+Table0->Cells[9][i]+"<br>"+
+			Table0->Cells[2][i]+": "+Table0->Cells[3][i]+"<br>"+
+			Table0->Cells[5][i]+", "+Table0->Cells[6][i]+", "+
+			Table0->Cells[12][i];
+		GoogleMapView->AddMark(lat,lon,title,msg);
+	}
+}
+//---------------------------------------------------------------------------
+void __fastcall TMainForm::BtnStaClick(TObject *Sender)
+{
+	if (StaListDialog->ShowModal()!=mrOk) return;
+}
+//---------------------------------------------------------------------------
+void __fastcall TMainForm::UpdateEnable(void)
+{
+	BtnSta->Enabled=StaMask->Checked;
+}
+//---------------------------------------------------------------------------
+void __fastcall TMainForm::StaMaskClick(TObject *Sender)
+{
+	UpdateEnable();
 }
 //---------------------------------------------------------------------------
 

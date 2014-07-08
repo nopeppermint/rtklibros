@@ -26,15 +26,17 @@
 *                               eph2posp()
 *           2010/09/09 1.5  fix problem when precise clock outage
 *           2011/01/23 1.6  support qzss satellite code
+*           2011/09/12 1.7  fix problem on precise clock outage
+*                           move sunmmonpos() to rtkcmn.c
+*           2011/12/01 1.8  modify api readsp3()
+*                           precede later ephemeris if ephemeris is NULL
+*                           move eci2ecef() to rtkcmn.c
 *-----------------------------------------------------------------------------*/
 #include "rtklib.h"
 
 static const char rcsid[]="$Id:$";
 
 #define SQR(x)      ((x)*(x))
-
-#define AU          149597870691.0  /* 1 AU (m) */
-#define AS2R        (D2R/3600.0)    /* arc sec to radian */
 
 #define NMAX        10              /* order of polynomial interpolation */
 #define MAXDTE      900.0           /* max time difference to ephem time (s) */
@@ -50,334 +52,6 @@ static int code2sys(char code)
     if (code=='J') return SYS_QZS; /* extension to sp3-c */
     if (code=='C') return SYS_CMP; /* extension to sp3-c */
     return SYS_NONE;
-}
-/* time to day and sec -------------------------------------------------------*/
-static double time2sec(gtime_t time, gtime_t *day)
-{
-    double ep[6],sec;
-    time2epoch(time,ep);
-    sec=ep[3]*3600.0+ep[4]*60.0+ep[5];
-    ep[3]=ep[4]=ep[5]=0.0;
-    *day=epoch2time(ep);
-    return sec;
-}
-/* coordinate rotation matrix ------------------------------------------------*/
-#define Rx(t,X) do { \
-    (X)[0]=1.0; (X)[1]=(X)[2]=(X)[3]=(X)[6]=0.0; \
-    (X)[4]=(X)[8]=cos(t); (X)[7]=sin(t); (X)[5]=-(X)[7]; \
-} while (0)
-
-#define Ry(t,X) do { \
-    (X)[4]=1.0; (X)[1]=(X)[3]=(X)[5]=(X)[7]=0.0; \
-    (X)[0]=(X)[8]=cos(t); (X)[2]=sin(t); (X)[6]=-(X)[2]; \
-} while (0)
-
-#define Rz(t,X) do { \
-    (X)[8]=1.0; (X)[2]=(X)[5]=(X)[6]=(X)[7]=0.0; \
-    (X)[0]=(X)[4]=cos(t); (X)[3]=sin(t); (X)[1]=-(X)[3]; \
-} while (0)
-
-/* astronomical arguments: f={l,l',F,D,OMG} (rad) ----------------------------*/
-static void ast_args(double t, double *f)
-{
-    static const double fc[][5]={ /* coefficients for iau 1980 nutation */
-        { 134.96340251, 1717915923.2178,  31.8792,  0.051635, -0.00024470},
-        { 357.52910918,  129596581.0481,  -0.5532,  0.000136, -0.00001149},
-        {  93.27209062, 1739527262.8478, -12.7512, -0.001037,  0.00000417},
-        { 297.85019547, 1602961601.2090,  -6.3706,  0.006593, -0.00003169},
-        { 125.04455501,   -6962890.2665,   7.4722,  0.007702  -0.00005939}
-    };
-    double tt[4];
-    int i,j;
-    
-    for (tt[0]=t,i=1;i<4;i++) tt[i]=tt[i-1]*t;
-    for (i=0;i<5;i++) {
-        f[i]=fc[i][0]*3600.0;
-        for (j=0;j<4;j++) f[i]+=fc[i][j+1]*tt[j];
-        f[i]=fmod(f[i]*AS2R,2.0*PI);
-    }
-}
-/* iau 1980 nutation ---------------------------------------------------------*/
-static void nut_iau1980(double t, const double *f, double *dpsi, double *deps)
-{
-    static const double nut[106][10]={
-        {   0,   0,   0,   0,   1, -6798.4, -171996, -174.2, 92025,   8.9},
-        {   0,   0,   2,  -2,   2,   182.6,  -13187,   -1.6,  5736,  -3.1},
-        {   0,   0,   2,   0,   2,    13.7,   -2274,   -0.2,   977,  -0.5},
-        {   0,   0,   0,   0,   2, -3399.2,    2062,    0.2,  -895,   0.5},
-        {   0,  -1,   0,   0,   0,  -365.3,   -1426,    3.4,    54,  -0.1},
-        {   1,   0,   0,   0,   0,    27.6,     712,    0.1,    -7,   0.0},
-        {   0,   1,   2,  -2,   2,   121.7,    -517,    1.2,   224,  -0.6},
-        {   0,   0,   2,   0,   1,    13.6,    -386,   -0.4,   200,   0.0},
-        {   1,   0,   2,   0,   2,     9.1,    -301,    0.0,   129,  -0.1},
-        {   0,  -1,   2,  -2,   2,   365.2,     217,   -0.5,   -95,   0.3},
-        {  -1,   0,   0,   2,   0,    31.8,     158,    0.0,    -1,   0.0},
-        {   0,   0,   2,  -2,   1,   177.8,     129,    0.1,   -70,   0.0},
-        {  -1,   0,   2,   0,   2,    27.1,     123,    0.0,   -53,   0.0},
-        {   1,   0,   0,   0,   1,    27.7,      63,    0.1,   -33,   0.0},
-        {   0,   0,   0,   2,   0,    14.8,      63,    0.0,    -2,   0.0},
-        {  -1,   0,   2,   2,   2,     9.6,     -59,    0.0,    26,   0.0},
-        {  -1,   0,   0,   0,   1,   -27.4,     -58,   -0.1,    32,   0.0},
-        {   1,   0,   2,   0,   1,     9.1,     -51,    0.0,    27,   0.0},
-        {  -2,   0,   0,   2,   0,  -205.9,     -48,    0.0,     1,   0.0},
-        {  -2,   0,   2,   0,   1,  1305.5,      46,    0.0,   -24,   0.0},
-        {   0,   0,   2,   2,   2,     7.1,     -38,    0.0,    16,   0.0},
-        {   2,   0,   2,   0,   2,     6.9,     -31,    0.0,    13,   0.0},
-        {   2,   0,   0,   0,   0,    13.8,      29,    0.0,    -1,   0.0},
-        {   1,   0,   2,  -2,   2,    23.9,      29,    0.0,   -12,   0.0},
-        {   0,   0,   2,   0,   0,    13.6,      26,    0.0,    -1,   0.0},
-        {   0,   0,   2,  -2,   0,   173.3,     -22,    0.0,     0,   0.0},
-        {  -1,   0,   2,   0,   1,    27.0,      21,    0.0,   -10,   0.0},
-        {   0,   2,   0,   0,   0,   182.6,      17,   -0.1,     0,   0.0},
-        {   0,   2,   2,  -2,   2,    91.3,     -16,    0.1,     7,   0.0},
-        {  -1,   0,   0,   2,   1,    32.0,      16,    0.0,    -8,   0.0},
-        {   0,   1,   0,   0,   1,   386.0,     -15,    0.0,     9,   0.0},
-        {   1,   0,   0,  -2,   1,   -31.7,     -13,    0.0,     7,   0.0},
-        {   0,  -1,   0,   0,   1,  -346.6,     -12,    0.0,     6,   0.0},
-        {   2,   0,  -2,   0,   0, -1095.2,      11,    0.0,     0,   0.0},
-        {  -1,   0,   2,   2,   1,     9.5,     -10,    0.0,     5,   0.0},
-        {   1,   0,   2,   2,   2,     5.6,      -8,    0.0,     3,   0.0},
-        {   0,  -1,   2,   0,   2,    14.2,      -7,    0.0,     3,   0.0},
-        {   0,   0,   2,   2,   1,     7.1,      -7,    0.0,     3,   0.0},
-        {   1,   1,   0,  -2,   0,   -34.8,      -7,    0.0,     0,   0.0},
-        {   0,   1,   2,   0,   2,    13.2,       7,    0.0,    -3,   0.0},
-        {  -2,   0,   0,   2,   1,  -199.8,      -6,    0.0,     3,   0.0},
-        {   0,   0,   0,   2,   1,    14.8,      -6,    0.0,     3,   0.0},
-        {   2,   0,   2,  -2,   2,    12.8,       6,    0.0,    -3,   0.0},
-        {   1,   0,   0,   2,   0,     9.6,       6,    0.0,     0,   0.0},
-        {   1,   0,   2,  -2,   1,    23.9,       6,    0.0,    -3,   0.0},
-        {   0,   0,   0,  -2,   1,   -14.7,      -5,    0.0,     3,   0.0},
-        {   0,  -1,   2,  -2,   1,   346.6,      -5,    0.0,     3,   0.0},
-        {   2,   0,   2,   0,   1,     6.9,      -5,    0.0,     3,   0.0},
-        {   1,  -1,   0,   0,   0,    29.8,       5,    0.0,     0,   0.0},
-        {   1,   0,   0,  -1,   0,   411.8,      -4,    0.0,     0,   0.0},
-        {   0,   0,   0,   1,   0,    29.5,      -4,    0.0,     0,   0.0},
-        {   0,   1,   0,  -2,   0,   -15.4,      -4,    0.0,     0,   0.0},
-        {   1,   0,  -2,   0,   0,   -26.9,       4,    0.0,     0,   0.0},
-        {   2,   0,   0,  -2,   1,   212.3,       4,    0.0,    -2,   0.0},
-        {   0,   1,   2,  -2,   1,   119.6,       4,    0.0,    -2,   0.0},
-        {   1,   1,   0,   0,   0,    25.6,      -3,    0.0,     0,   0.0},
-        {   1,  -1,   0,  -1,   0, -3232.9,      -3,    0.0,     0,   0.0},
-        {  -1,  -1,   2,   2,   2,     9.8,      -3,    0.0,     1,   0.0},
-        {   0,  -1,   2,   2,   2,     7.2,      -3,    0.0,     1,   0.0},
-        {   1,  -1,   2,   0,   2,     9.4,      -3,    0.0,     1,   0.0},
-        {   3,   0,   2,   0,   2,     5.5,      -3,    0.0,     1,   0.0},
-        {  -2,   0,   2,   0,   2,  1615.7,      -3,    0.0,     1,   0.0},
-        {   1,   0,   2,   0,   0,     9.1,       3,    0.0,     0,   0.0},
-        {  -1,   0,   2,   4,   2,     5.8,      -2,    0.0,     1,   0.0},
-        {   1,   0,   0,   0,   2,    27.8,      -2,    0.0,     1,   0.0},
-        {  -1,   0,   2,  -2,   1,   -32.6,      -2,    0.0,     1,   0.0},
-        {   0,  -2,   2,  -2,   1,  6786.3,      -2,    0.0,     1,   0.0},
-        {  -2,   0,   0,   0,   1,   -13.7,      -2,    0.0,     1,   0.0},
-        {   2,   0,   0,   0,   1,    13.8,       2,    0.0,    -1,   0.0},
-        {   3,   0,   0,   0,   0,     9.2,       2,    0.0,     0,   0.0},
-        {   1,   1,   2,   0,   2,     8.9,       2,    0.0,    -1,   0.0},
-        {   0,   0,   2,   1,   2,     9.3,       2,    0.0,    -1,   0.0},
-        {   1,   0,   0,   2,   1,     9.6,      -1,    0.0,     0,   0.0},
-        {   1,   0,   2,   2,   1,     5.6,      -1,    0.0,     1,   0.0},
-        {   1,   1,   0,  -2,   1,   -34.7,      -1,    0.0,     0,   0.0},
-        {   0,   1,   0,   2,   0,    14.2,      -1,    0.0,     0,   0.0},
-        {   0,   1,   2,  -2,   0,   117.5,      -1,    0.0,     0,   0.0},
-        {   0,   1,  -2,   2,   0,  -329.8,      -1,    0.0,     0,   0.0},
-        {   1,   0,  -2,   2,   0,    23.8,      -1,    0.0,     0,   0.0},
-        {   1,   0,  -2,  -2,   0,    -9.5,      -1,    0.0,     0,   0.0},
-        {   1,   0,   2,  -2,   0,    32.8,      -1,    0.0,     0,   0.0},
-        {   1,   0,   0,  -4,   0,   -10.1,      -1,    0.0,     0,   0.0},
-        {   2,   0,   0,  -4,   0,   -15.9,      -1,    0.0,     0,   0.0},
-        {   0,   0,   2,   4,   2,     4.8,      -1,    0.0,     0,   0.0},
-        {   0,   0,   2,  -1,   2,    25.4,      -1,    0.0,     0,   0.0},
-        {  -2,   0,   2,   4,   2,     7.3,      -1,    0.0,     1,   0.0},
-        {   2,   0,   2,   2,   2,     4.7,      -1,    0.0,     0,   0.0},
-        {   0,  -1,   2,   0,   1,    14.2,      -1,    0.0,     0,   0.0},
-        {   0,   0,  -2,   0,   1,   -13.6,      -1,    0.0,     0,   0.0},
-        {   0,   0,   4,  -2,   2,    12.7,       1,    0.0,     0,   0.0},
-        {   0,   1,   0,   0,   2,   409.2,       1,    0.0,     0,   0.0},
-        {   1,   1,   2,  -2,   2,    22.5,       1,    0.0,    -1,   0.0},
-        {   3,   0,   2,  -2,   2,     8.7,       1,    0.0,     0,   0.0},
-        {  -2,   0,   2,   2,   2,    14.6,       1,    0.0,    -1,   0.0},
-        {  -1,   0,   0,   0,   2,   -27.3,       1,    0.0,    -1,   0.0},
-        {   0,   0,  -2,   2,   1,  -169.0,       1,    0.0,     0,   0.0},
-        {   0,   1,   2,   0,   1,    13.1,       1,    0.0,     0,   0.0},
-        {  -1,   0,   4,   0,   2,     9.1,       1,    0.0,     0,   0.0},
-        {   2,   1,   0,  -2,   0,   131.7,       1,    0.0,     0,   0.0},
-        {   2,   0,   0,   2,   0,     7.1,       1,    0.0,     0,   0.0},
-        {   2,   0,   2,  -2,   1,    12.8,       1,    0.0,    -1,   0.0},
-        {   2,   0,  -2,   0,   1,  -943.2,       1,    0.0,     0,   0.0},
-        {   1,  -1,   0,  -2,   0,   -29.3,       1,    0.0,     0,   0.0},
-        {  -1,   0,   0,   1,   1,  -388.3,       1,    0.0,     0,   0.0},
-        {  -1,  -1,   0,   2,   1,    35.0,       1,    0.0,     0,   0.0},
-        {   0,   1,   0,   1,   0,    27.3,       1,    0.0,     0,   0.0}
-    };
-    double ang;
-    int i,j;
-    
-    *dpsi=*deps=0.0;
-    
-    for (i=0;i<106;i++) {
-        ang=0.0;
-        for (j=0;j<5;j++) ang+=nut[i][j]*f[j];
-        *dpsi+=(nut[i][6]+nut[i][7]*t)*sin(ang);
-        *deps+=(nut[i][8]+nut[i][9]*t)*cos(ang);
-    }
-    *dpsi*=1E-4*AS2R; /* 0.1 mas -> rad */
-    *deps*=1E-4*AS2R;
-}
-/* eci to ecef transformation matrix -------------------------------------------
-* compute eci to ecef transformation matrix
-* args   : gtime_t tutc     I   time in utc
-*          erp_t *erp       I   earth rotation parameters (NULL: not used)
-*          double *U        O   eci to ecef transformation matrix (3 x 3)
-*          double *gmst     IO  greenwich mean sidereal time (rad)
-*                               (NULL: no output)
-* return : none
-* note   : see ref [3] chap 5
-*          not thread-safe
-*-----------------------------------------------------------------------------*/
-extern void eci2ecef(gtime_t tutc, const erp_t *erp, double *U, double *gmst)
-{
-    const double ep2000[]={2000,1,1,12,0,0};
-    static gtime_t tutc_;
-    static double U_[9],gmst_;
-    gtime_t tgps,tut,tut0;
-    erp_t erp_={0};
-    double t,t2,t3,eps,ze,th,z,dpsi,deps,ut,gmst0,gast,f[5];
-    double R1[9],R2[9],R3[9],R[9],W[9],N[9],P[9],NP[9];
-    int i;
-    
-    trace(3,"eci2ecef: tutc=%s\n",time_str(tutc,3));
-    
-    if (fabs(timediff(tutc,tutc_))<0.01) { /* read cache */
-        for (i=0;i<9;i++) U[i]=U_[i];
-        if (gmst) *gmst=gmst_; 
-        return;
-    }
-    tutc_=tutc;
-    if (erp) erp_=*erp;
-    
-    /* terrestrial time */
-    tgps=utc2gpst(tutc_);
-    t=(timediff(tgps,epoch2time(ep2000))+19.0+32.184)/86400.0/36525.0;
-    t2=t*t; t3=t2*t;
-    
-    /* astronomical arguments */
-    ast_args(t,f);
-    
-    /* iau 1976 precession */
-    ze=(2306.2181*t+0.30188*t2+0.017998*t3)*AS2R;
-    th=(2004.3109*t-0.42665*t2-0.041833*t3)*AS2R;
-    z =(2306.2181*t+1.09468*t2+0.018203*t3)*AS2R;
-    eps=(84381.448-46.8150*t-0.00059*t2+0.001813*t3)*AS2R;
-    Rz(-z,R1); Ry(th,R2); Rz(-ze,R3);
-    matmul("NN",3,3,3,1.0,R1,R2,0.0,R);
-    matmul("NN",3,3,3,1.0,R, R3,0.0,P); /* P=Rz(-z)*Ry(th)*Rz(-ze) */
-    
-    /* iau 1980 nutation */
-    nut_iau1980(t,f,&dpsi,&deps);
-    Rx(-eps-deps-erp_.ddeps,R1); Rz(-dpsi-erp_.ddpsi,R2); Rx(eps,R3);
-    matmul("NN",3,3,3,1.0,R1,R2,0.0,R);
-    matmul("NN",3,3,3,1.0,R ,R3,0.0,N); /* N=Rx(-eps)*Rz(-dspi)*Rx(eps) */
-    
-    /* greenwich mean/aparent sidereal time (rad) */
-    tut=timeadd(tutc_,erp_.ut1_utc);
-    ut=time2sec(tut,&tut0);
-    t=timediff(tut0,epoch2time(ep2000))/86400.0/36525.0;
-    t2=t*t; t3=t2*t;
-    gmst0=24110.54841+8640184.812866*t+0.093104*t2-6.2E-6*t3;
-    gmst_=gmst0+1.002737909350795*ut;
-    gmst_=fmod(gmst_,86400.0)*PI/43200.0;
-    gast=gmst_+dpsi*cos(eps);
-    gast+=(0.00264*sin(f[4])+0.000063*sin(2.0*f[4]))*AS2R;
-    
-    /* eci to ecef transformation matrix */
-    Ry(-erp_.xp,R1); Rx(-erp_.yp,R2); Rz(gast,R3);
-    matmul("NN",3,3,3,1.0,R1,R2,0.0,W );
-    matmul("NN",3,3,3,1.0,W ,R3,0.0,R ); /* W=Ry(-xp)*Rx(-yp) */
-    matmul("NN",3,3,3,1.0,N ,P ,0.0,NP);
-    matmul("NN",3,3,3,1.0,R ,NP,0.0,U_); /* U=W*Rz(gast)*N*P */
-    
-    for (i=0;i<9;i++) U[i]=U_[i];
-    if (gmst) *gmst=gmst_; 
-    
-    trace(5,"gmst=%.12f gast=%.12f\n",gmst_,gast);
-    trace(5,"P=\n"); tracemat(5,P,3,3,15,12);
-    trace(5,"N=\n"); tracemat(5,N,3,3,15,12);
-    trace(5,"W=\n"); tracemat(5,W,3,3,15,12);
-    trace(5,"U=\n"); tracemat(5,U,3,3,15,12);
-}
-/* sun and moon position in eci (ref [4] 5.1.1, 5.2.1) -----------------------*/
-static void sunmoonpos_eci(gtime_t tut, double *rsun, double *rmoon)
-{
-    const double ep2000[]={2000,1,1,12,0,0};
-    double t,f[5],eps,Ms,ls,rs,lm,pm,rm,sine,cose,sinp,cosp,sinl,cosl;
-    
-    trace(3,"sunmoonpos_eci: tut=%s\n",time_str(tut,3));
-    
-    t=timediff(tut,epoch2time(ep2000))/86400.0/36525.0;
-    
-    /* astronomical arguments */
-    ast_args(t,f);
-    
-    /* obliquity of the ecliptic */
-    eps=23.439291-0.0130042*t;
-    sine=sin(eps*D2R); cose=cos(eps*D2R);
-    
-    /* sun position in eci */
-    if (rsun) {
-        Ms=357.5277233+35999.05034*t;
-        ls=280.460+36000.770*t+1.914666471*sin(Ms*D2R)+0.019994643*sin(2.0*Ms*D2R);
-        rs=AU*(1.000140612-0.016708617*cos(Ms*D2R)-0.000139589*cos(2.0*Ms*D2R));
-        sinl=sin(ls*D2R); cosl=cos(ls*D2R);
-        rsun[0]=rs*cosl;
-        rsun[1]=rs*cose*sinl;
-        rsun[2]=rs*sine*sinl;
-        
-        trace(5,"rsun =%.3f %.3f %.3f\n",rsun[0],rsun[1],rsun[2]);
-    }
-    /* moon position in eci */
-    if (rmoon) {
-        lm=218.32+481267.883*t+6.29*sin(f[0])-1.27*sin(f[0]-2.0*f[3])+
-           0.66*sin(2.0*f[3])+0.21*sin(2.0*f[0])-0.19*sin(f[1])-0.11*sin(2.0*f[2]);
-        pm=5.13*sin(f[2])+0.28*sin(f[0]+f[2])-0.28*sin(f[2]-f[0])-
-           0.17*sin(f[2]-2.0*f[3]);
-        rm=RE_WGS84/sin((0.9508+0.0518*cos(f[0])+0.0095*cos(f[0]-2.0*f[3])+
-                   0.0078*cos(2.0*f[3])+0.0028*cos(2.0*f[0]))*D2R);
-        sinl=sin(lm*D2R); cosl=cos(lm*D2R);
-        sinp=sin(pm*D2R); cosp=cos(pm*D2R);
-        rmoon[0]=rm*cosp*cosl;
-        rmoon[1]=rm*(cose*cosp*sinl-sine*sinp);
-        rmoon[2]=rm*(sine*cosp*sinl+cose*sinp);
-        
-        trace(5,"rmoon=%.3f %.3f %.3f\n",rmoon[0],rmoon[1],rmoon[2]);
-    }
-}
-/* sun and moon position -------------------------------------------------------
-* get sun and moon position in ecef
-* args   : gtime_t tut      I   time in ut1
-*          erp_t  *erp      I   earth rotation parameters (NULL: not used)
-*          double *rsun     O   sun position in ecef (m)
-*          double *rmoon    O   moon position in ecef (m)
-*          double *gmst     O   gmst (rad)
-* return : none
-*-----------------------------------------------------------------------------*/
-extern void sunmoonpos(gtime_t tutc, const erp_t *erp, double *rsun,
-                       double *rmoon, double *gmst)
-{
-    gtime_t tut;
-    double rs[3],rm[3],U[9];
-    
-    trace(3,"sunmoonpos: tutc=%s\n",time_str(tutc,3));
-    
-    tut=erp?timeadd(tutc,erp->ut1_utc):tutc; /* utc -> ut1 */
-    
-    /* sun and moon position in eci */
-    sunmoonpos_eci(tut,rsun?rs:NULL,rmoon?rm:NULL);
-    
-    /* eci to ecef transformation matrix */
-    eci2ecef(tutc,erp,U,gmst);
-    
-    /* sun and moon postion in ecef */
-    if (rsun ) matmul("NN",3,1,3,1.0,U,rs,0.0,rsun );
-    if (rmoon) matmul("NN",3,1,3,1.0,U,rm,0.0,rmoon);
 }
 /* read sp3 header -----------------------------------------------------------*/
 static int readsp3h(FILE *fp, gtime_t *time, char *type, int *sats,
@@ -434,15 +108,15 @@ static int addpeph(nav_t *nav, peph_t *peph)
 }
 /* read sp3 body -------------------------------------------------------------*/
 static void readsp3b(FILE *fp, char type, int *sats, int ns, double *bfact,
-                     char *tsys, int index, nav_t *nav)
+                     char *tsys, int index, int opt, nav_t *nav)
 {
     peph_t peph;
     gtime_t time;
     double val,std,base;
-    int i,j,sat,sys,prn,n=ns*(type=='P'?1:2);
+    int i,j,sat,sys,prn,n=ns*(type=='P'?1:2),pred_o,pred_c;
     char buff[1024];
     
-    trace(3,"readsp3b: type=%c ns=%d index=%d\n",type,ns,index);
+    trace(3,"readsp3b: type=%c ns=%d index=%d opt=%d\n",type,ns,index,opt);
     
     while (fgets(buff,sizeof(buff),fp)) {
         
@@ -471,7 +145,17 @@ static void readsp3b(FILE *fp, char type, int *sats, int ns, double *bfact,
             
             if (!(sat=satno(sys,prn))) continue;
             
+            pred_c=strlen(buff)>=76&&buff[75]=='P';
+            pred_o=strlen(buff)>=80&&buff[79]=='P';
+            
             for (j=0;j<4;j++) {
+                
+                /* read option for predicted value */
+                if (j< 3&&opt==1&& pred_o) continue;
+                if (j< 3&&opt==2&&!pred_o) continue;
+                if (j==3&&opt==1&& pred_c) continue;
+                if (j==3&&opt==2&&!pred_c) continue;
+                
                 val=str2num(buff, 4+j*14,14);
                 std=str2num(buff,61+j* 3,j<3?2:3);
                 
@@ -507,7 +191,9 @@ static void combpeph(nav_t *nav)
         if (fabs(timediff(nav->peph[i].time,nav->peph[j].time))<1E-9) {
             
             for (k=0;k<MAXSAT;k++) {
+#if 0
                 if (norm(nav->peph[j].pos[k],4)<=0.0) continue;
+#endif
                 for (m=0;m<4;m++) nav->peph[i].pos[k][m]=nav->peph[j].pos[k][m];
                 for (m=0;m<4;m++) nav->peph[i].std[k][m]=nav->peph[j].std[k][m];
             }
@@ -523,6 +209,7 @@ static void combpeph(nav_t *nav)
 * args   : char   *file       I   sp3-c precise ephemeris file
 *                                 (wind-card * is expanded)
 *          nav_t  *nav        IO  navigation data
+*          int    opt         I   options (1: only observed, 2: only predicted)
 * return : none
 * notes  : see ref [1]
 *          precise ephemeris is appended and combined
@@ -530,7 +217,7 @@ static void combpeph(nav_t *nav)
 *          function
 *          only files with extensions of .sp3, .SP3, .eph* and .EPH* are read
 *-----------------------------------------------------------------------------*/
-extern void readsp3(const char *file, nav_t *nav)
+extern void readsp3(const char *file, nav_t *nav, int opt)
 {
     FILE *fp;
     gtime_t time={0};
@@ -563,7 +250,7 @@ extern void readsp3(const char *file, nav_t *nav)
         ns=readsp3h(fp,&time,&type,sats,bfact,tsys);
         
         /* read sp3 body */
-        readsp3b(fp,type,sats,ns,bfact,tsys,j++,nav);
+        readsp3b(fp,type,sats,ns,bfact,tsys,j++,opt,nav);
         
         fclose(fp);
     }
@@ -886,9 +573,13 @@ extern int peph2pos(gtime_t time, int sat, const nav_t *nav, int opt,
         rs[i+3]=(rst[i]-rss[i])/tt;
     }
     /* relativistic effect correction */
-    dts[0]=dtss[0]-2.0*dot(rs,rs+3,3)/CLIGHT/CLIGHT;
-    dts[1]=(dtst[0]-dtss[0])/tt;
-    
+    if (dtss[0]!=0.0) {
+        dts[0]=dtss[0]-2.0*dot(rs,rs+3,3)/CLIGHT/CLIGHT;
+        dts[1]=(dtst[0]-dtss[0])/tt;
+    }
+    else { /* no precise clock */
+        dts[0]=dts[1]=0.0;
+    }
     if (var) *var=vare+varc;
     
     return 1;

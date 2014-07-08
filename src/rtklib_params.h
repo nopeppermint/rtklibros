@@ -69,9 +69,9 @@ class RtklibParams{
         rtklib_string_params.push_back("out_solstatic");  //all        # (0:all,1:single)
         rtklib_string_params.push_back("out_outstat");  //off        # (0:off,1:state,2:residual)
         rtklib_string_params.push_back("logstr1_type");  //file       # (0:off,1:serial,2:file,3:tcpsvr,4:tcpcli,6:ntripsvr)
-        rtklib_string_params.push_back("logstr1_path");  //'$(find rtklib)/logs/%Y%m%d_%h%M_rover_rtk_server'
+        rtklib_string_params.push_back("logstr1_path");  //'$(find rtklibros)/logs/%Y%m%d_%h%M_rover_rtk_server'
         rtklib_string_params.push_back("logstr2_type");  //file       # (0:off,1:serial,2:file,3:tcpsvr,4:tcpcli,6:ntripsvr)
-        rtklib_string_params.push_back("logstr2_path");  //'$(find rtklib)/logs/%Y%m%d_%h%M_base_rtk_server'
+        rtklib_string_params.push_back("logstr2_path");  //'$(find rtklibros)/logs/%Y%m%d_%h%M_base_rtk_server'
         rtklib_string_params.push_back("logstr3_type");  //off        # (0:off,1:serial,2:file,3:tcpsvr,4:tcpcli,6:ntripsvr)
         rtklib_string_params.push_back("logstr3_path");  //''
         rtklib_string_params.push_back("misc_navmsgsel");  //all        # (0:all,1:rover,2:base,3:corr)

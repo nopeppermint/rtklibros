@@ -4,11 +4,13 @@
 #include "rtklib.h"
 #include "plotmain.h"
 
+#define ATAN2(x,y)  ((x)*(x)+(y)*(y)>1E-12?atan2(x,y):0.0)
+
 // update information on status-bar -----------------------------------------
 void __fastcall TPlot::UpdateInfo(void)
 {
     int showobs=(PLOT_OBS<=PlotType&&PlotType<=PLOT_DOP)||
-                (PLOT_SNR1<=PlotType&&PlotType<=PLOT_SNR6);
+                PlotType==PLOT_SNR||PlotType==PLOT_SNRE;
     
     trace(3,"UpdateInfo:\n");
     
@@ -22,8 +24,9 @@ void __fastcall TPlot::UpdateInfo(void)
 // update time-information for observation-data plot ------------------------
 void __fastcall TPlot::UpdateTimeObs(void)
 {
-    AnsiString msgs1[]={" OBS=L1/2 "," L1 "," L2 "," P1/2 "," P1 ",""," P2 "};
-    AnsiString msgs2[]={" SNR=>45 "," >40 "," >35 "," >30 "," >25 ",""," <25 "};
+    AnsiString msgs1[]={" OBS=L1/2 "," L1 "," L2 "," L1/2/5 "," L1/5 ",""," L5 "};
+    AnsiString msgs2[]={" SNR=...45.","..40.","..35.","..30.","..25 ",""," <25 "};
+    AnsiString msgs3[]={" SYS=GPS ","GLO ","GAL ","QZS ","BDS ","SBS ",""};
     AnsiString msg,msgs[8],s;
     double azel[MAXOBS*2],dop[4]={0};
     int i,ns=0,no=0,ind=ObsIndex;
@@ -34,7 +37,7 @@ void __fastcall TPlot::UpdateTimeObs(void)
     if (BtnSol1->Down&&0<=ind&&ind<NObs) {
         
         for (i=IndexObs[ind];i<Obs.n&&i<IndexObs[ind+1];i++,no++) {
-            if (SatMask[Obs.data[i].sat-1]) continue;
+            if (SatMask[Obs.data[i].sat-1]||!SatSel[Obs.data[i].sat-1]) continue;
             if (El[i]<ElMask*D2R) continue;
             if (ElMaskP&&El[i]<ElMaskData[(int)(Az[i]*R2D+0.5)]) continue;
             azel[  ns*2]=Az[i];
@@ -42,7 +45,7 @@ void __fastcall TPlot::UpdateTimeObs(void)
             ns++;
         }
     }
-    if (ns>0) {
+    if (ns>=0) {
         dops(ns,azel,ElMask*D2R,dop);
         
         TimeStr(Obs.data[IndexObs[ind]].time,3,1,tstr);
@@ -57,11 +60,11 @@ void __fastcall TPlot::UpdateTimeObs(void)
         }
         else if (PlotType<=PLOT_SKY&&ObsType->ItemIndex==0) {
             msg+=s.sprintf("NSAT=%d ",ns);
-            for (i=0;i<7;i++) msgs[i]=msgs1[i];
+            for (i=0;i<7;i++) msgs[i]=SimObs?msgs3[i]:msgs1[i];
         }
         else {
             msg+=s.sprintf("NSAT=%d ",ns);
-            for (i=0;i<7;i++) msgs[i]=msgs2[i];
+            for (i=0;i<7;i++) msgs[i]=SimObs?msgs3[i]:msgs2[i];
         }
     }
     ShowMsg(msg);
@@ -101,8 +104,7 @@ void __fastcall TPlot::UpdateTimeSol(void)
         }
         else if (!data->type) {
             ecef2pos(data->rr,pos);
-            msg+=s.sprintf("%13.9f" CHARDEG " %14.9f" CHARDEG " %9.4fm  Q=",
-                           pos[0]*R2D,pos[1]*R2D,pos[2]);
+            msg+=LatLonStr(pos,9)+s.sprintf(" %9.4fm  Q=",pos[2]);
         }
         else {
             r=norm(data->rr,3);
@@ -122,8 +124,9 @@ void __fastcall TPlot::UpdateTimeSol(void)
 void __fastcall TPlot::UpdateInfoObs(void)
 {
     AnsiString msgs0[]={"  NSAT"," GDOP"," PDOP"," HDOP"," VDOP","",""};
-    AnsiString msgs1[]={" OBS=L1/2 "," L1 "," L2 "," P1/2 "," P1 ",""," P2 "};
-    AnsiString msgs2[]={" SNR=>45 "," >40 "," >35 "," >30 "," >25 ",""," <25 "};
+    AnsiString msgs1[]={" OBS=L1/2 "," L1 "," L2 "," L1/2/5 "," L1/5 ",""," L5 "};
+    AnsiString msgs2[]={" SNR=...45.","..40.","..35.","..30.","..25 ",""," <25 "};
+    AnsiString msgs3[]={" SYS=GPS ","GLO ","GAL ","QZS ","BDS ","SBS ",""};
     AnsiString msg,msgs[8];
     gtime_t ts={0},te={0},t,tp={0};
     int i,n=0,ne=0;
@@ -149,10 +152,10 @@ void __fastcall TPlot::UpdateInfoObs(void)
                 msgs[i]=msgs0[i];
             }
             else if (PlotType<=PLOT_SKY&&ObsType->ItemIndex==0) {
-                msgs[i]=msgs1[i];
+                msgs[i]=SimObs?msgs3[i]:msgs1[i];
             }
             else {
-                msgs[i]=msgs2[i];
+                msgs[i]=SimObs?msgs3[i]:msgs2[i];
             }
         }
     }
@@ -247,14 +250,11 @@ void __fastcall TPlot::UpdatePlotType(void)
         PlotTypeS->AddItem(PTypes[PLOT_DOP ],NULL);
     }
     if (SolStat[0].n>0||SolStat[1].n>0) {
-        for (i=0;i<NFREQ;i++) {
-            PlotTypeS->AddItem(PTypes[PLOT_RES1+i],NULL);
-        }
+        PlotTypeS->AddItem(PTypes[PLOT_RES ],NULL);
     }
     if (NObs>0) {
-        for (i=0;i<NFREQ;i++) {
-            PlotTypeS->AddItem(PTypes[PLOT_SNR1+i],NULL);
-        }
+        PlotTypeS->AddItem(PTypes[PLOT_SNR ],NULL);
+        PlotTypeS->AddItem(PTypes[PLOT_SNRE],NULL);
     }
     for (i=0;i<PlotTypeS->Items->Count;i++) {
         if (PlotTypeS->Items->Strings[i]!=PTypes[PlotType]) continue;
@@ -266,45 +266,86 @@ void __fastcall TPlot::UpdatePlotType(void)
 // update satellite-list pull-down menu -------------------------------------
 void __fastcall TPlot::UpdateSatList(void)
 {
-    TComboBox *list[]={SatList1,SatList2,SatList3};
-    int i,j,sat,sats[MAXSAT];
-    char id[32];
+    int i,j,sys,sysp=0,sat,smask[MAXSAT]={0};
+    char s[8];
     
     trace(3,"UpdateSatList\n");
     
-    for (i=0;i<3;i++) {
-        for (j=0;j<MAXSAT;j++) sats[j]=0;
-        if (i<2) {
-            for (j=0;j<SolStat[i].n;j++) {
-                sat=SolStat[i].data[j].sat;
-                if (1<=sat&&sat<=MAXSAT) sats[sat-1]=1;
-            }
-        }
-        else {
-            for (j=0;j<Obs.n;j++) {
-                sat=Obs.data[j].sat;
-                if (1<=sat&&sat<=MAXSAT) sats[sat-1]=1;
-            }
-        }
-        list[i]->Items->Clear();
-        list[i]->Items->Add("ALL");
-        
-        for (j=0;j<MAXSAT;j++) {
-            if (SatMask[j]||!sats[j]) continue;
-            satno2id(j+1,id);
-            list[i]->Items->Add(id);
-        }
-        list[i]->ItemIndex=0;
+    for (i=0;i<2;i++) for (j=0;j<SolStat[i].n;j++) {
+        sat=SolStat[i].data[j].sat;
+        if (1<=sat&&sat<=MAXSAT) smask[sat-1]=1;
     }
+    for (j=0;j<Obs.n;j++) {
+        sat=Obs.data[j].sat;
+        if (1<=sat&&sat<=MAXSAT) smask[sat-1]=1;
+    }
+    SatList->Items->Clear();
+    SatList->Items->Add("ALL");
+    
+    for (sat=1;sat<=MAXSAT;sat++) {
+        if (SatMask[sat-1]||!smask[sat-1]) continue;
+        if ((sys=satsys(sat,NULL))==sysp) continue;
+        switch ((sysp=sys)) {
+            case SYS_GPS: strcpy(s,"G"); break;
+            case SYS_GLO: strcpy(s,"R"); break;
+            case SYS_GAL: strcpy(s,"E"); break;
+            case SYS_QZS: strcpy(s,"J"); break;
+            case SYS_CMP: strcpy(s,"C"); break;
+            case SYS_SBS: strcpy(s,"S"); break;
+        }
+        SatList->Items->Add(s);
+    }
+    for (sat=1;sat<=MAXSAT;sat++) {
+        if (SatMask[sat-1]||!smask[sat-1]) continue;
+        satno2id(sat,s);
+        SatList->Items->Add(s);
+    }
+    SatList->ItemIndex=0;
+    
+    UpdateSatSel();
+}
+// update observation type pull-down menu --------------------------------------
+void __fastcall TPlot::UpdateObsType(void)
+{
+    AnsiString s;
+    char *codes[MAXCODE+1],freqs[]="125678";
+    int i,j,n=0,cmask[MAXCODE+1]={0},fmask[6]={0};
+    
+    trace(3,"UpdateObsType\n");
+    
+    for (i=0;i<Obs.n;i++) for (j=0;j<NFREQ+NEXOBS;j++) {
+        cmask[Obs.data[i].code[j]]=1;
+    }
+    for (i=1;i<=MAXCODE;i++) {
+        if (!cmask[i]) continue;
+        codes[n++]=code2obs(i,&j);
+        fmask[j-1]=1;
+    }
+    ObsType ->Items->Clear();
+    ObsType2->Items->Clear();
+    ObsType ->Items->Add("ALL");
+    
+    for (i=0;i<6;i++) {
+        if (!fmask[i]) continue;
+        ObsType ->Items->Add(s.sprintf("L%c",freqs[i]));
+        ObsType2->Items->Add(s.sprintf("L%c",freqs[i]));
+    }
+    for (i=0;i<n;i++) {
+        ObsType ->Items->Add(s.sprintf("L%s",codes[i]));
+        ObsType2->Items->Add(s.sprintf("L%s",codes[i]));
+    }
+    ObsType ->ItemIndex=0;
+    ObsType2->ItemIndex=0;
 }
 // update information for current-cursor position ---------------------------
 void __fastcall TPlot::UpdatePoint(int x, int y)
 {
     gtime_t time;
     TPoint p(x,y);
-    double enu[3]={0},rr[3],pos[3],xx,yy,r,xl[2],yl[2],q[2],az,el;
+    double enu[3]={0},rr[3],pos[3],xx,yy,r,xl[2],yl[2],q[2],az,el,snr;
     int i;
-    char msg[128]="";
+    char tstr[64];
+    AnsiString msg;
     
     trace(4,"UpdatePoint: x=%d y=%d\n",x,y);
     
@@ -316,7 +357,7 @@ void __fastcall TPlot::UpdatePoint(int x, int y)
             enu2ecef(pos,enu,rr);
             for (i=0;i<3;i++) rr[i]+=OPos[i];
             ecef2pos(rr,pos);
-            sprintf(msg,"%12.8f" CHARDEG " %13.8f" CHARDEG,pos[0]*R2D,pos[1]*R2D);
+            msg=LatLonStr(pos,8);
         }
     }
     else if (PlotType==PLOT_SKY) { // sky-plot
@@ -326,19 +367,24 @@ void __fastcall TPlot::UpdatePoint(int x, int y)
         r=(xl[1]-xl[0]<yl[1]-yl[0]?xl[1]-xl[0]:yl[1]-yl[0])*0.45;
         
         if ((el=90.0-90.0*norm(q,2)/r)>0.0) {
-            az=el>=90.0?0.0:atan2(q[0],q[1])*R2D;
+            az=el>=90.0?0.0:ATAN2(q[0],q[1])*R2D;
             if (az<0.0) az+=360.0;
-            sprintf(msg,"AZ=%5.1f" CHARDEG " EL=%4.1f" CHARDEG,az,el);
+            msg.sprintf("AZ=%5.1f" CHARDEG " EL=%4.1f" CHARDEG,az,el);
         }
+    }
+    else if (PlotType==PLOT_SNRE) { // snr-el-plot
+        GraphE[0]->ToPos(p,q[0],q[1]);
+        msg.sprintf("EL=%4.1f " CHARDEG,q[0]);
     }
     else {
         GraphG[0]->ToPos(p,xx,yy);
         time=gpst2time(Week,xx);
         if      (TimeLabel==2) time=utc2gpst(time); // UTC
         else if (TimeLabel==3) time=timeadd(gpst2utc(time),-9*3600.0); // JST
-        TimeStr(time,0,1,msg);
+        TimeStr(time,0,1,tstr);
+        msg=tstr;
     }
     Panel22->Visible=true;
-    Message2->Caption=msg;
+    Message2->Caption=A2U(msg);
 }
 //---------------------------------------------------------------------------

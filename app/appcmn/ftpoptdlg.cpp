@@ -62,16 +62,21 @@ void __fastcall TFtpOptDialog::FormShow(TObject *Sender)
 //---------------------------------------------------------------------------
 void __fastcall TFtpOptDialog::BtnOkClick(TObject *Sender)
 {
-	AnsiString s;
+	AnsiString PathOffset_Text=PathOffset->Text;
+	AnsiString Interval_Text=Interval->Text;
+	AnsiString Offset_Text=Offset->Text;
+	AnsiString RetryInterval_Text=RetryInterval->Text;
+	AnsiString User_Text=User->Text,Passwd_Text=Passwd->Text;
+	AnsiString Addr_Text=Addr->Text,s;
 	int topts[4];
 	
-	topts[0]=(int)(atof(PathOffset->Text.c_str())*3600.0);
-	topts[1]=(int)(atof(Interval  ->Text.c_str())*3600.0);
-	topts[2]=(int)(atof(Offset    ->Text.c_str())*3600.0);
-	topts[3]=atoi(RetryInterval->Text.c_str());
+	topts[0]=(int)(atof(PathOffset_Text.c_str())*3600.0);
+	topts[1]=(int)(atof(Interval_Text.c_str())*3600.0);
+	topts[2]=(int)(atof(Offset_Text.c_str())*3600.0);
+	topts[3]=atoi(RetryInterval_Text.c_str());
 	
-	Path=s.sprintf("%s:%s@%s::T=%d,%d,%d,%d",User->Text.c_str(),
-				   Passwd->Text.c_str(),Addr->Text.c_str(),
+	Path=s.sprintf("%s:%s@%s::T=%d,%d,%d,%d",User_Text.c_str(),
+				   Passwd_Text.c_str(),Addr_Text.c_str(),
 				   topts[0],topts[1],topts[2],topts[3]);
 	
 	AddHist(Addr,History);

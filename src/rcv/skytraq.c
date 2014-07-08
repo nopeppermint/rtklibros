@@ -8,6 +8,8 @@
 *         GPS Receiver, ver 1.4.8, August 21, 2008
 *     [2] Skytraq, Application Note AN0024 Raw Measurement Binary Message
 *         Extension of SkyTraq Venus 6 GPS Receiver, ver 0.5, October 9, 2009
+*     [3] Skytraq, Application Note AN0024G2 Binary Message of SkyTraq Venus 7
+*         GLONASS/GPS Receiver (Raw Measurement F/W), ver 1.4.26, April 26, 2012
 *
 * notes   :
 *     The byte order of S1315F raw message is big-endian inconsistent to [1].
@@ -17,8 +19,12 @@
 *           2009/11/08 1.1 flip carrier-phase polarity for F/W 1.8.23-20091106
 *           2011/05/27 1.2 add almanac decoding
 *                          fix problem with ARM compiler
+*           2011/07/01 1.3 suppress warning
+*           2012/05/03 1.4 support S1722GF2-RAW GLONASS
 *-----------------------------------------------------------------------------*/
 #include "rtklib.h"
+#include <stdint.h>
+#include "serialisation_inline.h"
 
 #define STQSYNC1    0xA0        /* skytraq binary sync code 1 */
 #define STQSYNC2    0xA1        /* skytraq binary sync code 2 */
@@ -26,6 +32,7 @@
 #define ID_STQTIME  0xDC        /* skytraq message id: measurement time info */
 #define ID_STQRAW   0xDD        /* skytraq message id: raw channel measurement */
 #define ID_STQSFRB  0xE0        /* skytraq message id: subframe buffer data */
+#define ID_STQGLOSTR 0xE1       /* skytraq message id: glonass string buffer */
 #define ID_RESTART  0x01        /* skytraq message id: system restart */
 #define ID_CFGSERI  0x05        /* skytraq message id: configure serial port */
 #define ID_CFGFMT   0x09        /* skytraq message id: configure message format */
@@ -33,36 +40,6 @@
 
 static const char rcsid[]="$Id:$";
 
-/* extract field (big-endian) ------------------------------------------------*/
-#define U1(p)       (*((unsigned char *)(p)))
-#define I1(p)       (*((char *)(p)))
-
-static unsigned short U2(unsigned char *p)
-{
-    unsigned char b[2];
-    b[0]=p[1]; b[1]=p[0];
-    return *(unsigned short *)b;
-}
-static unsigned int U4(unsigned char *p)
-{
-    unsigned char b[4];
-    b[0]=p[3]; b[1]=p[2]; b[2]=p[1]; b[3]=p[0];
-    return *(unsigned int *)b;
-}
-static float R4(unsigned char *p)
-{
-    unsigned char b[4];
-    b[0]=p[3]; b[1]=p[2]; b[2]=p[1]; b[3]=p[0];
-    return *(float *)b;
-}
-static double R8(unsigned char *p)
-{
-    double value;
-    unsigned char *q=(unsigned char *)&value+7;
-    int i;
-    for (i=0;i<8;i++) *q--=*p++;
-    return value;
-}
 /* checksum ------------------------------------------------------------------*/
 static unsigned char checksum(unsigned char *buff, int len)
 {
@@ -84,15 +61,15 @@ static int decode_stqtime(raw_t *raw)
     trace(4,"decode_stqtime: len=%d\n",raw->len);
     
     raw->iod=U1(p+1);
-    week    =U2(p+2);
-    tow     =U4(p+4)*0.001;
+    week    =U2r(p+2);
+    tow     =U4r(p+4)*0.001;
     raw->time=gpst2time(week,tow);
     return 0;
 }
 /* decode skytraq raw channel mesurement -------------------------------------*/
 static int decode_stqraw(raw_t *raw)
 {
-    int i,j,iod,prn,sat,n=0,nsat;
+    int i,j,iod,prn,sys,sat,n=0,nsat;
     unsigned char *p=raw->buff+4,ind;
     
     trace(4,"decode_stqraw: len=%d\n",raw->len);
@@ -111,9 +88,9 @@ static int decode_stqraw(raw_t *raw)
         ind                    =U1(p+22);
         prn                    =U1(p);
         raw->obs.data[n].SNR[0]=(unsigned char)(U1(p+1)*4.0+0.5);
-        raw->obs.data[n].P[0]  =(ind&0x1)?R8(p+ 2):0.0;
-        raw->obs.data[n].L[0]  =(ind&0x4)?R8(p+10):0.0;
-        raw->obs.data[n].D[0]  =(ind&0x2)?R4(p+18):0.0f;
+        raw->obs.data[n].P[0]  =(ind&0x1)?R8r(p+ 2):0.0;
+        raw->obs.data[n].L[0]  =(ind&0x4)?R8r(p+10):0.0;
+        raw->obs.data[n].D[0]  =(ind&0x2)?R4r(p+18):0.0f;
         raw->obs.data[n].LLI[0]=(ind&0x8)?1:0; /* slip */
         raw->obs.data[n].code[0]=CODE_L1C;
         
@@ -121,9 +98,19 @@ static int decode_stqraw(raw_t *raw)
         if (strstr(raw->opt,"-invcp")) {
             raw->obs.data[n].L[0]=-raw->obs.data[n].L[0];
         }
-        if (prn>MAXPRNGPS) prn+=MINPRNSBS-38;
-        if (!(sat=satno(MINPRNSBS<=prn?SYS_SBS:SYS_GPS,prn))) {
+        if (MINPRNGPS<=prn&&prn<=MAXPRNGPS) {
+            sys=SYS_GPS;
+        }
+        else if (MINPRNGLO<=prn-64&&prn-64<=MAXPRNGLO) {
+            sys=SYS_GLO;
+            prn-=64;
+        }
+        else {
             trace(2,"stq raw satellite number error: prn=%d\n",prn);
+            continue;
+        }
+        if (!(sat=satno(sys,prn))) {
+            trace(2,"stq raw satellite number error: sys=%d prn=%d\n",sys,prn);
             continue;
         }
         raw->obs.data[n].time=raw->time;
@@ -201,7 +188,7 @@ static int decode_alm2(int sat, raw_t *raw)
 /* decode skytraq subframe buffer --------------------------------------------*/
 static int decode_stqsfrb(raw_t *raw)
 {
-    int prn,sat,sys,id;
+    int prn,sat,id;
     unsigned char *p=raw->buff+4;
     
     trace(4,"decode_stqsfrb: len=%d\n",raw->len);
@@ -211,20 +198,43 @@ static int decode_stqsfrb(raw_t *raw)
         return -1;
     }
     prn=U1(p+1);
-    if (prn>MAXPRNGPS) prn+=MINPRNSBS-38;
-    if (!(sat=satno(MINPRNSBS<=prn?SYS_SBS:SYS_GPS,prn))) {
+    if (!(sat=satno(SYS_GPS,prn))) {
         trace(2,"stq subframe satellite number error: prn=%d\n",prn);
         return -1;
     }
-    sys=satsys(sat,&prn);
+    id=save_subfrm(sat,raw);
+    if (id==3) return decode_ephem(sat,raw);
+    if (id==4) return decode_alm1 (sat,raw);
+    if (id==5) return decode_alm2 (sat,raw);
+    return 0;
+}
+/* decode skytraq glonass string buffer --------------------------------------*/
+static int decode_stqglostr(raw_t *raw)
+{
+    int i,prn,sat,strno;
+    unsigned char *p=raw->buff+4;
     
-    if (sys==SYS_GPS) {
-        id=save_subfrm(sat,raw);
-        if (id==3) return decode_ephem(sat,raw);
-        if (id==4) return decode_alm1 (sat,raw);
-        if (id==5) return decode_alm2 (sat,raw);
-        return 0;
+    trace(4,"decode_stqglostr: len=%d\n",raw->len);
+    
+    if (raw->len<19) {
+        trace(2,"stq glo string length error: len=%d\n",raw->len);
+        return -1;
     }
+    prn=U1(p+1)-64;
+    if (!(sat=satno(SYS_GLO,prn))) {
+        trace(2,"stq glo string satellite number error: prn=%d\n",prn);
+        return -1;
+    }
+    strno=U1(p+2);
+    if (strno<1||4<strno) {
+        trace(2,"stq glo string number error: prn=%d strno=%d\n",prn,strno);
+        return -1;
+    }
+    for (i=0;i<9;i++) {
+        raw->subfrm[sat-1][strno*9-1-i]=p[3+i];
+    }
+    if (strno<5) return 0;
+    
     return 0;
 }
 /* decode skytraq message ----------------------------------------------------*/
@@ -242,12 +252,14 @@ static int decode_stq(raw_t *raw)
               type,cs,*p,*(p+1),*(p+2));
         return -1;
     }
-    sprintf(raw->msgtype,"SKYTRAQ: type=%02x len=%3d",type,raw->len);
-    
+    if (raw->outtype) {
+        sprintf(raw->msgtype,"SKYTRAQ 0x%02x (%4d):",type,raw->len);
+    }
     switch (type) {
-        case ID_STQTIME: return decode_stqtime(raw);
-        case ID_STQRAW : return decode_stqraw (raw);
-        case ID_STQSFRB: return decode_stqsfrb(raw);
+        case ID_STQTIME  : return decode_stqtime  (raw);
+        case ID_STQRAW   : return decode_stqraw   (raw);
+        case ID_STQSFRB  : return decode_stqsfrb  (raw);
+        case ID_STQGLOSTR: return decode_stqglostr(raw);
     }
     return 0;
 }
@@ -280,7 +292,7 @@ extern int input_stq(raw_t *raw, unsigned char data)
     raw->buff[raw->nbyte++]=data;
     
     if (raw->nbyte==4) {
-        if ((raw->len=U2(raw->buff+2)+7)>MAXRAWLEN) {
+        if ((raw->len=U2r(raw->buff+2)+7)>MAXRAWLEN) {
             trace(2,"stq message length error: len=%d\n",raw->len);
             raw->nbyte=0;
             return -1;
@@ -315,7 +327,7 @@ extern int input_stqf(raw_t *raw, FILE *fp)
     if (fread(raw->buff+2,1,2,fp)<2) return -2;
     raw->nbyte=4;
     
-    if ((raw->len=U2(raw->buff+2)+7)>MAXRAWLEN) {
+    if ((raw->len=U2r(raw->buff+2)+7)>MAXRAWLEN) {
         trace(2,"stq message length error: len=%d\n",raw->len);
         raw->nbyte=0;
         return -1;

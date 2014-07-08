@@ -45,7 +45,7 @@ static const char *help[]={
 static void printhelp(void)
 {
     int i;
-    for (i=0;i<sizeof(help)/sizeof(*help);i++) fprintf(stderr,"%s\n",help[i]);
+    for (i=0;i<(int)(sizeof(help)/sizeof(*help));i++) fprintf(stderr,"%s\n",help[i]);
     exit(0);
 }
 /* pos2kml main --------------------------------------------------------------*/

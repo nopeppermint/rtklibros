@@ -115,7 +115,6 @@ object RefDialog: TRefDialog
   object OpenDialog: TOpenDialog
     Filter = 'Position File (*.pos,*.snx)|*.pos;*.snx|All (*.*)|*.*'
     Options = [ofHideReadOnly, ofNoChangeDir, ofEnableSizing]
-    OptionsEx = [ofExNoPlacesBar]
     Left = 222
     Top = 336
   end

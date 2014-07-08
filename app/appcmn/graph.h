@@ -21,6 +21,9 @@ private:
 	void DrawGridLabel(double xt, double yt);
 	void RotPoint(TPoint *ps, int n, TPoint pc, int rot, TPoint *pr);
 	int ClipPoint(TPoint *p0, int area, TPoint *p1);
+	TPoint p_;
+	int mark_,size_,rot_;
+	TColor color_;
 public:
 	int Box,Fit,XGrid,YGrid,XLPos,YLPos,Week;
 	AnsiString Title,XLabel,YLabel;
@@ -51,6 +54,7 @@ public:
 				   int mark, int size, int rot);
 	void DrawCircle(TPoint p, TColor color, int rx, int ry, int style);
 	void DrawCircle(double x, double y, TColor color, double rx, double ry, int style);
+	void DrawCircles(int label);
 	void DrawText(double x, double y, AnsiString str, TColor color, int ha,
 		int va, int rot);
 	void DrawText(TPoint p, AnsiString str, TColor color, int ha, int va,

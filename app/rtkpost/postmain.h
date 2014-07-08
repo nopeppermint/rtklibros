@@ -11,7 +11,11 @@
 #include <ComCtrls.hpp>
 #include <Buttons.hpp>
 #include <FileCtrl.hpp>
+#ifdef TCPP
 #include <vcl\inifiles.hpp>
+#else
+#include <inifiles.hpp>
+#endif
 
 #include "rtklib.h"
 //---------------------------------------------------------------------------
@@ -180,16 +184,21 @@ public:
 	int SolFormat,TimeFormat,LatLonFormat,IntpRefObs,NetRSCorr,SatClkCorr;
 	int SbasCorr,SbasCorr1,SbasCorr2,SbasCorr3,SbasCorr4,TimeDecimal;
 	int SolStatic,SbasSat;
-	double ElMask,SnrMask,MaxAgeDiff,RejectThres,RejectGdop;
+	int PosOpt[5];
+	double ElMask,MaxAgeDiff,RejectThres,RejectGdop;
 	double MeasErrR1,MeasErrR2,MeasErr2,MeasErr3,MeasErr4,MeasErr5;
 	double SatClkStab,RovAntE,RovAntN,RovAntU,RefAntE,RefAntN,RefAntU;
 	double PrNoise1,PrNoise2,PrNoise3,PrNoise4,PrNoise5;
 	double ValidThresAR,ElMaskAR,ElMaskHold,SlipThres;
+	double ThresAR2,ThresAR3;
 	double RovPos[3],RefPos[3],BaseLine[2];
+	snrmask_t SnrMask;
+	exterr_t ExtErr;
 	
+	AnsiString RnxOpts1,RnxOpts2;
 	AnsiString FieldSep,RovAnt,RefAnt,AntPcvFile,StaPosFile,PrecEphFile;
 	AnsiString NetRSCorrFile1,NetRSCorrFile2,SatClkCorrFile,GoogleEarthFile;
-	AnsiString GeoidDataFile,IonoFile,DCBFile;
+	AnsiString GeoidDataFile,IonoFile,DCBFile,EOPFile,BLQFile;
 	AnsiString SbasCorrFile,SatPcvFile,ExSats;
 	AnsiString RovList,BaseList;
 	

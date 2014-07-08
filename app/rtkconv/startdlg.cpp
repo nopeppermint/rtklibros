@@ -29,19 +29,20 @@ void __fastcall TStartDialog::FormShow(TObject *Sender)
 //---------------------------------------------------------------------------
 void __fastcall TStartDialog::BtnOkClick(TObject *Sender)
 {
+	AnsiString TimeY1_Text=TimeY1->Text,TimeH1_Text=TimeH1->Text;
 	double ep[]={2000,1,1,0,0,0};
-	sscanf(TimeY1->Text.c_str(),"%lf/%lf/%lf",ep,ep+1,ep+2);
-	sscanf(TimeH1->Text.c_str(),"%lf:%lf:%lf",ep+3,ep+4,ep+5);
+	sscanf(TimeY1_Text.c_str(),"%lf/%lf/%lf",ep,ep+1,ep+2);
+	sscanf(TimeH1_Text.c_str(),"%lf:%lf:%lf",ep+3,ep+4,ep+5);
 	Time=epoch2time(ep);
 }
 //---------------------------------------------------------------------------
 void __fastcall TStartDialog::TimeY1UDChangingEx(TObject *Sender,
       bool &AllowChange, short NewValue, TUpDownDirection Direction)
 {
-	AnsiString s;
+	AnsiString TimeY1_Text=TimeY1->Text,s;
 	double ep[]={2000,1,1,0,0,0};
 	int p=TimeY1->SelStart,ud=Direction==updUp?1:-1;
-	sscanf(TimeY1->Text.c_str(),"%lf/%lf/%lf",ep,ep+1,ep+2);
+	sscanf(TimeY1_Text.c_str(),"%lf/%lf/%lf",ep,ep+1,ep+2);
 	if (4<p&&p<8) {
 	    ep[1]+=ud;
 	    if (ep[1]<=0) {ep[0]--; ep[1]+=12;}
@@ -56,9 +57,9 @@ void __fastcall TStartDialog::TimeY1UDChangingEx(TObject *Sender,
 void __fastcall TStartDialog::TimeH1UDChangingEx(TObject *Sender,
       bool &AllowChange, short NewValue, TUpDownDirection Direction)
 {
-	AnsiString s;
+	AnsiString TimeH1_Text=TimeH1->Text,s;
 	int hms[3]={0},sec,p=TimeH1->SelStart,ud=Direction==updUp?1:-1;
-	sscanf(TimeH1->Text.c_str(),"%d:%d:%d",hms,hms+1,hms+2);
+	sscanf(TimeH1_Text.c_str(),"%d:%d:%d",hms,hms+1,hms+2);
 	if (p>5||p==0) hms[2]+=ud; else if (p>2) hms[1]+=ud; else hms[0]+=ud;
 	sec=hms[0]*3600+hms[1]*60+hms[2];
 	if (sec<0) sec+=86400; else if (sec>=86400) sec-=86400;

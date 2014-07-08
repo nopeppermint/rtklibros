@@ -24,7 +24,7 @@ LDLIBS  = -lm -llapack -lblas
 all        : rnx2rtkp
 rnx2rtkp   : rnx2rtkp.o rtkcmn.o rinex.o rtkpos.o postpos.o solution.o
 rnx2rtkp   : lambda.o geoid.o sbas.o preceph.o pntpos.o ephemeris.o options.o
-rnx2rtkp   : ppp.o rtcm.o ionex.o
+rnx2rtkp   : ppp.o ppp_ar.o rtcm.o rtcm2.o rtcm3.o rtcm3e.o ionex.o stec.o rtkpos_gsi.o
 
 rnx2rtkp.o : ../rnx2rtkp.c
 	$(CC) -c $(CFLAGS) ../rnx2rtkp.c
@@ -54,10 +54,22 @@ options.o  : $(SRC)/options.c
 	$(CC) -c $(CFLAGS) $(SRC)/options.c
 ppp.o      : $(SRC)/ppp.c
 	$(CC) -c $(CFLAGS) $(SRC)/ppp.c
+ppp_ar.o   : $(SRC)/ppp_ar.c
+	$(CC) -c $(CFLAGS) $(SRC)/ppp_ar.c
 rtcm.o     : $(SRC)/rtcm.c
 	$(CC) -c $(CFLAGS) $(SRC)/rtcm.c
+rtcm2.o    : $(SRC)/rtcm2.c
+	$(CC) -c $(CFLAGS) $(SRC)/rtcm2.c
+rtcm3.o    : $(SRC)/rtcm3.c
+	$(CC) -c $(CFLAGS) $(SRC)/rtcm3.c
+rtcm3e.o   : $(SRC)/rtcm3e.c
+	$(CC) -c $(CFLAGS) $(SRC)/rtcm3e.c
 ionex.o    : $(SRC)/ionex.c
 	$(CC) -c $(CFLAGS) $(SRC)/ionex.c
+stec.o     : $(SRC)/stec.c
+	$(CC) -c $(CFLAGS) $(SRC)/stec.c
+rtkpos_gsi.o: $(SRC)/rtkpos_gsi.c
+	$(CC) -c $(CFLAGS) $(SRC)/rtkpos_gsi.c
 
 rnx2rtkp.o : $(SRC)/rtklib.h
 rtkcmn.o   : $(SRC)/rtklib.h
@@ -73,6 +85,14 @@ pntpos.o   : $(SRC)/rtklib.h
 ephemeris.o: $(SRC)/rtklib.h
 options.o  : $(SRC)/rtklib.h
 ppp.o      : $(SRC)/rtklib.h
+ppp_ar.o   : $(SRC)/rtklib.h
+rtcm.o     : $(SRC)/rtklib.h
+rtcm2.o    : $(SRC)/rtklib.h
+rtcm3.o    : $(SRC)/rtklib.h
+rtcm3e.o   : $(SRC)/rtklib.h
+ionex.o    : $(SRC)/rtklib.h
+stec.o     : $(SRC)/rtklib.h
+rtkpos_gsi.o: $(SRC)/rtklib.h
 
 CMD1    = ./rnx2rtkp
 INPUT11 = ../../../test/data/rinex/07590920.05o ../../../test/data/rinex/30400920.05n
@@ -131,6 +151,8 @@ test23 :
 	$(CMD1) -k opts2.conf $(INPUT11) $(INPUT12) > test23.pos
 test24 :
 	$(CMD1) -k opts3.conf $(INPUT11) $(INPUT12) -y 2 -o test24.pos
+test25 :
+	$(CMD1) -k opts4.conf $(INPUT11) $(INPUT12) -y 2 -o test25.pos
 
 clean :
 	rm -f rnx2rtkp rnx2rtkp.exe *.o *.pos *.trace

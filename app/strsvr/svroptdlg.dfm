@@ -4,8 +4,8 @@ object SvrOptDialog: TSvrOptDialog
   BorderIcons = []
   BorderStyle = bsDialog
   Caption = 'Options'
-  ClientHeight = 304
-  ClientWidth = 322
+  ClientHeight = 276
+  ClientWidth = 379
   Color = clBtnFace
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
@@ -19,77 +19,98 @@ object SvrOptDialog: TSvrOptDialog
   TextHeight = 13
   object Label1: TLabel
     Left = 10
-    Top = 10
-    Width = 125
+    Top = 9
+    Width = 90
     Height = 13
-    Caption = 'Server Buffer Size (bytes)'
+    Caption = 'Buffer Size (bytes)'
   end
   object Label2: TLabel
     Left = 10
-    Top = 32
+    Top = 31
     Width = 88
     Height = 13
     Caption = 'Server Cycle  (ms)'
   end
   object Label3: TLabel
     Left = 10
-    Top = 54
+    Top = 53
     Width = 104
     Height = 13
     Caption = 'Inactive Timeout (ms)'
   end
   object Label6: TLabel
-    Left = 10
-    Top = 98
-    Width = 145
+    Left = 201
+    Top = 9
+    Width = 93
     Height = 13
-    Caption = 'Averaging Period of Rate (ms)'
+    Caption = 'Period of Rate (ms)'
   end
   object Label7: TLabel
-    Left = 10
-    Top = 142
+    Left = 201
+    Top = 53
     Width = 98
     Height = 13
     Caption = 'Output Debug Trace'
   end
   object Label8: TLabel
     Left = 10
-    Top = 182
-    Width = 112
+    Top = 122
+    Width = 71
     Height = 13
-    Caption = 'Lat/Lon/Height (deg/m)'
+    Caption = 'Lat/Lon/Height'
   end
   object Label4: TLabel
-    Left = 10
-    Top = 218
-    Width = 121
+    Left = 9
+    Top = 212
+    Width = 90
     Height = 13
-    Caption = 'FTP/HTTP Local Directory'
+    Caption = 'FTP/HTTP Local Dir'
   end
   object Label9: TLabel
-    Left = 10
-    Top = 120
-    Width = 133
+    Left = 201
+    Top = 31
+    Width = 96
     Height = 13
-    Caption = 'Output File Swap Margin (s)'
+    Caption = 'File Swap Margin (s)'
   end
   object Label5: TLabel
     Left = 10
     Top = 76
-    Width = 123
+    Width = 119
     Height = 13
-    Caption = 'Re-connect Interval  (ms)'
+    Caption = 'Reconnect Interval  (ms)'
   end
   object Label10: TLabel
     Left = 10
-    Top = 258
+    Top = 234
     Width = 90
     Height = 13
     Caption = 'HTTP/NTRIP Proxy'
   end
+  object Label11: TLabel
+    Left = 10
+    Top = 144
+    Width = 81
+    Height = 13
+    Caption = 'Offset E/N/U (m)'
+  end
+  object Label12: TLabel
+    Left = 10
+    Top = 166
+    Width = 64
+    Height = 13
+    Caption = 'Antenna Info'
+  end
+  object Label13: TLabel
+    Left = 10
+    Top = 188
+    Width = 65
+    Height = 13
+    Caption = 'Receiver Info'
+  end
   object BtnOk: TButton
-    Left = 108
-    Top = 280
+    Left = 179
+    Top = 253
     Width = 95
     Height = 23
     Caption = '&OK'
@@ -98,8 +119,8 @@ object SvrOptDialog: TSvrOptDialog
     OnClick = BtnOkClick
   end
   object BtnCancel: TButton
-    Left = 206
-    Top = 280
+    Left = 274
+    Top = 253
     Width = 95
     Height = 23
     Caption = '&Cancel'
@@ -107,52 +128,51 @@ object SvrOptDialog: TSvrOptDialog
     TabOrder = 1
   end
   object SvrBuffSize: TEdit
-    Left = 204
-    Top = 8
-    Width = 97
+    Left = 131
+    Top = 7
+    Width = 61
     Height = 21
     TabOrder = 2
     Text = '16384'
   end
   object SvrCycle: TEdit
-    Left = 204
-    Top = 30
-    Width = 97
+    Left = 131
+    Top = 29
+    Width = 61
     Height = 21
     TabOrder = 3
     Text = '100'
   end
   object DataTimeout: TEdit
-    Left = 204
-    Top = 52
-    Width = 97
+    Left = 131
+    Top = 51
+    Width = 61
     Height = 21
     TabOrder = 4
     Text = '10000'
   end
   object ConnectInterval: TEdit
-    Left = 204
-    Top = 74
-    Width = 97
+    Left = 131
+    Top = 73
+    Width = 61
     Height = 21
     TabOrder = 5
     Text = '2000'
   end
   object AvePeriodRate: TEdit
-    Left = 204
-    Top = 96
-    Width = 97
+    Left = 308
+    Top = 7
+    Width = 61
     Height = 21
     TabOrder = 6
     Text = '1000'
   end
   object TraceLevelS: TComboBox
-    Left = 204
-    Top = 140
-    Width = 97
+    Left = 308
+    Top = 51
+    Width = 61
     Height = 21
     Style = csDropDownList
-    ItemHeight = 13
     ItemIndex = 0
     TabOrder = 8
     Text = 'None'
@@ -164,43 +184,43 @@ object SvrOptDialog: TSvrOptDialog
       'Level 4'
       'Level 5')
   end
-  object NmeaPos2: TEdit
-    Left = 106
-    Top = 196
-    Width = 97
+  object AntPos2: TEdit
+    Left = 193
+    Top = 118
+    Width = 87
     Height = 21
     TabOrder = 11
     Text = '0.000'
   end
-  object NmeaPos1: TEdit
-    Left = 8
-    Top = 196
-    Width = 97
+  object AntPos1: TEdit
+    Left = 104
+    Top = 118
+    Width = 87
     Height = 21
     TabOrder = 10
     Text = '0.000'
   end
   object NmeaCycle: TEdit
-    Left = 204
-    Top = 162
-    Width = 97
+    Left = 308
+    Top = 73
+    Width = 61
     Height = 21
     TabOrder = 9
     Text = '0'
   end
-  object NmeaPos3: TEdit
-    Left = 204
-    Top = 196
-    Width = 97
+  object AntPos3: TEdit
+    Left = 282
+    Top = 118
+    Width = 72
     Height = 21
     TabOrder = 12
     Text = '0.000'
   end
   object BtnPos: TButton
-    Left = 302
-    Top = 197
+    Left = 354
+    Top = 118
     Width = 17
-    Height = 19
+    Height = 21
     Caption = '...'
     Font.Charset = DEFAULT_CHARSET
     Font.Color = clWindowText
@@ -212,26 +232,26 @@ object SvrOptDialog: TSvrOptDialog
     OnClick = BtnPosClick
   end
   object NmeaReqT: TCheckBox
-    Left = 8
-    Top = 162
-    Width = 171
+    Left = 200
+    Top = 75
+    Width = 100
     Height = 17
-    Caption = 'NMEA Request Cycle (ms)'
+    Caption = 'NMEA Cycle (ms)'
     TabOrder = 14
     OnClick = NmeaReqTClick
   end
   object LocalDir: TEdit
-    Left = 8
-    Top = 232
-    Width = 293
+    Left = 104
+    Top = 208
+    Width = 249
     Height = 21
     TabOrder = 15
   end
   object BtnLocalDir: TButton
-    Left = 302
-    Top = 233
+    Left = 353
+    Top = 208
     Width = 17
-    Height = 19
+    Height = 21
     Caption = '...'
     Font.Charset = DEFAULT_CHARSET
     Font.Color = clWindowText
@@ -243,18 +263,75 @@ object SvrOptDialog: TSvrOptDialog
     OnClick = BtnLocalDirClick
   end
   object FileSwapMarginE: TEdit
-    Left = 204
-    Top = 118
-    Width = 97
+    Left = 308
+    Top = 29
+    Width = 61
     Height = 21
     TabOrder = 7
     Text = '30'
   end
   object ProxyAddr: TEdit
-    Left = 156
-    Top = 256
-    Width = 145
+    Left = 104
+    Top = 230
+    Width = 265
     Height = 21
     TabOrder = 17
+  end
+  object AntInfo: TEdit
+    Left = 104
+    Top = 162
+    Width = 265
+    Height = 21
+    TabOrder = 18
+    Text = 'AntInfo'
+  end
+  object RcvInfo: TEdit
+    Left = 104
+    Top = 184
+    Width = 265
+    Height = 21
+    TabOrder = 19
+    Text = 'Edit1'
+  end
+  object AntOff1: TEdit
+    Left = 104
+    Top = 140
+    Width = 87
+    Height = 21
+    TabOrder = 20
+    Text = '0.000'
+  end
+  object AntOff2: TEdit
+    Left = 193
+    Top = 140
+    Width = 87
+    Height = 21
+    TabOrder = 21
+    Text = '0.000'
+  end
+  object AntOff3: TEdit
+    Left = 282
+    Top = 140
+    Width = 87
+    Height = 21
+    TabOrder = 22
+    Text = '0.000'
+  end
+  object StationId: TEdit
+    Left = 131
+    Top = 95
+    Width = 61
+    Height = 21
+    TabOrder = 23
+    Text = '1234'
+  end
+  object StaInfoSel: TCheckBox
+    Left = 9
+    Top = 97
+    Width = 77
+    Height = 17
+    Caption = 'Station ID'
+    TabOrder = 24
+    OnClick = StaInfoSelClick
   end
 end

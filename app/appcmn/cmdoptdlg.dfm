@@ -3,7 +3,7 @@ object CmdOptDialog: TCmdOptDialog
   Top = 0
   BorderIcons = [biSystemMenu]
   BorderStyle = bsDialog
-  Caption = 'Serial Commands'
+  Caption = 'Serial/TCP Commands'
   ClientHeight = 264
   ClientWidth = 318
   Color = clBtnFace
@@ -93,7 +93,6 @@ object CmdOptDialog: TCmdOptDialog
   object SaveDialog: TSaveDialog
     Filter = 'Command File (*.cmd)|*.cmd|All File (*.*)|*.*'
     Options = [ofHideReadOnly, ofNoChangeDir, ofEnableSizing]
-    OptionsEx = [ofExNoPlacesBar]
     Title = 'Save Serial Commands'
     Left = 264
     Top = 204
@@ -101,7 +100,6 @@ object CmdOptDialog: TCmdOptDialog
   object OpenDialog: TOpenDialog
     Filter = 'Command File (*.cmd)|*.cmd|All File (*.*)|*.*'
     Options = [ofHideReadOnly, ofNoChangeDir, ofEnableSizing]
-    OptionsEx = [ofExNoPlacesBar]
     Title = 'Load Serial Commands'
     Left = 236
     Top = 204

@@ -292,7 +292,7 @@ extern int init_raw(raw_t *raw)
     raw->lexmsg=lexmsg0;
     raw->icpc=0.0;
     raw->nbyte=raw->len=0;
-    raw->iod=raw->flag=raw->tbase=0;
+    raw->iod=raw->flag=raw->tbase=raw->outtype=0;
     raw->tod=-1;
     for (i=0;i<MAXRAWLEN;i++) raw->buff[i]=0;
     raw->opt[0]='\0';
@@ -364,6 +364,7 @@ extern int input_raw(raw_t *raw, int format, unsigned char data)
         case STRFMT_STQ  : return input_stq  (raw,data);
         case STRFMT_GW10 : return input_gw10 (raw,data);
         case STRFMT_JAVAD: return input_javad(raw,data);
+        case STRFMT_NVS  : return input_nvs  (raw,data);
         case STRFMT_LEXR : return input_lexr (raw,data);
     }
     return 0;
@@ -388,6 +389,7 @@ extern int input_rawf(raw_t *raw, int format, FILE *fp)
         case STRFMT_STQ  : return input_stqf  (raw,fp);
         case STRFMT_GW10 : return input_gw10f (raw,fp);
         case STRFMT_JAVAD: return input_javadf(raw,fp);
+        case STRFMT_NVS  : return input_nvsf  (raw,fp);
         case STRFMT_LEXR : return input_lexrf (raw,fp);
     }
     return -2;

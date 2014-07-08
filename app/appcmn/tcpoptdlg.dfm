@@ -69,7 +69,7 @@ object TcpOptDialog: TTcpOptDialog
     TabOrder = 0
   end
   object BtnOk: TButton
-    Left = 134
+    Left = 136
     Top = 120
     Width = 87
     Height = 23
@@ -110,29 +110,28 @@ object TcpOptDialog: TTcpOptDialog
   object Addr: TComboBox
     Left = 6
     Top = 18
-    Width = 205
+    Width = 203
     Height = 21
     AutoComplete = False
-    ItemHeight = 13
+    DropDownCount = 16
     TabOrder = 3
   end
   object MntPnt: TComboBox
     Left = 6
     Top = 56
-    Width = 103
+    Width = 101
     Height = 21
     AutoComplete = False
-    ItemHeight = 13
+    DropDownCount = 16
     TabOrder = 5
   end
-  object BtnGetList: TButton
+  object BtnNtrip: TButton
     Left = 8
     Top = 120
     Width = 75
     Height = 23
-    Caption = '&Get List'
+    Caption = '&Ntrip...'
     TabOrder = 2
-    Visible = False
-    OnClick = BtnGetListClick
+    OnClick = BtnNtripClick
   end
 end

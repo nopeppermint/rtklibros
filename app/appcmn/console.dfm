@@ -17,9 +17,9 @@ object Console: TConsole
   TextHeight = 13
   object Console: TPaintBox
     Left = 0
-    Top = 24
+    Top = 22
     Width = 606
-    Height = 391
+    Height = 393
     Align = alClient
     Color = clWhite
     Constraints.MinHeight = 100
@@ -41,14 +41,14 @@ object Console: TConsole
     Left = 0
     Top = 0
     Width = 623
-    Height = 24
+    Height = 22
     Align = alTop
     BevelInner = bvRaised
     BevelOuter = bvNone
     TabOrder = 0
     object BtnAsc: TSpeedButton
       Left = 2
-      Top = 2
+      Top = 0
       Width = 33
       Height = 20
       Hint = 'Ascii View'
@@ -62,7 +62,7 @@ object Console: TConsole
     end
     object BtnHex: TSpeedButton
       Left = 36
-      Top = 2
+      Top = 0
       Width = 33
       Height = 20
       Hint = 'Hex View'
@@ -71,11 +71,12 @@ object Console: TConsole
       Flat = True
       ParentShowHint = False
       ShowHint = True
+      Spacing = 1
       OnClick = BtnHexClick
     end
     object BtnClear: TSpeedButton
       Left = 136
-      Top = 2
+      Top = 0
       Width = 21
       Height = 20
       Hint = 'Clear'
@@ -106,7 +107,7 @@ object Console: TConsole
     end
     object BtnDown: TSpeedButton
       Left = 114
-      Top = 2
+      Top = 0
       Width = 21
       Height = 20
       Hint = 'Scroll Down'
@@ -137,7 +138,7 @@ object Console: TConsole
     end
     object BtnStop: TSpeedButton
       Left = 92
-      Top = 2
+      Top = 0
       Width = 21
       Height = 20
       Hint = 'Pause'
@@ -172,13 +173,15 @@ object Console: TConsole
       Left = 570
       Top = 1
       Width = 52
-      Height = 22
+      Height = 20
       Align = alRight
       BevelOuter = bvNone
       TabOrder = 0
+      ExplicitTop = 0
       object BtnClose: TButton
-        Left = 0
-        Top = 0
+        AlignWithMargins = True
+        Left = 1
+        Top = -1
         Width = 51
         Height = 21
         Caption = '&Close'
@@ -189,12 +192,18 @@ object Console: TConsole
   end
   object Scroll: TScrollBar
     Left = 606
-    Top = 24
+    Top = 22
     Width = 17
-    Height = 391
+    Height = 393
     Align = alRight
+    Ctl3D = True
+    DoubleBuffered = False
     Kind = sbVertical
     PageSize = 0
+    ParentCtl3D = False
+    ParentDoubleBuffered = False
+    ParentShowHint = False
+    ShowHint = False
     TabOrder = 1
     TabStop = False
     OnChange = ScrollChange

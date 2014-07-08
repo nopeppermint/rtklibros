@@ -3,12 +3,13 @@
 BINDIR = /usr/local/bin
 SRC    = ../../../src
 
-OPTS   = -DTRACE -DENAGLO -DENAQZS -DENAGAL -DNFREQ=3
-CFLAGS = -Wall -O3 -ansi -pedantic -I$(SRC) $(OPTS)
+OPTS   = -DTRACE -DENAGLO -DENAQZS -DENAGAL -DENACMP -DNFREQ=3 -DNEXOBS=3
+CFLAGS = -Wall -ggdb -O3 -ansi -pedantic -I$(SRC) $(OPTS)
 LDLIBS = -lm
 
-convbin    : convbin.o rtkcmn.o rinex.o sbas.o rcvraw.o convrnx.o rtcm.o
-convbin    : novatel.o ss2.o ublox.o crescent.o skytraq.o gw10.o javad.o
+convbin    : convbin.o rtkcmn.o rinex.o sbas.o preceph.o rcvraw.o convrnx.o
+convbin    : rtcm.o rtcm2.o rtcm3.o rtcm3e.o
+convbin    : novatel.o ss2.o ublox.o crescent.o skytraq.o gw10.o javad.o nvs.o
 
 convbin.o  : ../convbin.c
 	$(CC) -c $(CFLAGS) ../convbin.c
@@ -18,12 +19,20 @@ rinex.o    : $(SRC)/rinex.c
 	$(CC) -c $(CFLAGS) $(SRC)/rinex.c
 sbas.o     : $(SRC)/sbas.c
 	$(CC) -c $(CFLAGS) $(SRC)/sbas.c
+preceph.o  : $(SRC)/preceph.c
+	$(CC) -c $(CFLAGS) $(SRC)/preceph.c
 rcvraw.o   : $(SRC)/rcvraw.c
 	$(CC) -c $(CFLAGS) $(SRC)/rcvraw.c
 convrnx.o  : $(SRC)/convrnx.c
 	$(CC) -c $(CFLAGS) $(SRC)/convrnx.c
 rtcm.o     : $(SRC)/rtcm.c
 	$(CC) -c $(CFLAGS) $(SRC)/rtcm.c
+rtcm2.o    : $(SRC)/rtcm2.c
+	$(CC) -c $(CFLAGS) $(SRC)/rtcm2.c
+rtcm3.o    : $(SRC)/rtcm3.c
+	$(CC) -c $(CFLAGS) $(SRC)/rtcm3.c
+rtcm3e.o   : $(SRC)/rtcm3e.c
+	$(CC) -c $(CFLAGS) $(SRC)/rtcm3e.c
 novatel.o  : $(SRC)/rcv/novatel.c
 	$(CC) -c $(CFLAGS) $(SRC)/rcv/novatel.c
 ss2.o      : $(SRC)/rcv/ss2.c
@@ -38,14 +47,20 @@ gw10.o     : $(SRC)/rcv/gw10.c
 	$(CC) -c $(CFLAGS) $(SRC)/rcv/gw10.c
 javad.o    : $(SRC)/rcv/javad.c
 	$(CC) -c $(CFLAGS) $(SRC)/rcv/javad.c
+nvs.o      : $(SRC)/rcv/nvs.c
+	$(CC) -c $(CFLAGS) $(SRC)/rcv/nvs.c
 
 convbin.o  : $(SRC)/rtklib.h
 rtkcmn.o   : $(SRC)/rtklib.h
 rinex.o    : $(SRC)/rtklib.h
 sbas.o     : $(SRC)/rtklib.h
+preceph.o  : $(SRC)/rtklib.h
 rcvraw.o   : $(SRC)/rtklib.h
 convrnx.o  : $(SRC)/rtklib.h
 rtcm.o     : $(SRC)/rtklib.h
+rtcm2.o    : $(SRC)/rtklib.h
+rtcm3.o    : $(SRC)/rtklib.h
+rtcm3e.o   : $(SRC)/rtklib.h
 novatel.o  : $(SRC)/rtklib.h
 ss2.o      : $(SRC)/rtklib.h
 ublox.o    : $(SRC)/rtklib.h
@@ -53,6 +68,7 @@ crescent.o : $(SRC)/rtklib.h
 skytraq.o  : $(SRC)/rtklib.h
 gw10.o     : $(SRC)/rtklib.h
 javad.o    : $(SRC)/rtklib.h
+nvs.o      : $(SRC)/rtklib.h
 
 DATDIR = ../../../test/data/rcvraw
 
@@ -93,6 +109,12 @@ test14:
 	./convbin $(DATDIR)/javad_20110115.jps -d out -o test14.obs -v 3 -y S -y J -x 2 -x R19 -x R21
 test15:
 	./convbin $(DATDIR)/javad_20110115.jps -d out -o test15.obs -v 3 -ro "-GL1P -GL2C"
+test16:
+	./convbin $(DATDIR)/javad_20110115.jps -d out -o test15.obs -v 3 -ro "-GL1P -GL2C"
+test17:
+	./convbin $(DATDIR)/GMSD7_20121014.rtcm3 -tr 2012/10/14 0:00:00
+test18:
+	./convbin $(DATDIR)/GMSD7_20121014.rtcm3 -scan -v 3.01 -f 6 -od -os -tr 2012/10/14 0:00:00
 test21:
 	stty raw < /dev/ttyACM0
 	./convbin -r ubx -o ubx.obs -n ubx.nav -s ubx.sbs -h ubx.hnav /dev/ttyACM0

@@ -87,9 +87,10 @@ private:
 	void __fastcall FtpOpt(int index, int opt);
 	void __fastcall UpdateEnable(void);
 public:
-	int StreamC[3],Stream[3],Format[3],CmdEna[3][2],NmeaReq,TimeTag,NRcv;
+	int StreamC[3],Stream[3],Format[3],CmdEna[3][2],CmdEnaTcp[3][2];
+	int NmeaReq,TimeTag,NRcv;
 	double NmeaPos[2];
-	AnsiString Paths[3][4],Cmds[3][2],TimeStart,TimeSpeed;
+	AnsiString Paths[3][4],Cmds[3][2],CmdsTcp[3][2],TimeStart,TimeSpeed;
 	AnsiString RcvOpt[3];
 	AnsiString History[10],MntpHist[10];
 	__fastcall TInputStrDialog(TComponent* Owner);

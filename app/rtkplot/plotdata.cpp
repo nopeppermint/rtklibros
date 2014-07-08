@@ -4,6 +4,13 @@
 #include "rtklib.h"
 #include "plotmain.h"
 #include "mapdlg.h"
+#include "geview.h"
+
+static char path_str[MAXNFILE][1024];
+
+#define MAX_SIMOBS	16384			// max genrated obs epochs
+
+#define THRES_SLIP  2.0             // threshold of cycle-slip
 
 // read solutions -----------------------------------------------------------
 void __fastcall TPlot::ReadSol(TStrings *files, int sel)
@@ -13,16 +20,18 @@ void __fastcall TPlot::ReadSol(TStrings *files, int sel)
     gtime_t ts,te;
     double tint;
     int i,n=0;
-    char *paths[MAXNFILE]={""};
+    char *paths[MAXNFILE];
     
     trace(3,"ReadSol: sel=%d\n",sel);
+    
+    for (i=0;i<MAXNFILE;i++) paths[i]=path_str[i];
     
     if (files->Count<=0) return;
     
     ReadWaitStart();
     
     for (i=0;i<files->Count&&n<MAXNFILE;i++) {
-        paths[n++]=files->Strings[i].c_str();
+        strcpy(paths[n++],U2A(files->Strings[i]).c_str());
     }
     TimeSpan(&ts,&te,&tint);
     
@@ -59,6 +68,8 @@ void __fastcall TPlot::ReadSol(TStrings *files, int sel)
     }
     SolIndex[0]=SolIndex[1]=ObsIndex=0;
     
+    GEDataState[sel]=0;
+    
     if (PlotType>PLOT_NSAT) {
         UpdateType(PLOT_TRK);
     }
@@ -72,10 +83,10 @@ void __fastcall TPlot::ReadSol(TStrings *files, int sel)
     else {
         SetRange(1,YRange);
     }
+    ReadWaitEnd();
+    
     UpdateTime();
     UpdatePlot();
-    
-    ReadWaitEnd();
 }
 // read solution status -----------------------------------------------------
 void __fastcall TPlot::ReadSolStat(TStrings *files, int sel)
@@ -84,16 +95,18 @@ void __fastcall TPlot::ReadSolStat(TStrings *files, int sel)
     gtime_t ts,te;
     double tint;
     int i,n=0;
-    char *paths[MAXNFILE]={""},id[32];
+    char *paths[MAXNFILE],id[32];
     
     trace(3,"ReadSolStat\n");
     
     freesolstatbuf(SolStat+sel);
     
+    for (i=0;i<MAXNFILE;i++) paths[i]=path_str[i];
+    
     TimeSpan(&ts,&te,&tint);
     
     for (i=0;i<files->Count&&n<MAXNFILE;i++) {
-        paths[n++]=files->Strings[i].c_str();
+        strcpy(paths[n++],U2A(files->Strings[i]).c_str());
     }
     ShowMsg(s.sprintf("reading %s...",paths[0]));
     ShowLegend(NULL);
@@ -109,6 +122,7 @@ void __fastcall TPlot::ReadObs(TStrings *files)
     nav_t nav={0};
     sta_t sta={0};
     AnsiString s;
+    char file[1024];
     int i,nobs;
     
     trace(3,"ReadObs\n");
@@ -122,18 +136,22 @@ void __fastcall TPlot::ReadObs(TStrings *files)
         ReadWaitEnd();
         return;
     }
-    freeobs(&Obs);
-    freenav(&Nav,0xFF);
+    ClearObs();
     Obs=obs;
     Nav=nav;
     Sta=sta;
+    SimObs=0;
     UpdateObs(nobs);
+    UpdateMp();
     
     if (ObsFiles!=files) {
         ObsFiles->Assign(files);
     }
     NavFiles->Clear();
-    Caption=s.sprintf("%s%s",files->Strings[0].c_str(),files->Count>1?"...":"");
+    
+    strcpy(file,U2A(files->Strings[0]).c_str());
+    
+    Caption=s.sprintf("%s%s",file,files->Count>1?"...":"");
     
     BtnSol1->Down=true;
     time2gpst(Obs.data[0].time,&Week);
@@ -146,10 +164,11 @@ void __fastcall TPlot::ReadObs(TStrings *files)
         UpdatePlotType();
     }
     FitTime();
-    UpdateTime();
-    UpdatePlot();
     
     ReadWaitEnd();
+    UpdateObsType();
+    UpdateTime();
+    UpdatePlot();
 }
 // read observation data rinex ----------------------------------------------
 int __fastcall TPlot::ReadObsRnx(TStrings *files, obs_t *obs, nav_t *nav,
@@ -159,19 +178,19 @@ int __fastcall TPlot::ReadObsRnx(TStrings *files, obs_t *obs, nav_t *nav,
     gtime_t ts,te;
     double tint;
     int i;
-    char *obsfile,navfile[1024],*p;
+    char obsfile[1024],navfile[1024],*p,*opt=RnxOpts.c_str();
     
     trace(3,"ReadObsRnx\n");
     
     TimeSpan(&ts,&te,&tint);
     
     for (i=0;i<files->Count;i++) {
-        obsfile=files->Strings[i].c_str();
+        strcpy(obsfile,U2A(files->Strings[i]).c_str());
         
         ShowMsg(s.sprintf("reading obs data... %s",obsfile));
         Application->ProcessMessages();
         
-        if (readrnxt(obsfile,1,ts,te,tint,obs,nav,sta)<0) {
+        if (readrnxt(obsfile,1,ts,te,tint,opt,obs,nav,sta)<0) {
             ShowMsg("error: insufficient memory");
             return -1;
         }
@@ -180,23 +199,25 @@ int __fastcall TPlot::ReadObsRnx(TStrings *files, obs_t *obs, nav_t *nav,
     Application->ProcessMessages();
     
     for (i=0;i<files->Count;i++) {
-        strcpy(navfile,files->Strings[i].c_str());
+        strcpy(navfile,U2A(files->Strings[i]).c_str());
         
         if (!(p=strrchr(navfile,'.'))) continue;
         
         if (!strcmp(p,".obs")||!strcmp(p,".OBS")) {
-            strcpy(p,".nav" ); readrnxt(navfile,1,ts,te,tint,NULL,nav,NULL);
-            strcpy(p,".gnav"); readrnxt(navfile,1,ts,te,tint,NULL,nav,NULL);
-            strcpy(p,".hnav"); readrnxt(navfile,1,ts,te,tint,NULL,nav,NULL);
-            strcpy(p,".qnav"); readrnxt(navfile,1,ts,te,tint,NULL,nav,NULL);
+            strcpy(p,".nav" ); readrnxt(navfile,1,ts,te,tint,opt,NULL,nav,NULL);
+            strcpy(p,".gnav"); readrnxt(navfile,1,ts,te,tint,opt,NULL,nav,NULL);
+            strcpy(p,".hnav"); readrnxt(navfile,1,ts,te,tint,opt,NULL,nav,NULL);
+            strcpy(p,".qnav"); readrnxt(navfile,1,ts,te,tint,opt,NULL,nav,NULL);
+            strcpy(p,".lnav"); readrnxt(navfile,1,ts,te,tint,opt,NULL,nav,NULL);
         }
         else if (!strcmp(p+3,"o" )||!strcmp(p+3,"d" )||
                  !strcmp(p+3,"O" )||!strcmp(p+3,"D" )) {
-            strcpy(p+3,"N"); readrnxt(navfile,1,ts,te,tint,NULL,nav,NULL);
-            strcpy(p+3,"G"); readrnxt(navfile,1,ts,te,tint,NULL,nav,NULL);
-            strcpy(p+3,"H"); readrnxt(navfile,1,ts,te,tint,NULL,nav,NULL);
-            strcpy(p+3,"Q"); readrnxt(navfile,1,ts,te,tint,NULL,nav,NULL);
-            strcpy(p+3,"P"); readrnxt(navfile,1,ts,te,tint,NULL,nav,NULL);
+            strcpy(p+3,"N"); readrnxt(navfile,1,ts,te,tint,opt,NULL,nav,NULL);
+            strcpy(p+3,"G"); readrnxt(navfile,1,ts,te,tint,opt,NULL,nav,NULL);
+            strcpy(p+3,"H"); readrnxt(navfile,1,ts,te,tint,opt,NULL,nav,NULL);
+            strcpy(p+3,"Q"); readrnxt(navfile,1,ts,te,tint,opt,NULL,nav,NULL);
+            strcpy(p+3,"L"); readrnxt(navfile,1,ts,te,tint,opt,NULL,nav,NULL);
+            strcpy(p+3,"P"); readrnxt(navfile,1,ts,te,tint,opt,NULL,nav,NULL);
         }
     }
     if (obs->n<=0) {
@@ -213,6 +234,7 @@ void __fastcall TPlot::ReadNav(TStrings *files)
     AnsiString s;
     gtime_t ts,te;
     double tint;
+    char navfile[1024],*opt=RnxOpts.c_str();
     int i;
     
     trace(3,"ReadNav\n");
@@ -230,7 +252,8 @@ void __fastcall TPlot::ReadNav(TStrings *files)
     Application->ProcessMessages();
     
     for (i=0;i<files->Count;i++) {
-        readrnxt(files->Strings[i].c_str(),1,ts,te,tint,NULL,&Nav,NULL);
+        strcpy(navfile,U2A(files->Strings[i]).c_str());
+        readrnxt(navfile,1,ts,te,tint,opt,NULL,&Nav,NULL);
     }
     uniqnav(&Nav);
     
@@ -243,9 +266,10 @@ void __fastcall TPlot::ReadNav(TStrings *files)
         NavFiles->Assign(files);
     }
     UpdateObs(NObs);
-    UpdatePlot();
-    
+    UpdateMp();
     ReadWaitEnd();
+    
+    UpdatePlot();
 }
 // read elevation mask data -------------------------------------------------
 void __fastcall TPlot::ReadElMaskData(AnsiString file)
@@ -276,6 +300,85 @@ void __fastcall TPlot::ReadElMaskData(AnsiString file)
         az0=az1; el0=el1;
     }
     fclose(fp);
+    UpdatePlot();
+}
+// generate visibility data ----------------------------------------------------
+void __fastcall TPlot::GenVisData(void)
+{
+    gtime_t time,ts,te;
+    obsd_t data={{0}};
+    sta_t sta={0};
+    double tint,r,pos[3],rr[3],rs[6],e[3],azel[2];
+    int i,j,nobs=0;
+    char name[16];
+    
+    trace(3,"GenVisData\n");
+    
+    if (RcvPos!=1) { // lat/lon/height
+        ShowMsg("specify Receiver Position as Lat/Lon/Hgt");
+        return;
+    }
+    ClearObs();
+    SimObs=1;
+    
+    ts=TimeStart;
+    te=TimeEnd;
+    tint=TimeInt;
+    matcpy(pos,OOPos,3,1);
+    pos2ecef(pos,rr);
+    
+    ReadWaitStart();
+    ShowLegend(NULL);
+    ShowMsg("generating satellite visibility...");
+    Application->ProcessMessages();
+    
+    for (time=ts;timediff(time,te)<=0.0;time=timeadd(time,tint)) {
+        for (i=0;i<MAXSAT;i++) {
+            satno2id(i+1,name);
+            if (!tle_pos(time,name,"","",&TLEData,NULL,rs)) continue;
+            if ((r=geodist(rs,rr,e))<=0.0) continue;
+            if (satazel(pos,e,azel)<=0.0) continue;
+            if (Obs.n>=Obs.nmax) {
+                Obs.nmax=Obs.nmax<=0?4096:Obs.nmax*2;
+                Obs.data=(obsd_t *)realloc(Obs.data,sizeof(obsd_t)*Obs.nmax);
+                if (!Obs.data) {
+                    Obs.n=Obs.nmax=0;
+                    break;
+                }
+            }
+            data.time=time;
+            data.sat=i+1;
+            
+            for (j=0;j<NFREQ;j++) {
+                data.P[j]=data.L[j]=0.0;
+                data.code[j]=CODE_NONE;
+            }
+            data.code[0]=CODE_L1C;
+            Obs.data[Obs.n++]=data;
+        }
+        if (++nobs>=MAX_SIMOBS) break;
+    }
+    if (Obs.n<=0) {
+        ReadWaitEnd();
+        ShowMsg("no satellite visibility");
+        return;
+    }
+    UpdateObs(nobs);
+    
+    Caption="Satellite Visibility (Predicted)";
+    BtnSol1->Down=true;
+    time2gpst(Obs.data[0].time,&Week);
+    SolIndex[0]=SolIndex[1]=ObsIndex=0;
+    if (PlotType<PLOT_OBS||PLOT_DOP<PlotType) {
+        UpdateType(PLOT_OBS);
+    }
+    else {
+        UpdatePlotType();
+    }
+    FitTime();
+    ReadWaitEnd();
+    UpdateObsType();
+    UpdateTime();
     UpdatePlot();
 }
 // read map image data ------------------------------------------------------
@@ -395,6 +498,57 @@ void __fastcall TPlot::ReadStaPos(const char *file, const char *sta,
     }
 	fclose(fp);
 }
+// save dop -----------------------------------------------------------------
+void __fastcall TPlot::SaveDop(AnsiString file)
+{
+    FILE *fp;
+    gtime_t time;
+    double azel[MAXOBS*2],dop[4],tow;
+    int i,j,ns,week;
+    char tstr[64],*tlabel;
+    
+    trace(3,"SaveDop: file=%s\n",file.c_str());
+    
+    if (!(fp=fopen(file.c_str(),"w"))) return;
+    
+    tlabel=TimeLabel<=1?"TIME (GPST)":(TimeLabel<=2?"TIME (UTC)":"TIME (JST)");
+    
+    fprintf(fp,"%% %-*s %6s %8s %8s %8s %8s (EL>=%.0fdeg)\n",TimeLabel==0?9:17,
+            tlabel,"NSAT","GDOP","PDOP","HDOP","VDOP",ElMask);
+    
+    for (i=0;i<NObs;i++) {
+        ns=0;
+        for (j=IndexObs[i];j<Obs.n&&j<IndexObs[i+1];j++) {
+            if (SatMask[Obs.data[j].sat-1]) continue;
+            if (El[j]<ElMask*D2R) continue;
+            if (ElMaskP&&El[j]<ElMaskData[(int)(Az[j]*R2D+0.5)]) continue;
+            azel[  ns*2]=Az[j];
+            azel[1+ns*2]=El[j];
+            ns++;
+        }
+        if (ns<=0) continue;
+        
+        dops(ns,azel,ElMask*D2R,dop);
+        
+        time=Obs.data[IndexObs[i]].time;
+        if (TimeLabel==0) {
+            tow=time2gpst(time,&week);
+            sprintf(tstr,"%4d %7.0f ",week,tow);
+        }
+        else if (TimeLabel==1) {
+            time2str(time,tstr,0);
+        }
+        else if (TimeLabel==2) {
+            time2str(gpst2utc(time),tstr,0);
+        }
+        else {
+            time2str(timeadd(gpst2utc(time),9*3600.0),tstr,0);
+        }
+        fprintf(fp,"%s %6d %8.1f %8.1f %8.1f %8.1f\n",tstr,ns,dop[0],dop[1],
+                dop[2], dop[3]);
+    }
+    fclose(fp);
+}
 // connect to external sources ----------------------------------------------
 void __fastcall TPlot::Connect(void)
 {
@@ -447,6 +601,9 @@ void __fastcall TPlot::Connect(void)
     BtnSol1   ->Down=*name[0];
     BtnSol2   ->Down=*name[1];
     BtnSol12  ->Down=false;
+    BtnShowTrack->Down=true;
+    BtnFixHoriz->Down=true;
+    UpdateEnable();
     UpdateTime();
     UpdatePlot();
 }
@@ -454,7 +611,7 @@ void __fastcall TPlot::Connect(void)
 void __fastcall TPlot::Disconnect(void)
 {
     AnsiString s;
-    char *cmd;
+    char *cmd,caption[1024];
     int i;
     
     trace(3,"Disconnect\n");
@@ -470,8 +627,10 @@ void __fastcall TPlot::Disconnect(void)
         }
         strclose(Stream+i);
     }
-    if (strstr(Caption.c_str(),"CONNECT")) {
-        Caption=s.sprintf("DISCONNECT%s",Caption.c_str()+7);
+    strcpy(caption,U2A(Caption).c_str());
+    
+    if (strstr(caption,"CONNECT")) {
+        Caption=s.sprintf("DISCONNECT%s",caption+7);
     }
     UpdateTime();
     UpdatePlot();
@@ -501,7 +660,7 @@ void __fastcall TPlot::UpdateObs(int nobs)
     sol_t sol={0};
     double pos[3],rr[3],e[3],azel[MAXOBS*2]={0},rs[6],dts[2],var;
     int i,j,k,svh,per,per_=-1;
-    char msg[128];
+    char msg[128],name[16];
     
     trace(3,"UpdateObs\n");
     
@@ -511,7 +670,7 @@ void __fastcall TPlot::UpdateObs(int nobs)
     NObs=0;
     if (nobs<=0) return;
     
-    IndexObs=new int[nobs];
+    IndexObs=new int[nobs+1];
     Az=new double[Obs.n];
     El=new double[Obs.n];
     
@@ -527,12 +686,13 @@ void __fastcall TPlot::UpdateObs(int nobs)
         }
         IndexObs[NObs++]=i;
         
-        if (Nav.n<=0&&Nav.ng<=0&&Nav.ns<=0) {
-            for (k=0;k<j-i;k++) Az[i+k]=El[i+k]=0.0;
-            continue;
+        for (k=0;k<j-i;k++) {
+            azel[k*2]=azel[1+k*2]=0.0;
         }
         if (RcvPos==0) {
             pntpos(Obs.data+i,j-i,&Nav,&opt,&sol,azel,NULL,msg);
+            matcpy(rr,sol.rr,3,1);
+            ecef2pos(rr,pos);
         }
         else {
             if (RcvPos==1) { // lat/lon/height
@@ -550,6 +710,13 @@ void __fastcall TPlot::UpdateObs(int nobs)
                 if (geodist(rs,rr,e)>0.0) satazel(pos,e,azel+k*2);
             }
         }
+        // satellite azel by tle data
+        for (k=0;k<j-i;k++) {
+            if (azel[k*2]!=0.0||azel[1+k*2]!=0.0) continue;
+            satno2id(Obs.data[i+k].sat,name);
+            if (!tle_pos(time,name,"","",&TLEData,NULL,rs)) continue;
+            if (geodist(rs,rr,e)>0.0) satazel(pos,e,azel+k*2);
+        }
         for (k=0;k<j-i;k++) {
             Az[i+k]=azel[  k*2];
             El[i+k]=azel[1+k*2];
@@ -565,6 +732,85 @@ void __fastcall TPlot::UpdateObs(int nobs)
     
     UpdateSatList();
     
+    ReadWaitEnd();
+}
+// update Multipath ------------------------------------------------------------
+void __fastcall TPlot::UpdateMp(void)
+{
+    AnsiString s;
+    obsd_t *data;
+    double lam1,lam2,I,C,B;
+    int i,j,k,f1,f2,sat,sys,per,per_=-1,n;
+    
+    trace(3,"UpdateMp\n");
+    
+    for (i=0;i<NFREQ+NEXOBS;i++) {
+        delete [] Mp[i]; Mp[i]=NULL;
+    }
+    if (Obs.n<=0) return;
+    
+    for (i=0;i<NFREQ+NEXOBS;i++) {
+        Mp[i]=new double[Obs.n];
+    }
+    ReadWaitStart();
+    ShowLegend(NULL);
+    
+    for (i=0;i<Obs.n;i++) {
+        data=Obs.data+i;
+        sys=satsys(data->sat,NULL);
+        
+        for (j=0;j<NFREQ+NEXOBS;j++) {
+            Mp[j][i]=0.0;
+            
+            code2obs(data->code[j],&f1);
+            
+            if      (sys==SYS_GAL) f2=f1==1?3:1;
+            else if (sys==SYS_CMP) f2=f1==2?5:2;
+            else                   f2=f1==1?2:1;
+            
+            lam1=satwavelen(data->sat,f1-1,&Nav);
+            lam2=satwavelen(data->sat,f2-1,&Nav);
+            if (lam1==0.0||lam2==0.0) continue;
+            
+            if (data->P[j]!=0.0&&data->L[j]!=0.0&&data->L[f2-1]) {
+                C=SQR(lam1)/(SQR(lam1)-SQR(lam2));
+                I=lam1*data->L[j]-lam2*data->L[f2-1];
+                Mp[j][i]=data->P[j]-lam1*data->L[j]+2.0*C*I;
+            }
+        }
+    }
+    for (sat=1;sat<=MAXSAT;sat++) for (i=0;i<NFREQ+NEXOBS;i++) {
+        sys=satsys(sat,NULL);
+        
+        for (j=k=n=0,B=0.0;j<Obs.n;j++) {
+            if (Obs.data[j].sat!=sat) continue;
+            
+            code2obs(Obs.data[j].code[i],&f1);
+            
+            if      (sys==SYS_GAL) f2=f1==1?3:1;
+            else if (sys==SYS_CMP) f2=f1==2?5:2;
+            else                   f2=f1==1?2:1;
+            
+            if ((Obs.data[j].LLI[i]&1)||(Obs.data[j].LLI[f2-1]&1)||
+                fabs(Mp[i][j]-B)>THRES_SLIP) {
+                
+                for (;k<j;k++) if (Obs.data[k].sat==sat) Mp[i][k]-=B;
+                B=Mp[i][j]; n=1; k=j;
+            }
+            else {
+                if (n==0) k=j;
+                B+=(Mp[i][j]-B)/++n;
+            }
+        }
+        if (n>0) {
+            for (;k<j;k++) if (Obs.data[k].sat==sat) Mp[i][k]-=B;
+        }
+        per=sat*100/MAXSAT;
+        if (per!=per_) {
+            ShowMsg(s.sprintf("updating multipath... (%d%%)",(per_=per)));
+            Application->ProcessMessages();
+        }
+    }
     ReadWaitEnd();
 }
 // set connect path ---------------------------------------------------------
@@ -596,7 +842,43 @@ void __fastcall TPlot::ConnectPath(const char *path, int ch)
     BtnFixHoriz ->Down=true;
     BtnFixVert  ->Down=true;
 }
-// clear data ---------------------------------------------------------------
+// clear obs data --------------------------------------------------------------
+void __fastcall TPlot::ClearObs(void)
+{
+    sta_t sta0={0};
+    int i;
+    
+    freeobs(&Obs);
+    freenav(&Nav,0xFF);
+    delete [] IndexObs; IndexObs=NULL;
+    delete [] Az; Az=NULL;
+    delete [] El; El=NULL;
+    for (i=0;i<NFREQ+NEXOBS;i++) {
+        delete [] Mp[i]; Mp[i]=NULL;
+    }
+    ObsFiles->Clear();
+    NavFiles->Clear();
+    NObs=0;
+    Sta=sta0;
+    ObsIndex=0;
+    SimObs=0;
+}
+// clear solution --------------------------------------------------------------
+void __fastcall TPlot::ClearSol(void)
+{
+    int i;
+    
+    for (i=0;i<2;i++) {
+        freesolbuf(SolData+i);
+        free(SolStat[i].data);
+        SolStat[i].n=0;
+        SolStat[i].data=NULL;
+    }
+    SolFiles[0]->Clear();
+    SolFiles[1]->Clear();
+    SolIndex[0]=SolIndex[1]=0;
+}
+// clear data ------------------------------------------------------------------
 void __fastcall TPlot::Clear(void)
 {
     AnsiString s;
@@ -605,28 +887,10 @@ void __fastcall TPlot::Clear(void)
     
     trace(3,"Clear\n");
     
-    Week=NObs=0;
+    Week=0;
     
-    for (i=0;i<2;i++) {
-        freesolbuf(SolData+i);
-        free(SolStat[i].data);
-        SolStat[i].n=0;
-        SolStat[i].data=NULL;
-    }
-    freeobs(&Obs);
-    freenav(&Nav,0xFF);
-    delete [] IndexObs;
-    delete [] Az;
-    delete [] El;
-    IndexObs=NULL;
-    Az=NULL;
-    El=NULL;
-    SolFiles[0]->Clear();
-    SolFiles[1]->Clear();
-    ObsFiles->Clear();
-    NavFiles->Clear();
-    NObs=0;
-    SolIndex[0]=SolIndex[1]=ObsIndex=0;
+    ClearObs();
+    ClearSol();
     
     for (i=0;i<3;i++) {
         TimeEna[i]=0;
@@ -646,6 +910,8 @@ void __fastcall TPlot::Clear(void)
         initsolbuf(SolData  ,1,RtBuffSize+1);
         initsolbuf(SolData+1,1,RtBuffSize+1);
     }
+    GoogleEarthView->Clear();
+    
     UpdateTime();
     UpdatePlot();
 }
@@ -654,6 +920,10 @@ void __fastcall TPlot::Reload(void)
 {
     trace(3,"Reload\n");
     
+    if (SimObs) {
+        GenVisData();
+        return;
+    }
     ReadObs(ObsFiles);
     ReadNav(NavFiles);
     ReadSol(SolFiles[0],0);

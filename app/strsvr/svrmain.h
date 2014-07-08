@@ -50,7 +50,6 @@ __published:
 	TTimer *Timer1;
 	TButton *BtnOpt;
 	TPanel *Panel3;
-	TImage *Image1;
 	TLabel *LabelOutput3;
 	TComboBox *Output3;
 	TButton *BtnOutput3;
@@ -114,14 +113,19 @@ __published:
 	void __fastcall BtnConv2Click(TObject *Sender);
 	void __fastcall BtnConv3Click(TObject *Sender);
 	void __fastcall FormShow(TObject *Sender);
+	void __fastcall EnaOut1Click(TObject *Sender);
+	void __fastcall EnaOut2Click(TObject *Sender);
+	void __fastcall EnaOut3Click(TObject *Sender);
 private:
 	AnsiString IniFile;
-	AnsiString Paths[4][4],Cmds[2];
+	AnsiString Paths[4][4],Cmds[2],CmdsTcp[2];
 	AnsiString TcpHistory[MAXHIST],TcpMntpHist[MAXHIST];
 	AnsiString StaPosFile,ExeDirectory,LocalDirectory,SwapInterval;
 	AnsiString ProxyAddress;
-	int TraceLevel,SvrOpt[6],CmdEna[2],NmeaReq,FileSwapMargin;
-	double NmeaPos[3];
+	AnsiString ConvMsg[3],ConvOpt[3],AntType,RcvType;
+	int ConvEna[3],ConvInp[3],ConvOut[3],StaId,StaSel;
+	int TraceLevel,SvrOpt[6],CmdEna[2],CmdEnaTcp[2],NmeaReq,FileSwapMargin;
+	double AntPos[3],AntOff[3];
 	gtime_t StartTime,EndTime;
 	
 	void __fastcall SerialOpt(int index, int opt);

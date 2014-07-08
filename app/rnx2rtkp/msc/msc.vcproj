@@ -214,6 +214,10 @@
 				>
 			</File>
 			<File
+				RelativePath="..\..\..\src\ppp_ar.c"
+				>
+			</File>
+			<File
 				RelativePath="..\..\..\src\preceph.c"
 				>
 			</File>
@@ -230,6 +234,14 @@
 				>
 			</File>
 			<File
+				RelativePath="..\..\..\src\rtcm2.c"
+				>
+			</File>
+			<File
+				RelativePath="..\..\..\src\rtcm3.c"
+				>
+			</File>
+			<File
 				RelativePath="..\..\..\src\rtkcmn.c"
 				>
 			</File>
@@ -238,11 +250,19 @@
 				>
 			</File>
 			<File
+				RelativePath="..\..\..\src\rtkpos_gsi.c"
+				>
+			</File>
+			<File
 				RelativePath="..\..\..\src\sbas.c"
 				>
 			</File>
 			<File
 				RelativePath="..\..\..\src\solution.c"
+				>
+			</File>
+			<File
+				RelativePath="..\..\..\src\stec.c"
 				>
 			</File>
 		</Filter>

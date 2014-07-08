@@ -50,6 +50,8 @@ __published:
 	TUpDown *TimeY2UD;
 	TUpDown *TimeH2UD;
 	TCheckBox *Compress;
+	TEdit *GoogleEarthFile;
+	TButton *BtnGoogleEarthFile;
 	void __fastcall BtnCloseClick(TObject *Sender);
 	void __fastcall AddOffsetClick(TObject *Sender);
 	void __fastcall BtnConvertClick(TObject *Sender);
@@ -67,6 +69,9 @@ __published:
 	void __fastcall TimeH2UDChangingEx(TObject *Sender, bool &AllowChange,
           short NewValue, TUpDownDirection Direction);
 	void __fastcall CompressClick(TObject *Sender);
+	void __fastcall FormShow(TObject *Sender);
+	void __fastcall GoogleEarthFileChange(TObject *Sender);
+	void __fastcall BtnGoogleEarthFileClick(TObject *Sender);
 private:
 	int __fastcall ExecCmd(char *cmd);
 	void __fastcall UpdateEnable(void);

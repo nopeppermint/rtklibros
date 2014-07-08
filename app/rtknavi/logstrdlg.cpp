@@ -64,6 +64,13 @@ void __fastcall TLogStrDialog::BtnFile2Click(TObject *Sender)
 	FilePath2->Text=SaveDialog->FileName;
 }
 //---------------------------------------------------------------------------
+void __fastcall TLogStrDialog::BtnFile3Click(TObject *Sender)
+{
+	SaveDialog->FileName=FilePath3->Text;
+	if (!SaveDialog->Execute()) return;
+	FilePath3->Text=SaveDialog->FileName;
+}
+//---------------------------------------------------------------------------
 void __fastcall TLogStrDialog::Stream1Change(TObject *Sender)
 {
 	UpdateEnable();
@@ -74,12 +81,22 @@ void __fastcall TLogStrDialog::Stream2Change(TObject *Sender)
 	UpdateEnable();
 }
 //---------------------------------------------------------------------------
+void __fastcall TLogStrDialog::Stream3CClick(TObject *Sender)
+{
+	UpdateEnable();
+}
+//---------------------------------------------------------------------------
 void __fastcall TLogStrDialog::Stream1CClick(TObject *Sender)
 {
 	UpdateEnable();
 }
 //---------------------------------------------------------------------------
 void __fastcall TLogStrDialog::Stream2CClick(TObject *Sender)
+{
+	UpdateEnable();
+}
+//---------------------------------------------------------------------------
+void __fastcall TLogStrDialog::Stream3Change(TObject *Sender)
 {
 	UpdateEnable();
 }

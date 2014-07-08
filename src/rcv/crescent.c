@@ -16,8 +16,11 @@
 *           2009/10/24 1.3 ignore vaild phase flag
 *           2011/05/27 1.4 add -EPHALL option
 *                          fix problem with ARM compiler
+*           2011/07/01 1.5 suppress warning
 *-----------------------------------------------------------------------------*/
 #include "rtklib.h"
+#include <stdint.h>
+#include "serialisation_inline.h"
 
 #define CRESSYNC    "$BIN"      /* crescent bin sync code */
 
@@ -33,22 +36,6 @@
 
 static const char rcsid[]="$Id: crescent.c,v 1.2 2008/07/14 00:05:05 TTAKA Exp $";
 
-/* get fields (little-endian) ------------------------------------------------*/
-#define U1(p)       (*((unsigned char *)(p)))
-#define U2(p)       (*((unsigned short *)(p)))
-#define U4(p)       (*((unsigned int *)(p)))
-#define I2(p)       (*((short *)(p)))
-#define I4(p)       (*((int *)(p)))
-#define R4(p)       (*((float *)(p)))
-
-static double R8(const unsigned char *p)
-{
-    double value;
-    unsigned char *q=(unsigned char *)&value;
-    int i;
-    for (i=0;i<8;i++) *q++=*p++;
-    return value;
-}
 /* checksum ------------------------------------------------------------------*/
 static int chksum(const unsigned char *buff, int len)
 {
@@ -157,7 +144,7 @@ static int decode_cresraw(raw_t *raw)
 static int decode_cresraw2(raw_t *raw)
 {
     gtime_t time;
-    double tow,tows,toff,cp[2],pr1,pr[2],dop[2],snr[2];
+    double tow,tows,toff,cp[2]={0},pr1,pr[2]={0},dop[2]={0},snr[2]={0};
     int i,j,n,prn,sat,week,lli[2]={0};
     unsigned int word1,word2,word3,sc,sn;
     unsigned char *p=raw->buff+8;
@@ -358,8 +345,9 @@ static int decode_cres(raw_t *raw)
         trace(2,"crescent checksum error: type=%2d len=%d\n",type,raw->len);
         return -1;
     }
-    sprintf(raw->msgtype,"HEMIS: type=%2d len=%3d",type,raw->len);
-    
+    if (raw->outtype) {
+        sprintf(raw->msgtype,"HEMIS %2d (%4d):",type,raw->len);
+    }
     switch (type) {
         case ID_CRESPOS   : return decode_crespos(raw);
         case ID_CRESRAW   : return decode_cresraw(raw);

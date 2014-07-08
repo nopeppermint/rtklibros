@@ -34,21 +34,28 @@ void __fastcall TSvrOptDialog::FormShow(TObject *Sender)
 	SvrCycle->Text=s.sprintf("%d",SvrOpt[4]);
 	NmeaCycle->Text=s.sprintf("%d",SvrOpt[5]);
 	FileSwapMarginE->Text=s.sprintf("%d",FileSwapMargin);
-	if (norm(NmeaPos,3)>0.0) {
-		ecef2pos(NmeaPos,pos);
-		NmeaPos1->Text=s.sprintf("%.8f",pos[0]*R2D);
-		NmeaPos2->Text=s.sprintf("%.8f",pos[1]*R2D);
-		NmeaPos3->Text=s.sprintf("%.3f",pos[2]);
+	if (norm(AntPos,3)>0.0) {
+		ecef2pos(AntPos,pos);
+		AntPos1->Text=s.sprintf("%.8f",pos[0]*R2D);
+		AntPos2->Text=s.sprintf("%.8f",pos[1]*R2D);
+		AntPos3->Text=s.sprintf("%.3f",pos[2]);
 	}
 	else {
-		NmeaPos1->Text="0.00000000";
-		NmeaPos2->Text="0.00000000";
-		NmeaPos3->Text="0.000";
+		AntPos1->Text="0.00000000";
+		AntPos2->Text="0.00000000";
+		AntPos3->Text="0.000";
 	}
 	TraceLevelS->ItemIndex=TraceLevel;
 	NmeaReqT->Checked=NmeaReq;
 	LocalDir->Text=LocalDirectory;
 	ProxyAddr->Text=ProxyAddress;
+	StationId->Text=s.sprintf("%d",StaId);
+	StaInfoSel->Checked=StaSel;
+	AntInfo->Text=AntType;
+	RcvInfo->Text=RcvType;
+	AntOff1->Text=s.sprintf("%.4f",AntOff[0]);
+	AntOff2->Text=s.sprintf("%.4f",AntOff[1]);
+	AntOff3->Text=s.sprintf("%.4f",AntOff[2]);
 	
 	UpdateEnable();
 }
@@ -63,50 +70,70 @@ void __fastcall TSvrOptDialog::BtnOkClick(TObject *Sender)
 	SvrOpt[4]=SvrCycle->Text.ToInt();
 	SvrOpt[5]=NmeaCycle->Text.ToInt();
 	FileSwapMargin=FileSwapMarginE->Text.ToInt();
-	pos[0]=str2dbl(NmeaPos1->Text)*D2R;
-	pos[1]=str2dbl(NmeaPos2->Text)*D2R;
-	pos[2]=str2dbl(NmeaPos3->Text);
+	pos[0]=str2dbl(AntPos1->Text)*D2R;
+	pos[1]=str2dbl(AntPos2->Text)*D2R;
+	pos[2]=str2dbl(AntPos3->Text);
 	if (norm(pos,3)>0.0) {
-		pos2ecef(pos,NmeaPos);
+		pos2ecef(pos,AntPos);
 	}
 	else {
-		for (int i=0;i<3;i++) NmeaPos[i]=0.0;
+		for (int i=0;i<3;i++) AntPos[i]=0.0;
 	}
 	TraceLevel=TraceLevelS->ItemIndex;
 	NmeaReq=NmeaReqT->Checked;
 	LocalDirectory=LocalDir->Text;
 	ProxyAddress=ProxyAddr->Text;
+	StaId=(int)str2dbl(StationId->Text);
+	StaSel=StaInfoSel->Checked;
+	AntType=AntInfo->Text;
+	RcvType=RcvInfo->Text;
+	AntOff[0]=str2dbl(AntOff1->Text);
+	AntOff[1]=str2dbl(AntOff2->Text);
+	AntOff[2]=str2dbl(AntOff3->Text);
 }
 //---------------------------------------------------------------------------
 void __fastcall TSvrOptDialog::BtnPosClick(TObject *Sender)
 {
 	AnsiString s;
-	RefDialog->RovPos[0]=str2dbl(NmeaPos1->Text);
-	RefDialog->RovPos[1]=str2dbl(NmeaPos2->Text);
-	RefDialog->RovPos[2]=str2dbl(NmeaPos3->Text);
+	RefDialog->RovPos[0]=str2dbl(AntPos1->Text);
+	RefDialog->RovPos[1]=str2dbl(AntPos2->Text);
+	RefDialog->RovPos[2]=str2dbl(AntPos3->Text);
 	RefDialog->BtnLoad->Enabled=true;
 	RefDialog->StaPosFile=StaPosFile;
 	if (RefDialog->ShowModal()!=mrOk) return;
-	NmeaPos1->Text=s.sprintf("%.8f",RefDialog->Pos[0]);
-	NmeaPos2->Text=s.sprintf("%.8f",RefDialog->Pos[1]);
-	NmeaPos3->Text=s.sprintf("%.3f",RefDialog->Pos[2]);
+	AntPos1->Text=s.sprintf("%.8f",RefDialog->Pos[0]);
+	AntPos2->Text=s.sprintf("%.8f",RefDialog->Pos[1]);
+	AntPos3->Text=s.sprintf("%.3f",RefDialog->Pos[2]);
 	StaPosFile=RefDialog->StaPosFile;
 }
 //---------------------------------------------------------------------------
 void __fastcall TSvrOptDialog::BtnLocalDirClick(TObject *Sender)
 {
-	AnsiString dir=LocalDir->Text;
-	if (!SelectDirectory("Local Directory for FTP/HTTP","",dir)) return;
-	LocalDir->Text=dir;
+#ifdef TCPP
+    AnsiString dir=LocalDir->Text;
+    if (!SelectDirectory("Local Directory","",dir)) return;
+    LocalDir->Text=dir;
+#else
+    UnicodeString dir=LocalDir->Text;
+    TSelectDirOpts opt=TSelectDirOpts()<<sdAllowCreate<<sdPerformCreate;
+    if (!SelectDirectory(dir,opt,0)) return;
+    LocalDir->Text=dir;
+#endif
 }
 //---------------------------------------------------------------------------
 void __fastcall TSvrOptDialog::UpdateEnable(void)
 {
 	NmeaCycle->Enabled=NmeaReqT->Checked;
-	NmeaPos1->Enabled=NmeaReqT->Checked;
-	NmeaPos2->Enabled=NmeaReqT->Checked;
-	NmeaPos3->Enabled=NmeaReqT->Checked;
-	BtnPos->Enabled=NmeaReqT->Checked;
+	StationId->Enabled=StaInfoSel->Checked;
+	AntPos1->Enabled=StaInfoSel->Checked||NmeaReqT->Checked;
+	AntPos2->Enabled=StaInfoSel->Checked||NmeaReqT->Checked;
+	AntPos3->Enabled=StaInfoSel->Checked||NmeaReqT->Checked;
+	BtnPos ->Enabled=StaInfoSel->Checked||NmeaReqT->Checked;
+	AntOff1->Enabled=StaInfoSel->Checked;
+	AntOff2->Enabled=StaInfoSel->Checked;
+	AntOff3->Enabled=StaInfoSel->Checked;
+	AntInfo->Enabled=StaInfoSel->Checked;
+	RcvInfo->Enabled=StaInfoSel->Checked;
 }
 //---------------------------------------------------------------------------
 void __fastcall TSvrOptDialog::NmeaReqTClick(TObject *Sender)
@@ -114,4 +141,8 @@ void __fastcall TSvrOptDialog::NmeaReqTClick(TObject *Sender)
 	UpdateEnable();
 }
 //---------------------------------------------------------------------------
-
+void __fastcall TSvrOptDialog::StaInfoSelClick(TObject *Sender)
+{
+	UpdateEnable();
+}
+//---------------------------------------------------------------------------

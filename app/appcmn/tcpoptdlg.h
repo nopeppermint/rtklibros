@@ -27,12 +27,13 @@ __published:
 	TLabel *LabelStr;
 	TComboBox *Addr;
 	TComboBox *MntPnt;
-	TButton *BtnGetList;
+	TButton *BtnNtrip;
 	void __fastcall FormShow(TObject *Sender);
 	void __fastcall BtnOkClick(TObject *Sender);
-	void __fastcall BtnGetListClick(TObject *Sender);
+	void __fastcall BtnNtripClick(TObject *Sender);
 private:
 	void __fastcall AddHist(TComboBox *list, AnsiString *hist);
+	int __fastcall ExecCmd(AnsiString cmd, int show);
 public:
 	int Opt;
 	AnsiString Path,History[MAXHIST],MntpHist[MAXHIST];

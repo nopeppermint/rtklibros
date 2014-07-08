@@ -270,10 +270,11 @@ static void combtec(nav_t *nav)
 *                                 (wind-card * is expanded)
 *          nav_t  *nav        IO  navigation data
 *                                 nav->nt, nav->ntmax and nav->tec are modified
+*          int    opt         I   read option (1: no clear of tec data,0:clear)
 * return : none
 * notes  : see ref [1]
 *-----------------------------------------------------------------------------*/
-extern void readtec(const char *file, nav_t *nav)
+extern void readtec(const char *file, nav_t *nav, int opt)
 {
     FILE *fp;
     double lats[3]={0},lons[3]={0},hgts[3]={0},rb=0.0,nexp=-1.0;
@@ -283,8 +284,10 @@ extern void readtec(const char *file, nav_t *nav)
     
     trace(3,"readtec : file=%s\n",file);
     
-    free(nav->tec); nav->tec=NULL; nav->nt=nav->ntmax=0;
-    
+    /* clear of tec grid data option */
+    if (!opt) {
+        free(nav->tec); nav->tec=NULL; nav->nt=nav->ntmax=0;
+    }
     for (i=0;i<MAXEXFILE;i++) {
         if (!(efiles[i]=(char *)malloc(1024))) {
             for (i--;i>=0;i--) free(efiles[i]);

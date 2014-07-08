@@ -1,7 +1,7 @@
 /*------------------------------------------------------------------------------
 * rtkrcv.c : rtk-gps/gnss receiver console ap
 *
-*          Copyright (C) 2009-2011 by T.TAKASU, All rights reserved.
+*          Copyright (C) 2009-2012 by T.TAKASU, All rights reserved.
 *
 * notes   :
 *     current version does not support win32 without pthread library
@@ -11,11 +11,9 @@
 *           2010/07/18 1.1  add option -m
 *           2010/08/12 1.2  fix bug on ftp/http
 *           2011/01/22 1.3  add option misc-proxyaddr,misc-fswapmargin
+*           2011/08/19 1.4  fix bug on size of arg solopt arg for rtksvrstart()
+*           2012/11/03 1.5  fix bug on setting output format
 *-----------------------------------------------------------------------------*/
-/*gridanie{*/
-//#include <dynamic_reconfigure/server.h>
-//#include <rtklib/rtklib_ros_paramsConfig.h>
-/*} end-gridanie*/
 #ifndef WIN32
 #define _POSIX_C_SOURCE 2
 #endif
@@ -54,6 +52,12 @@
 #include "rtklib_params.h"
 #include <sstream>
 /*} end-gridanie*/
+
+#include <sensor_msgs/NavSatFix.h>
+#include <rtk_msgs/Status.h>
+#include <rtk_msgs/UTMCoordinates.h>
+#include <rtk_msgs/ECEFCoordinates.h>
+#include <angles/angles.h>
 
 static const char rcsid[]="$Id:$";
 
@@ -155,7 +159,7 @@ static int keepalive    =0;             /* keep alive flag */
 static int fswapmargin  =30;            /* file swap margin (s) */
 
 static prcopt_t prcopt;                 /* processing options */
-static solopt_t solopt;                 /* solution options */
+static solopt_t solopt[2]={{0}};        /* solution options */
 static filopt_t filopt  ={""};          /* file options */
 
 /* help text -----------------------------------------------------------------*/
@@ -199,7 +203,7 @@ static const char *pathopts[]={         /* path options help */
 #define FLGOPT  "0:off,1:std+2:age/ratio/ns"
 #define ISTOPT  "0:off,1:serial,2:file,3:tcpsvr,4:tcpcli,7:ntripcli,8:ftp,9:http"
 #define OSTOPT  "0:off,1:serial,2:file,3:tcpsvr,4:tcpcli,6:ntripsvr"
-#define FMTOPT  "0:rtcm2,1:rtcm3,2:oem4,3:oem3,4:ubx,5:ss2,6:hemis,7:skytraq,8:gw10,9:javad,15:sp3"
+#define FMTOPT  "0:rtcm2,1:rtcm3,2:oem4,3:oem3,4:ubx,5:ss2,6:hemis,7:skytraq,8:gw10,9:javad,10:nvs,15:sp3"
 #define NMEOPT  "0:off,1:latlon,2:single"
 #define SOLOPT  "0:llh,1:xyz,2:enu,3:nmea"
 #define MSGOPT  "0:all,1:rover,2:base,3:corr"
@@ -622,13 +626,14 @@ static int printvt(vt_t *vt, const char *format, ...)
     va_end(ap);
     return outvt(vt,buff,n);
 }
+
 /*gridanie{*/
 /* always confirm overwrite ---------------------------------------------------------*/
 static int confwrite_ros(vt_t *vt, const char *file)
 {
     FILE *fp;
     char buff[MAXSTR],*p;
-    
+
     strcpy(buff,file);
     if ((p=strstr(buff,"::"))) *p='\0'; /* omit options in path */
     if (!vt->state||!(fp=fopen(buff,"r"))) return 1; /* no existing file */
@@ -638,6 +643,8 @@ static int confwrite_ros(vt_t *vt, const char *file)
     return 1;   // don't care if we are going to overwrite something
 }
 /*}gridanie*/
+
+
 /* confirm overwrite ---------------------------------------------------------*/
 static int confwrite(vt_t *vt, const char *file)
 {
@@ -770,7 +777,7 @@ static int startsvr(vt_t *vt)
     readant(vt,&prcopt,&svr.nav);
     
     /* open geoid data file */
-    if (solopt.geoid>0&&!opengeoid(solopt.geoid,filopt.geoid)) {
+    if (solopt[0].geoid>0&&!opengeoid(solopt[0].geoid,filopt.geoid)) {
         trace(2,"geoid data open error: %s\n",filopt.geoid);
         printvt(vt,"geoid data open error: %s\n",filopt.geoid);
     }
@@ -796,9 +803,12 @@ static int startsvr(vt_t *vt)
         trace(2,"command exec error: %s (%d)\n",startcmd,ret);
         printvt(vt,"command exec error: %s (%d)\n",startcmd,ret);
     }
+    solopt[0].posf=strfmt[3];
+    solopt[1].posf=strfmt[4];
+    
     /* start rtk server */
     if (!rtksvrstart(&svr,svrcycle,buffsize,strtype,paths,strfmt,navmsgsel,
-                     cmds,ropts,nmeacycle,nmeareq,npos,&prcopt,&solopt,&moni)) {
+                     cmds,ropts,nmeacycle,nmeareq,npos,&prcopt,solopt,&moni)) {
         trace(2,"rtk server start error\n");
         printvt(vt,"rtk server start error\n");
         return 0;
@@ -831,7 +841,7 @@ static void stopsvr(vt_t *vt)
         trace(2,"command exec error: %s (%d)\n",stopcmd,ret);
         printvt(vt,"command exec error: %s (%d)\n",stopcmd,ret);
     }
-    if (solopt.geoid>0) closegeoid();
+    if (solopt[0].geoid>0) closegeoid();
 }
 /* print time ----------------------------------------------------------------*/
 static void prtime(vt_t *vt, gtime_t time)
@@ -883,7 +893,7 @@ static void prsolution(vt_t *vt, const sol_t *sol, const double *rb)
             covenu(pos,Qr,Qe);
             deg2dms(pos[0]*R2D,dms1);
             deg2dms(pos[1]*R2D,dms2);
-            if (solopt.height==1) pos[2]-=geoidh(pos); /* geodetic */
+            if (solopt[0].height==1) pos[2]-=geoidh(pos); /* geodetic */
         }       
         printvt(vt," %s:%2.0f %02.0f %07.4f",pos[0]<0?"S":"N",fabs(dms1[0]),dms1[1],dms1[2]);
         printvt(vt," %s:%3.0f %02.0f %07.4f",pos[1]<0?"W":"E",fabs(dms2[0]),dms2[1],dms2[2]);
@@ -896,7 +906,7 @@ static void prsolution(vt_t *vt, const sol_t *sol, const double *rb)
         if (norm(sol->rr,3)>0.0) {
             ecef2pos(sol->rr,pos);
             covenu(pos,Qr,Qe);
-            if (solopt.height==1) pos[2]-=geoidh(pos); /* geodetic */
+            if (solopt[0].height==1) pos[2]-=geoidh(pos); /* geodetic */
         }       
         printvt(vt," %s:%11.8f",pos[0]<0.0?"S":"N",fabs(pos[0])*R2D);
         printvt(vt," %s:%12.8f",pos[1]<0.0?"W":"E",fabs(pos[1])*R2D);
@@ -1016,14 +1026,14 @@ static void prstatus(vt_t *vt)
             nmsg[1][3],nmsg[1][4],nmsg[1][5],nmsg[1][9]);
     for (i=0;i<2;i++) {
         p=s; *p='\0';
-        for (j=1;j<64;j++) {
+        for (j=1;j<100;j++) {
             if (rtcm[i].nmsg2[j]==0) continue;
             p+=sprintf(p,"%s%d(%d)",p>s?",":"",j,rtcm[i].nmsg2[j]);
         }
         if (rtcm[i].nmsg2[0]>0) {
             sprintf(p,"%sother2(%d)",p>s?",":"",rtcm[i].nmsg2[0]);
         }
-        for (j=1;j<64;j++) {
+        for (j=1;j<300;j++) {
             if (rtcm[i].nmsg3[j]==0) continue;
             p+=sprintf(p,"%s%d(%d)",p>s?",":"",j+1000,rtcm[i].nmsg3[j]);
         }
@@ -1217,7 +1227,7 @@ static void prstream(vt_t *vt)
         "-","serial","file","tcpsvr","tcpcli","udp","ntrips","ntripc","ftp","http"
     };
     const char *fmt[]={"rtcm2","rtcm3","oem4","oem3","ubx","ss2","hemis","skytreq",
-                       "gw10","javad","lexr","","","","","sp3","","",""};
+                       "gw10","javad","nvs","lexr","","","","","sp3","","",""};
     const char *sol[]={"llh","xyz","enu","nmea"};
     stream_t stream[9];
     int i,format[9]={0};
@@ -1414,9 +1424,6 @@ static void cmd_set(char **args, int narg, vt_t *vt)
     char buff[MAXSTR];
     
     trace(3,"cmd_set:\n");
-    //printvt(vt, "command:  \n");
-    //printvt(vt, "  args[1]: %s\n", args[1]);
-    //printvt(vt, "  args[2]: %s\n", args[2]);
     
     if (narg<2) {
         printvt(vt,"specify option type\n");
@@ -1445,7 +1452,7 @@ static void cmd_set(char **args, int narg, vt_t *vt)
         printvt(vt,"invalid option value: %s %s\n",opt->name,buff);
         return;
     }
-    getsysopts(&prcopt,&solopt,&filopt);
+    getsysopts(&prcopt,solopt,&filopt);
     
     printvt(vt,"option %s changed.",opt->name);
     if (strncmp(opt->name,"console",7)) {
@@ -1472,7 +1479,7 @@ static void cmd_load(char **args, int narg, vt_t *vt)
         printvt(vt,"no options file: %s\n",file);
         return;
     }
-    getsysopts(&prcopt,&solopt,&filopt);
+    getsysopts(&prcopt,solopt,&filopt);
     
     if (!loadopts(file,rcvopts)) {
         printvt(vt,"no options file: %s\n",file);
@@ -1496,7 +1503,7 @@ static void cmd_save(char **args, int narg, vt_t *vt)
     if (!confwrite(vt,file)) return;
     time2str(utc2gpst(timeget()),s,0);
     sprintf(comment,"%s options (%s, v.%s)",PRGNAME,s,VER_RTKLIB);
-    setsysopts(&prcopt,&solopt,&filopt);
+    setsysopts(&prcopt,solopt,&filopt);
     if (!saveopts(file,"w",comment,rcvopts)||!saveopts(file,"a",NULL,sysopts)) {
         printvt(vt,"options save error: %s\n",file);
         return;
@@ -1635,79 +1642,79 @@ bool fetch_params_from_server(void)
 {
     // load up object holding the names of all of the parameters
     RtklibParams params;
-    
-    // get a nodehandle to send requests to the parameter server    
+
+    // get a nodehandle to send requests to the parameter server
     ros::NodeHandle nh("~");
 
     //
     std::string param_fetch;
     std::string param_resp;
-   
+
     // first, get all of the string parameters
-    std::string param_resp_str;    
+    std::string param_resp_str;
     for (int i=0; i<params.rtklib_string_params.size();i++) {
         param_fetch = params.rtklib_string_params.at(i);
         param_resp_str = "DEFAULT_STR";
-    	nh.getParam(param_fetch, param_resp_str);
-    	std::cout << "Just fetched the param " << param_fetch << " = " << param_resp_str << "." << std::endl;
-    	
-    	// for some reason, rosparam replaces "off" with a false boolean.  if this happens, handle it
-    	// actual solution is to put '!!str off' instead of 'off' in yaml file
-    	if (param_resp_str == "DEFAULT_STR") {
-    	    std::cout << "String not over written.  Assuming false boolean." << std::endl;
-    	    param_resp_str = "off";
-	    }
-	    param_resp = param_resp_str;
-    	
-    	// ROS getParam requires that parameter names do not have '-' in them.
-    	// Param names in RTKLIB use '-' instead of '_', so switch it out.
+        nh.getParam(param_fetch, param_resp_str);
+        std::cout << "Just fetched the param " << param_fetch << " = " << param_resp_str << "." << std::endl;
+
+        // for some reason, rosparam replaces "off" with a false boolean.  if this happens, handle it
+        // actual solution is to put '!!str off' instead of 'off' in yaml file
+        if (param_resp_str == "DEFAULT_STR") {
+            std::cout << "String not over written.  Assuming false boolean." << std::endl;
+            param_resp_str = "off";
+        }
+        param_resp = param_resp_str;
+
+        // ROS getParam requires that parameter names do not have '-' in them.
+        // Param names in RTKLIB use '-' instead of '_', so switch it out.
         param_fetch.replace(param_fetch.find("_"),1,"-");
 
         // get non-const char* from std::string
-        // there may be a better way to do this, but this works.    
+        // there may be a better way to do this, but this works.
         std::vector<char> writable(param_fetch.size() + 1);
         std::copy(param_fetch.begin(), param_fetch.end(), writable.begin());
         char* param_fetch_char = &writable[0];
-        
+
         std::vector<char> writable2(param_resp.size() + 1);
         std::copy(param_resp.begin(), param_resp.end(), writable2.begin());
         char* param_resp_char = &writable2[0];
 
         // feed new values into request in the form of command line arguments (to use existing code)
-	    char * argers[] = {"ros_input", param_fetch_char, param_resp_char};	
-	    int narger = 3;
+        char * argers[] = {"ros_input", param_fetch_char, param_resp_char};
+        int narger = 3;
         cmd_set(argers, narger, vt_ptr);
     }
-    
+
     // next, get the int params
     int param_resp_int;
     for (int i=0; i<params.rtklib_int_params.size();i++) {
         param_fetch = params.rtklib_int_params.at(i);
-    	nh.getParam(param_fetch, param_resp_int);
-    	std::cout << "Just fetched the param " << param_fetch << " = " << param_resp_int << "." << std::endl;
-    	
-        // store value as a string (to leverage pre-existing code)    	    
+        nh.getParam(param_fetch, param_resp_int);
+        std::cout << "Just fetched the param " << param_fetch << " = " << param_resp_int << "." << std::endl;
+
+        // store value as a string (to leverage pre-existing code)
         std::ostringstream sstream;
         sstream << param_resp_int;
         param_resp = sstream.str();
 
-    	// ROS getParam requires that parameter names do not have '-' in them.
-    	// Param names in RTKLIB use '-' instead of '_', so switch it out.
+        // ROS getParam requires that parameter names do not have '-' in them.
+        // Param names in RTKLIB use '-' instead of '_', so switch it out.
         param_fetch.replace(param_fetch.find("_"),1,"-");
 
         // get non-const char* from std::string
-        // there may be a better way to do this, but this works.    
+        // there may be a better way to do this, but this works.
         std::vector<char> writable(param_fetch.size() + 1);
         std::copy(param_fetch.begin(), param_fetch.end(), writable.begin());
         char* param_fetch_char = &writable[0];
-        
+
         std::vector<char> writable2(param_resp.size() + 1);
         std::copy(param_resp.begin(), param_resp.end(), writable2.begin());
         char* param_resp_char = &writable2[0];
 
         // feed new values into request in the form of command line arguments (to use existing code)
-	    char * argers[] = {"ros_input", param_fetch_char, param_resp_char};	
-	    int narger = 3;
+        char * argers[] = {"ros_input", param_fetch_char, param_resp_char};
+        int narger = 3;
         cmd_set(argers, narger, vt_ptr);
     }
 
@@ -1715,33 +1722,33 @@ bool fetch_params_from_server(void)
     double param_resp_double;
     for (int i=0; i<params.rtklib_double_params.size();i++) {
         param_fetch = params.rtklib_double_params.at(i);
-    	nh.getParam(param_fetch, param_resp_double);
-    	std::cout << "Just fetched the param " << param_fetch << " = " << param_resp_double << "." << std::endl;
-    	
-        // store value as a string (to leverage pre-existing code)    	    
+        nh.getParam(param_fetch, param_resp_double);
+        std::cout << "Just fetched the param " << param_fetch << " = " << param_resp_double << "." << std::endl;
+
+        // store value as a string (to leverage pre-existing code)
         std::ostringstream sstream;
         sstream << param_resp_double;
         param_resp = sstream.str();
 
-    	// ROS getParam requires that parameter names do not have '-' in them.
-    	// Param names in RTKLIB use '-' instead of '_', so switch it out.
+        // ROS getParam requires that parameter names do not have '-' in them.
+        // Param names in RTKLIB use '-' instead of '_', so switch it out.
         param_fetch.replace(param_fetch.find("_"),1,"-");
 
         // get non-const char* from std::string
-        // there may be a better way to do this, but this works.    
+        // there may be a better way to do this, but this works.
         std::vector<char> writable(param_fetch.size() + 1);
         std::copy(param_fetch.begin(), param_fetch.end(), writable.begin());
         char* param_fetch_char = &writable[0];
-        
+
         std::vector<char> writable2(param_resp.size() + 1);
         std::copy(param_resp.begin(), param_resp.end(), writable2.begin());
         char* param_resp_char = &writable2[0];
 
         // feed new values into request in the form of command line arguments (to use existing code)
-	    char * argers[] = {"ros_input", param_fetch_char, param_resp_char};	
-	    int narger = 3;
+        char * argers[] = {"ros_input", param_fetch_char, param_resp_char};
+        int narger = 3;
         cmd_set(argers, narger, vt_ptr);
-    }   
+    }
     return true;
 }
 
@@ -1870,12 +1877,12 @@ bool restart_callback(rtklibros::SingleResponse::Request& request, rtklibros::Si
 *-----------------------------------------------------------------------------*/
 int main(int argc, char **argv)
 {
-	/*slynen{*/
-	ros::init(argc, argv, "rtklib");
-	/*}*/
-    
+
+    /*slynen{*/
+    ros::init(argc, argv, "rtklib");
+    /*}*/
+
     vt_t vt={0};
-    vt_ptr = &vt;
     int i,start=0,port=0,outstat=0,trace=0;
     char *dev="",file[MAXSTR]="";
     
@@ -1896,7 +1903,7 @@ int main(int argc, char **argv)
     /* initialize rtk server and monitor port */
     rtksvrinit(&svr);
     strinit(&moni);
-    
+
     /*gridanie{*/
     /* start services to get params from parameter server */
     ros::NodeHandle nh;
@@ -1906,6 +1913,7 @@ int main(int argc, char **argv)
     spinner.start();
     /*}end-gridanie*/
     
+
     /*gridanie{*/
     /* load options from file or ROS server */
     resetsysopts();
@@ -1915,24 +1923,26 @@ int main(int argc, char **argv)
     }
     if (!check){
         if (!*file) sprintf(file,"%s/%s",OPTSDIR,OPTSFILE);
-        
+
         if (!loadopts(file,rcvopts)||!loadopts(file,sysopts)) {
             fprintf(stderr,"no options file: %s. defaults used\n",file);
         }
     }
-    getsysopts(&prcopt,&solopt,&filopt);
+    getsysopts(&prcopt,solopt,&filopt);
 
 
     /*
     // load options (.conf) file
+
     if (!*file) sprintf(file,"%s/%s",OPTSDIR,OPTSFILE);
     
     resetsysopts();
     if (!loadopts(file,rcvopts)||!loadopts(file,sysopts)) {
         fprintf(stderr,"no options file: %s. defaults used\n",file);
     }
-    getsysopts(&prcopt,&solopt,&filopt);
+    getsysopts(&prcopt,solopt,&filopt);
     */
+
     /* read navigation data */
     if (!readnav(NAVIFILE,&svr.nav)) {
         fprintf(stderr,"no navigation data: %s\n",NAVIFILE);
@@ -1945,9 +1955,6 @@ int main(int argc, char **argv)
         fprintf(stderr,"monitor port open error: %d\n",moniport);
         return -1;
     }
-
-
-    
     /* start rtk server */
     if (start&&!startsvr(&vt)) return -1;
     
@@ -1956,6 +1963,7 @@ int main(int argc, char **argv)
     signal(SIGPIPE,SIG_IGN);
     
     while (!(intflg&2)) {
+
         printf("In the while loop.\n");
         
         /* open console */

@@ -22,18 +22,18 @@ object TextViewer: TTextViewer
     Align = alTop
     TabOrder = 0
     object Panel2: TPanel
-      Left = 435
+      Left = 434
       Top = 1
-      Width = 188
+      Width = 189
       Height = 21
       Align = alRight
       BevelOuter = bvNone
       TabOrder = 0
       object BtnReload: TSpeedButton
         Left = 0
-        Top = 2
+        Top = 0
         Width = 19
-        Height = 18
+        Height = 21
         Hint = 'Reload'
         Flat = True
         Glyph.Data = {
@@ -49,9 +49,9 @@ object TextViewer: TTextViewer
       end
       object BtnClose: TButton
         Left = 132
-        Top = 1
-        Width = 55
-        Height = 19
+        Top = 0
+        Width = 56
+        Height = 21
         Align = alCustom
         Caption = '&Close'
         TabOrder = 0
@@ -59,18 +59,18 @@ object TextViewer: TTextViewer
       end
       object BtnRead: TButton
         Left = 20
-        Top = 1
-        Width = 55
-        Height = 19
+        Top = 0
+        Width = 56
+        Height = 21
         Caption = '&Read...'
         TabOrder = 1
         OnClick = BtnReadClick
       end
       object BtnOpt: TButton
         Left = 76
-        Top = 1
-        Width = 55
-        Height = 19
+        Top = 0
+        Width = 56
+        Height = 21
         Caption = '&Option...'
         TabOrder = 2
         OnClick = BtnOptClick
@@ -86,9 +86,9 @@ object TextViewer: TTextViewer
     end
     object BtnFind: TButton
       Left = 122
-      Top = 2
+      Top = 1
       Width = 31
-      Height = 19
+      Height = 21
       Caption = 'Find'
       TabOrder = 2
       OnClick = BtnFindClick
@@ -106,21 +106,21 @@ object TextViewer: TTextViewer
     HideSelection = False
     Lines.Strings = (
       'No Text')
+    PlainText = True
     ReadOnly = True
     ScrollBars = ssBoth
     TabOrder = 1
     WordWrap = False
   end
   object OpenDialog: TOpenDialog
-    Filter = 'All (*.*)|*.*|Text (*.txt)|*.txt'
+    Filter = 'Text File (*.txt)|*.txt|All (*.*)|*.*'
     Options = [ofHideReadOnly, ofNoChangeDir, ofEnableSizing]
-    OptionsEx = [ofExNoPlacesBar]
     Left = 584
     Top = 368
   end
   object SaveDialog: TSaveDialog
-    Options = [ofHideReadOnly, ofNoChangeDir, ofEnableSizing]
-    OptionsEx = [ofExNoPlacesBar]
+    Filter = 'Text File (*.txt)|*.txt|All (*.*)|*.*'
+    Options = [ofOverwritePrompt, ofHideReadOnly, ofNoChangeDir, ofEnableSizing]
     Left = 556
     Top = 368
   end

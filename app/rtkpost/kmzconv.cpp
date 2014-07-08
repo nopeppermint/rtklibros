@@ -19,6 +19,11 @@ static double str2dbl(AnsiString str)
 	return val;
 }
 //---------------------------------------------------------------------------
+void __fastcall TConvDialog::FormShow(TObject *Sender)
+{
+	GoogleEarthFile->Text=MainForm->GoogleEarthFile;
+}
+//---------------------------------------------------------------------------
 __fastcall TConvDialog::TConvDialog(TComponent* Owner)
 	: TForm(Owner)
 {
@@ -62,6 +67,9 @@ void __fastcall TConvDialog::BtnGoogleClick(TObject *Sender)
 //---------------------------------------------------------------------------
 void __fastcall TConvDialog::BtnConvertClick(TObject *Sender)
 {
+	AnsiString TimeY1_Text=TimeY1->Text,TimeH1_Text=TimeH1->Text;
+	AnsiString TimeY2_Text=TimeY2->Text,TimeH2_Text=TimeH2->Text;
+	AnsiString InputFile_Text=InputFile->Text,OutputFile_Text=OutputFile->Text;
 	int stat;
 	char cmd[1024],file[1024],kmlfile[1024],*p;
 	double offset[3]={0},es[6]={1970,1,1},ee[6]={2038,1,1},tint=0.0;
@@ -70,10 +78,10 @@ void __fastcall TConvDialog::BtnConvertClick(TObject *Sender)
 	if (InputFile->Text==""||OutputFile->Text=="") return;
 	ShowMsg("converting ...");
 	if (TimeSpan->Checked) {
-		sscanf(TimeY1->Text.c_str(),"%lf/%lf/%lf",es  ,es+1,es+2);
-		sscanf(TimeH1->Text.c_str(),"%lf:%lf:%lf",es+3,es+4,es+5);
-		sscanf(TimeY2->Text.c_str(),"%lf/%lf/%lf",ee  ,ee+1,ee+2);
-		sscanf(TimeH2->Text.c_str(),"%lf:%lf:%lf",ee+3,ee+4,ee+5);
+		sscanf(TimeY1_Text.c_str(),"%lf/%lf/%lf",es  ,es+1,es+2);
+		sscanf(TimeH1_Text.c_str(),"%lf:%lf:%lf",es+3,es+4,es+5);
+		sscanf(TimeY2_Text.c_str(),"%lf/%lf/%lf",ee  ,ee+1,ee+2);
+		sscanf(TimeH2_Text.c_str(),"%lf:%lf:%lf",ee+3,ee+4,ee+5);
 		ts=epoch2time(es);
 		te=epoch2time(ee);
 	}
@@ -83,11 +91,11 @@ void __fastcall TConvDialog::BtnConvertClick(TObject *Sender)
 		offset[2]=str2dbl(Offset3->Text);
 	}
 	if (TimeIntF->Checked) tint=str2dbl(TimeInt->Text);
-	strcpy(file,InputFile->Text.c_str());
+	strcpy(file,InputFile_Text.c_str());
 	strcpy(kmlfile,file);
 	if (!(p=strrchr(kmlfile,'.'))) p=kmlfile+strlen(kmlfile);
 	strcpy(p,".kml");
-	if((stat=convkml(file,Compress->Checked?kmlfile:OutputFile->Text.c_str(),
+	if((stat=convkml(file,Compress->Checked?kmlfile:OutputFile_Text.c_str(),
 	                 ts,te,tint,QFlags->ItemIndex,offset,
 	                 TrackColor->ItemIndex,PointColor->ItemIndex,
 	                 OutputAlt->ItemIndex,OutputTime->ItemIndex))<0) {
@@ -160,9 +168,10 @@ void __fastcall TConvDialog::InputFileChange(TObject *Sender)
 //---------------------------------------------------------------------------
 void __fastcall TConvDialog::UpdateOutFile(void)
 {
+	AnsiString InputFile_Text=InputFile->Text;
 	char file[256],*p;
 	if (InputFile->Text=="") return;
-	strcpy(file,InputFile->Text.c_str());
+	strcpy(file,InputFile_Text.c_str());
 	if (!(p=strrchr(file,'.'))) p=file+strlen(file);
 	strcpy(p,Compress->Checked?".kmz":".kml");
 	OutputFile->Text=file;
@@ -171,10 +180,10 @@ void __fastcall TConvDialog::UpdateOutFile(void)
 void __fastcall TConvDialog::TimeY1UDChangingEx(TObject *Sender,
       bool &AllowChange, short NewValue, TUpDownDirection Direction)
 {
-	AnsiString s;
+	AnsiString TimeY1_Text=TimeY1->Text,s;
 	double ep[]={2000,1,1,0,0,0};
 	int p=TimeY1->SelStart,ud=Direction==updUp?1:-1;
-	sscanf(TimeY1->Text.c_str(),"%lf/%lf/%lf",ep,ep+1,ep+2);
+	sscanf(TimeY1_Text.c_str(),"%lf/%lf/%lf",ep,ep+1,ep+2);
 	if (4<p&&p<8) {
 	    ep[1]+=ud;
 	    if (ep[1]<=0) {ep[0]--; ep[1]+=12;}
@@ -189,9 +198,9 @@ void __fastcall TConvDialog::TimeY1UDChangingEx(TObject *Sender,
 void __fastcall TConvDialog::TimeH1UDChangingEx(TObject *Sender,
       bool &AllowChange, short NewValue, TUpDownDirection Direction)
 {
-	AnsiString s;
+	AnsiString TimeH1_Text=TimeH1->Text,s;
 	int hms[3]={0},sec,p=TimeH1->SelStart,ud=Direction==updUp?1:-1;
-	sscanf(TimeH1->Text.c_str(),"%d:%d:%d",hms,hms+1,hms+2);
+	sscanf(TimeH1_Text.c_str(),"%d:%d:%d",hms,hms+1,hms+2);
 	if (p>5||p==0) hms[2]+=ud; else if (p>2) hms[1]+=ud; else hms[0]+=ud;
 	sec=hms[0]*3600+hms[1]*60+hms[2];
 	if (sec<0) sec+=86400; else if (sec>=86400) sec-=86400;
@@ -202,10 +211,10 @@ void __fastcall TConvDialog::TimeH1UDChangingEx(TObject *Sender,
 void __fastcall TConvDialog::TimeY2UDChangingEx(TObject *Sender,
       bool &AllowChange, short NewValue, TUpDownDirection Direction)
 {
-	AnsiString s;
+	AnsiString TimeY2_Text=TimeY2->Text,s;
 	double ep[]={2000,1,1,0,0,0};
 	int p=TimeY2->SelStart,ud=Direction==updUp?1:-1;
-	sscanf(TimeY2->Text.c_str(),"%lf/%lf/%lf",ep,ep+1,ep+2);
+	sscanf(TimeY2_Text.c_str(),"%lf/%lf/%lf",ep,ep+1,ep+2);
 	if (4<p&&p<8) {
 	    ep[1]+=ud;
 	    if (ep[1]<=0) {ep[0]--; ep[1]+=12;}
@@ -220,14 +229,27 @@ void __fastcall TConvDialog::TimeY2UDChangingEx(TObject *Sender,
 void __fastcall TConvDialog::TimeH2UDChangingEx(TObject *Sender,
       bool &AllowChange, short NewValue, TUpDownDirection Direction)
 {
-	AnsiString s;
+	AnsiString TimeH2_Text=TimeH2->Text,s;
 	int hms[3]={0},sec,p=TimeH2->SelStart,ud=Direction==updUp?1:-1;
-	sscanf(TimeH2->Text.c_str(),"%d:%d:%d",hms,hms+1,hms+2);
+	sscanf(TimeH2_Text.c_str(),"%d:%d:%d",hms,hms+1,hms+2);
 	if (p>5||p==0) hms[2]+=ud; else if (p>2) hms[1]+=ud; else hms[0]+=ud;
 	sec=hms[0]*3600+hms[1]*60+hms[2];
 	if (sec<0) sec+=86400; else if (sec>=86400) sec-=86400;
 	TimeH2->Text=s.sprintf("%02d:%02d:%02d",sec/3600,(sec%3600)/60,sec%60);
 	TimeH2->SelStart=p>5||p==0?8:(p>2?5:2);
+}
+//---------------------------------------------------------------------------
+void __fastcall TConvDialog::GoogleEarthFileChange(TObject *Sender)
+{
+	MainForm->GoogleEarthFile=GoogleEarthFile->Text;
+}
+//---------------------------------------------------------------------------
+void __fastcall TConvDialog::BtnGoogleEarthFileClick(TObject *Sender)
+{
+	OpenDialog->Title="Google Earth Exe File";
+	OpenDialog->FilterIndex=8;
+	if (!OpenDialog->Execute()) return;
+	GoogleEarthFile->Text=OpenDialog->FileName;
 }
 //---------------------------------------------------------------------------
 

@@ -15,6 +15,8 @@
 *           2011/05/27 1.5 fix problem with ARM compiler
 *-----------------------------------------------------------------------------*/
 #include "rtklib.h"
+#include <stdint.h>
+#include "serialisation_inline.h"
 
 #define SS2SOH      0x01        /* ss2 start of header */
 
@@ -26,19 +28,6 @@
 
 static const char rcsid[]="$Id: ss2.c,v 1.2 2008/07/14 00:05:05 TTAKA Exp $";
 
-/* get/set fields (little-endian) --------------------------------------------*/
-#define U1(p)       (*((unsigned char *)(p)))
-#define U2(p)       (*((unsigned short *)(p)))
-#define U4(p)       (*((unsigned int *)(p)))
-
-static double R8(const unsigned char *p)
-{
-    double value;
-    unsigned char *q=(unsigned char *)&value;
-    int i;
-    for (i=0;i<8;i++) *q++=*p++;
-    return value;
-}
 /* checksum ------------------------------------------------------------------*/
 static int chksum(const unsigned char *buff, int len)
 {
@@ -231,8 +220,9 @@ static int decode_ss2(raw_t *raw)
         trace(2,"ss2 message checksum error: type=%d len=%d\n",type,raw->len);
         return -1;
     }
-    sprintf(raw->msgtype,"SS2: type=%2d len=%3d",type,raw->len);
-    
+    if (raw->outtype) {
+        sprintf(raw->msgtype,"SS2 %2d (%4d):",type,raw->len);
+    }
     switch (type) {
         case ID_SS2LLH : return decode_ss2llh (raw);
         case ID_SS2ECEF: return decode_ss2ecef(raw);

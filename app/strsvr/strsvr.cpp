@@ -2,19 +2,24 @@
 #include <vcl.h>
 #pragma hdrstop
 //---------------------------------------------------------------------------
-USEFORM("svrmain.cpp", MainForm);
-USEFORM("svroptdlg.cpp", SvrOptDialog);
-USEFORM("..\appcmn\cmdoptdlg.cpp", CmdOptDialog);
-USEFORM("..\appcmn\fileoptdlg.cpp", FileOptDialog);
-USEFORM("..\appcmn\serioptdlg.cpp", SerialOptDialog);
+
+
+
+
+
 USEFORM("..\appcmn\ftpoptdlg.cpp", FtpOptDialog);
-USEFORM("..\appcmn\confdlg.cpp", ConfDialog);
-USEFORM("..\appcmn\aboutdlg.cpp", AboutDialog);
+USEFORM("..\appcmn\fileoptdlg.cpp", FileOptDialog);
 USEFORM("..\appcmn\refdlg.cpp", RefDialog);
-USEFORM("..\appcmn\tcpoptdlg.cpp", TcpOptDialog);
 USEFORM("..\appcmn\keydlg.cpp", KeyDialog);
+USEFORM("..\appcmn\cmdoptdlg.cpp", CmdOptDialog);
+USEFORM("..\appcmn\aboutdlg.cpp", AboutDialog);
 USEFORM("..\appcmn\console.cpp", Console);
+USEFORM("..\appcmn\confdlg.cpp", ConfDialog);
+USEFORM("..\appcmn\serioptdlg.cpp", SerialOptDialog);
+USEFORM("svroptdlg.cpp", SvrOptDialog);
+USEFORM("svrmain.cpp", MainForm);
 USEFORM("convdlg.cpp", ConvDialog);
+USEFORM("..\appcmn\tcpoptdlg.cpp", TcpOptDialog);
 //---------------------------------------------------------------------------
 WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 {

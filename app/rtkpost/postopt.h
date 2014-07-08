@@ -10,6 +10,7 @@
 #include <Dialogs.hpp>
 #include <ComCtrls.hpp>
 #include <Buttons.hpp>
+#include "rtklib.h"
 //---------------------------------------------------------------------------
 class TOptDialog : public TForm
 {
@@ -27,7 +28,6 @@ __published:
 	TLabel *Label8;
 	TLabel *LabelPosMode;
 	TLabel *LabelFreq;
-	TLabel *LabelSolution;
 	TLabel *LabelElMask;
 	TLabel *Label32;
 	TLabel *Label35;
@@ -45,7 +45,7 @@ __published:
 	TCheckBox *NavSys4;
 	TTabSheet *TabSheet2;
 	TLabel *Label25;
-	TLabel *Label24;
+	TLabel *LabelRatio;
 	TLabel *Label13;
 	TLabel *LabelHold;
 	TLabel *Label22;
@@ -67,7 +67,6 @@ __published:
 	TLabel *LabelLatLonFormat;
 	TLabel *LabelFieldSep;
 	TLabel *Label2;
-	TLabel *Label17;
 	TLabel *Label18;
 	TLabel *Label20;
 	TLabel *Label36;
@@ -132,8 +131,8 @@ __published:
 	TSpeedButton *BtnSatPcvView;
 	TEdit *AntPcvFile;
 	TButton *BtnAntPcvFile;
-	TButton *BtnGoogleEarthFile;
-	TEdit *GoogleEarthFile;
+	TButton *BtnIonoFile;
+	TEdit *IonoFile;
 	TEdit *SatPcvFile;
 	TButton *BtnSatPcvFile;
 	TTabSheet *TabSheet6;
@@ -153,9 +152,7 @@ __published:
 	TEdit *PrNoise4;
 	TEdit *PrNoise5;
 	TComboBox *DebugStatus;
-	TLabel *Label33;
 	TComboBox *GloAmbRes;
-	TLabel *Label9;
 	TEdit *TimeDecimal;
 	TComboBox *TideCorr;
 	TEdit *FixCntHoldAmb;
@@ -174,7 +171,7 @@ __published:
 	TSpeedButton *BtnStaPosView;
 	TButton *BtnStaPosFile;
 	TLabel *Label34;
-	TEdit *OLFile;
+	TEdit *BLQFile;
 	TSpeedButton *BtnOLFileView;
 	TButton *BtnOLFile;
 	TEdit *MeasErrR2;
@@ -190,22 +187,40 @@ __published:
 	TLabel *Label44;
 	TLabel *Label45;
 	TPanel *Panel1;
-	TSpeedButton *SpeedButton1;
+	TSpeedButton *BtnHelp;
 	TLabel *Label46;
 	TLabel *Label62;
 	TLabel *Label43;
 	TLabel *Label65;
-	TLabel *Label47;
-	TEdit *IonoFile;
-	TSpeedButton *BtnIonoView;
-	TButton *BtnIonoFile;
 	TComboBox *ElMask;
-	TComboBox *SnrMask;
+	TLabel *Label82;
+	TLabel *Label83;
+	TLabel *Label86;
+	TLabel *Label87;
+	TEdit *EOPFile;
+	TButton *BtnEOPFile;
+	TSpeedButton *BtnEOPView;
+	TLabel *Label17;
+	TEdit *RnxOpts1;
+	TLabel *Label60;
+	TButton *BtnExtOpt;
+	TLabel *Label12;
+	TEdit *RnxOpts2;
+	TEdit *ThresAR2;
+	TEdit *ThresAR3;
+	TLabel *LabelConf;
+	TLabel *Label9;
+	TCheckBox *PosOpt1;
+	TCheckBox *PosOpt3;
+	TCheckBox *PosOpt2;
+	TCheckBox *PosOpt4;
+	TButton *BtnMask;
+	TCheckBox *PosOpt5;
 	void __fastcall BtnOkClick(TObject *Sender);
 	void __fastcall RovAntPcvClick(TObject *Sender);
 	void __fastcall FormShow(TObject *Sender);
 	void __fastcall BtnAntPcvFileClick(TObject *Sender);
-	void __fastcall BtnGoogleEarthFileClick(TObject *Sender);
+	void __fastcall BtnIonoFileClick(TObject *Sender);
 	void __fastcall BtnAntPcvViewClick(TObject *Sender);
 	void __fastcall AmbResChange(TObject *Sender);
 	void __fastcall NetRSCorrClick(TObject *Sender);
@@ -241,10 +256,18 @@ __published:
 	void __fastcall RefAntClick(TObject *Sender);
 	void __fastcall BtnDCBViewClick(TObject *Sender);
 	void __fastcall BtnDCBFileClick(TObject *Sender);
-	void __fastcall SpeedButton1Click(TObject *Sender);
-	void __fastcall BtnIonoViewClick(TObject *Sender);
-	void __fastcall BtnIonoFileClick(TObject *Sender);
+	void __fastcall BtnHelpClick(TObject *Sender);
+	void __fastcall ExtEna0Click(TObject *Sender);
+	void __fastcall ExtEna1Click(TObject *Sender);
+	void __fastcall ExtEna2Click(TObject *Sender);
+	void __fastcall BtnOLFileViewClick(TObject *Sender);
+	void __fastcall BtnOLFileClick(TObject *Sender);
+	void __fastcall BtnEOPFileClick(TObject *Sender);
+	void __fastcall BtnEOPViewClick(TObject *Sender);
+	void __fastcall BtnExtOptClick(TObject *Sender);
+	void __fastcall BtnMaskClick(TObject *Sender);
 private:
+	snrmask_t SnrMask;
 	int RovPosTypeP,RefPosTypeP;
 	void __fastcall GetOpt(void);
 	void __fastcall SetOpt(void);
@@ -252,7 +275,10 @@ private:
 	void __fastcall SaveOpt(AnsiString file);
 	void __fastcall ReadAntList(void);
 	void __fastcall UpdateEnable(void);
+	void __fastcall UpdateEnableExtErr(void);
 public:
+	exterr_t ExtErr;
+	
 	__fastcall TOptDialog(TComponent* Owner);
 };
 //---------------------------------------------------------------------------

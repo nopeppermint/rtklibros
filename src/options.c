@@ -10,7 +10,8 @@
 *                                loadopts(),saveopts(),resetsysopts(),
 *                                getsysopts(),setsysopts()
 *           2010/09/11  1.2  add options
-*                                pos2-elmaskhold
+*                                pos2-elmaskhold,pos1->snrmaskena
+*                                pos1-snrmask1,2,3
 *-----------------------------------------------------------------------------*/
 #include "rtklib.h"
 
@@ -24,6 +25,7 @@ static int antpostype_[2];
 static double elmask_,elmaskar_,elmaskhold_;
 static double antpos_[2][3];
 static char exsats_[1024];
+static char snrmask_[NFREQ][1024];
 
 /* system options table ------------------------------------------------------*/
 #define SWTOPT  "0:off,1:on"
@@ -51,18 +53,27 @@ opt_t sysopts[]={
     {"pos1-frequency",  3,  (void *)&prcopt_.nf,         FRQOPT },
     {"pos1-soltype",    3,  (void *)&prcopt_.soltype,    TYPOPT },
     {"pos1-elmask",     1,  (void *)&elmask_,            "deg"  },
-    {"pos1-snrmask",    1,  (void *)&prcopt_.snrmin,     "dBHz" },
+    {"pos1-snrmask_r",  3,  (void *)&prcopt_.snrmask.ena[0],SWTOPT},
+    {"pos1-snrmask_b",  3,  (void *)&prcopt_.snrmask.ena[1],SWTOPT},
+    {"pos1-snrmask_L1", 2,  (void *)snrmask_[0],         ""     },
+    {"pos1-snrmask_L2", 2,  (void *)snrmask_[1],         ""     },
+    {"pos1-snrmask_L5", 2,  (void *)snrmask_[2],         ""     },
     {"pos1-dynamics",   3,  (void *)&prcopt_.dynamics,   SWTOPT },
     {"pos1-tidecorr",   3,  (void *)&prcopt_.tidecorr,   SWTOPT },
     {"pos1-ionoopt",    3,  (void *)&prcopt_.ionoopt,    IONOPT },
     {"pos1-tropopt",    3,  (void *)&prcopt_.tropopt,    TRPOPT },
     {"pos1-sateph",     3,  (void *)&prcopt_.sateph,     EPHOPT },
+    {"pos1-posopt1",    3,  (void *)&prcopt_.posopt[0],  SWTOPT },
+    {"pos1-posopt2",    3,  (void *)&prcopt_.posopt[1],  SWTOPT },
+    {"pos1-posopt3",    3,  (void *)&prcopt_.posopt[2],  SWTOPT },
+    {"pos1-posopt4",    3,  (void *)&prcopt_.posopt[3],  SWTOPT },
+    {"pos1-posopt5",    3,  (void *)&prcopt_.posopt[4],  SWTOPT },
     {"pos1-exclsats",   2,  (void *)exsats_,             "prn ..."},
     {"pos1-navsys",     0,  (void *)&prcopt_.navsys,     NAVOPT },
     
     {"pos2-armode",     3,  (void *)&prcopt_.modear,     ARMOPT },
     {"pos2-gloarmode",  3,  (void *)&prcopt_.glomodear,  GAROPT },
-    {"pos2-arthres",    1,  (void *)&prcopt_.thresar,    ""     },
+    {"pos2-arthres",    1,  (void *)&prcopt_.thresar[0], ""     },
     {"pos2-arlockcnt",  0,  (void *)&prcopt_.minlock,    ""     },
     {"pos2-arelmask",   1,  (void *)&elmaskar_,          "deg"  },
     {"pos2-arminfix",   0,  (void *)&prcopt_.minfix,     ""     },
@@ -127,6 +138,8 @@ opt_t sysopts[]={
     
     {"misc-timeinterp", 3,  (void *)&prcopt_.intpref,    SWTOPT },
     {"misc-sbasatsel",  0,  (void *)&prcopt_.sbassatsel, "0:all"},
+    {"misc-rnxopt1",    2,  (void *)prcopt_.rnxopt[0],   ""     },
+    {"misc-rnxopt2",    2,  (void *)prcopt_.rnxopt[1],   ""     },
     
     {"file-satantfile", 2,  (void *)&filopt_.satantp,    ""     },
     {"file-rcvantfile", 2,  (void *)&filopt_.rcvantp,    ""     },
@@ -134,6 +147,8 @@ opt_t sysopts[]={
     {"file-geoidfile",  2,  (void *)&filopt_.geoid,      ""     },
     {"file-ionofile",   2,  (void *)&filopt_.iono,       ""     },
     {"file-dcbfile",    2,  (void *)&filopt_.dcb,        ""     },
+    {"file-eopfile",    2,  (void *)&filopt_.eop,        ""     },
+    {"file-blqfile",    2,  (void *)&filopt_.blq,        ""     },
     {"file-tempdir",    2,  (void *)&filopt_.tempdir,    ""     },
     {"file-geexefile",  2,  (void *)&filopt_.geexe,      ""     },
     {"file-solstatfile",2,  (void *)&filopt_.solstat,    ""     },
@@ -283,7 +298,7 @@ extern int loadopts(const char *file, opt_t *opts)
         if (buff[0]=='\0') continue;
         
         if (!(p=strstr(buff,"="))) {
-            trace(1,"loadopts: invalid option %s (%s:%d)\n",buff,file,n);
+            fprintf(stderr,"invalid option %s (%s:%d)\n",buff,file,n);
             continue;
         }
         *p++='\0';
@@ -291,7 +306,7 @@ extern int loadopts(const char *file, opt_t *opts)
         if (!(opt=searchopt(buff,opts))) continue;
         
         if (!str2opt(opt,p)) {
-            trace(1,"loadopts: invalid option value %s (%s:%d)\n",buff,file,n);
+            fprintf(stderr,"invalid option value %s (%s:%d)\n",buff,file,n);
             continue;
         }
     }
@@ -335,7 +350,7 @@ static void buff2sysopts(void)
 {
     double pos[3],*rr;
     char buff[1024],*p,*id;
-    int i,sat,*ps;
+    int i,j,sat,*ps;
     
     prcopt_.elmin     =elmask_    *D2R;
     prcopt_.elmaskar  =elmaskar_  *D2R;
@@ -370,13 +385,21 @@ static void buff2sysopts(void)
             prcopt_.exsats[sat-1]=*p=='+'?2:1;
         }
     }
+    /* snrmask */
+    for (i=0;i<NFREQ;i++) {
+        for (j=0;j<9;j++) prcopt_.snrmask.mask[i][j]=0.0;
+        strcpy(buff,snrmask_[i]);
+        for (p=strtok(buff,","),j=0;p&&j<9;p=strtok(NULL,",")) {
+            prcopt_.snrmask.mask[i][j++]=atof(p);
+        }
+    }
 }
 /* options to system options buffer ------------------------------------------*/
 static void sysopts2buff(void)
 {
     double pos[3],*rr;
     char id[32],*p;
-    int i,sat,*ps;
+    int i,j,sat,*ps;
     
     elmask_    =prcopt_.elmin     *R2D;
     elmaskar_  =prcopt_.elmaskar  *R2D;
@@ -397,11 +420,19 @@ static void sysopts2buff(void)
     }
     /* excluded satellites */
     exsats_[0]='\0';
-    for (sat=1,p=exsats_;sat<=MAXSAT&&p-exsats_<sizeof(exsats_)-32;sat++) {
+    for (sat=1,p=exsats_;sat<=MAXSAT&&p-exsats_<(int)sizeof(exsats_)-32;sat++) {
         if (prcopt_.exsats[sat-1]) {
             satno2id(sat,id);
             p+=sprintf(p,"%s%s%s",p==exsats_?"":" ",
                        prcopt_.exsats[sat-1]==2?"+":"",id);
+        }
+    }
+    /* snrmask */
+    for (i=0;i<NFREQ;i++) {
+        snrmask_[i][0]='\0';
+        p=snrmask_[i];
+        for (j=0;j<9;j++) {
+            p+=sprintf(p,"%s%.0f",j>0?",":"",prcopt_.snrmask.mask[i][j]);
         }
     }
 }
@@ -423,6 +454,7 @@ extern void resetsysopts(void)
     filopt_.stapos [0]='\0';
     filopt_.geoid  [0]='\0';
     filopt_.dcb    [0]='\0';
+    filopt_.blq    [0]='\0';
     filopt_.solstat[0]='\0';
     filopt_.trace  [0]='\0';
     for (i=0;i<2;i++) antpostype_[i]=0;

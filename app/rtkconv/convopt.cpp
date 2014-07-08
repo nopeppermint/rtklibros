@@ -4,6 +4,7 @@
 
 #include "convmain.h"
 #include "convopt.h"
+#include "codeopt.h"
 //---------------------------------------------------------------------------
 #pragma package(smart_init)
 #pragma resource "*.dfm"
@@ -20,18 +21,13 @@ __fastcall TConvOptDialog::TConvOptDialog(TComponent* Owner)
 	: TForm(Owner)
 {
 	AnsiString s;
-	int glo=MAXPRNGLO,gal=MAXPRNGAL,qzs=MAXPRNQZS,cmp=MAXPRNCMP,nf=NFREQ;
+	int glo=MAXPRNGLO,gal=MAXPRNGAL,qzs=MAXPRNQZS,cmp=MAXPRNCMP;
 	if (glo<=0) Nav2->Enabled=false;
 	if (gal<=0) Nav3->Enabled=false;
 	if (qzs<=0) Nav4->Enabled=false;
 	if (cmp<=0) Nav6->Enabled=false;
-	if (nf<3) Freq3->Enabled=false;
-	if (nf<4) Freq4->Enabled=false;
-	if (nf<5) Freq5->Enabled=false;
-	if (nf<6) Freq6->Enabled=false;
-	RnxVer->Clear();
-	RnxVer->AddItem(s.sprintf("%.2f",RNX2VER),NULL);
-	RnxVer->AddItem(s.sprintf("%.2f",RNX3VER),NULL);
+	
+	UpdateEnable();
 }
 //---------------------------------------------------------------------------
 void __fastcall TConvOptDialog::FormShow(TObject *Sender)
@@ -61,7 +57,13 @@ void __fastcall TConvOptDialog::FormShow(TObject *Sender)
 	Comment0->Text=MainWindow->Comment[0];
 	Comment1->Text=MainWindow->Comment[1];
 	RcvOption->Text=MainWindow->RcvOption;
-	
+	for (int i=0;i<6;i++) CodeMask[i]=MainWindow->CodeMask[i];
+	AutoPos->Checked=MainWindow->AutoPos;
+	ScanObs->Checked=MainWindow->ScanObs;
+	OutIono->Checked=MainWindow->OutIono;
+	OutTime->Checked=MainWindow->OutTime;
+	OutLeaps->Checked=MainWindow->OutLeaps;
+
 	Nav1->Checked=MainWindow->NavSys&SYS_GPS;
 	Nav2->Checked=MainWindow->NavSys&SYS_GLO;
 	Nav3->Checked=MainWindow->NavSys&SYS_GAL;
@@ -110,6 +112,13 @@ void __fastcall TConvOptDialog::BtnOkClick(TObject *Sender)
 	MainWindow->Comment[0]=Comment0->Text;
 	MainWindow->Comment[1]=Comment1->Text;
 	MainWindow->RcvOption=RcvOption->Text;
+	for (int i=0;i<6;i++) MainWindow->CodeMask[i]=CodeMask[i];
+	MainWindow->AutoPos=AutoPos->Checked;
+	MainWindow->ScanObs=ScanObs->Checked;
+	MainWindow->OutIono=OutIono->Checked;
+	MainWindow->OutTime=OutTime->Checked;
+	MainWindow->OutLeaps=OutLeaps->Checked;
+	
 	int navsys=0,obstype=0,freqtype=0;
 	if (Nav1->Checked) navsys|=SYS_GPS;
 	if (Nav2->Checked) navsys|=SYS_GLO;
@@ -136,13 +145,46 @@ void __fastcall TConvOptDialog::BtnOkClick(TObject *Sender)
 //---------------------------------------------------------------------------
 void __fastcall TConvOptDialog::RnxFileClick(TObject *Sender)
 {
-	UpdateEnable();	
+	UpdateEnable();
+}
+//---------------------------------------------------------------------------
+void __fastcall TConvOptDialog::RnxVerChange(TObject *Sender)
+{
+	UpdateEnable();
+}
+//---------------------------------------------------------------------------
+void __fastcall TConvOptDialog::AutoPosClick(TObject *Sender)
+{
+	UpdateEnable();
+}
+//---------------------------------------------------------------------------
+void __fastcall TConvOptDialog::Button1Click(TObject *Sender)
+{
+	CodeOptDialog->NavSys=0;
+	CodeOptDialog->FreqType=0;
+	if (Nav1->Checked) CodeOptDialog->NavSys|=SYS_GPS;
+	if (Nav2->Checked) CodeOptDialog->NavSys|=SYS_GLO;
+	if (Nav3->Checked) CodeOptDialog->NavSys|=SYS_GAL;
+	if (Nav4->Checked) CodeOptDialog->NavSys|=SYS_QZS;
+	if (Nav5->Checked) CodeOptDialog->NavSys|=SYS_SBS;
+	if (Nav6->Checked) CodeOptDialog->NavSys|=SYS_CMP;
+	if (Freq1->Checked) CodeOptDialog->FreqType|=FREQTYPE_L1;
+	if (Freq2->Checked) CodeOptDialog->FreqType|=FREQTYPE_L2;
+	if (Freq3->Checked) CodeOptDialog->FreqType|=FREQTYPE_L5;
+	if (Freq4->Checked) CodeOptDialog->FreqType|=FREQTYPE_L6;
+	if (Freq5->Checked) CodeOptDialog->FreqType|=FREQTYPE_L7;
+	if (Freq6->Checked) CodeOptDialog->FreqType|=FREQTYPE_L8;
+	CodeOptDialog->ShowModal();
 }
 //---------------------------------------------------------------------------
 void __fastcall TConvOptDialog::UpdateEnable(void)
 {
-//	RnxCode->Enabled=RnxFile->Checked;
-//	Label12->Enabled=RnxFile->Checked;
+//	Freq4->Enabled=RnxVer->ItemIndex>0;
+//	Freq5->Enabled=RnxVer->ItemIndex>0;
+//	Freq6->Enabled=RnxVer->ItemIndex>0;
+	AppPos0->Enabled=AutoPos->Checked;
+	AppPos1->Enabled=AutoPos->Checked;
+	AppPos2->Enabled=AutoPos->Checked;
 }
 //---------------------------------------------------------------------------
 

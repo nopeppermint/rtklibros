@@ -103,13 +103,13 @@ void __fastcall TPntDialog::BtnDelClick(TObject *Sender)
 //---------------------------------------------------------------------------
 void __fastcall TPntDialog::BtnLoadClick(TObject *Sender)
 {
-	AnsiString s;
+	AnsiString OpenDialog_FileName=OpenDialog->FileName,s;
 	FILE *fp;
 	char buff[256],name[256];
 	double pos[3];
 	int i=0;
 	if (!OpenDialog->Execute()) return;
-	if (!(fp=fopen(OpenDialog->FileName.c_str(),"r"))) return;
+	if (!(fp=fopen(OpenDialog_FileName.c_str(),"r"))) return;
 	while (fgets(buff,sizeof(buff),fp)&&i<PntList->RowCount) {
 		if (buff[0]=='#') continue;
 		if (sscanf(buff,"%lf %lf %lf %s",pos,pos+1,pos+2,name)<4) continue;
@@ -129,9 +129,10 @@ void __fastcall TPntDialog::BtnLoadClick(TObject *Sender)
 //---------------------------------------------------------------------------
 void __fastcall TPntDialog::BtnSaveClick(TObject *Sender)
 {
+	AnsiString SaveDialog_FileName=SaveDialog->FileName;
 	FILE *fp;
 	if (!SaveDialog->Execute()) return;
-	if (!(fp=fopen(SaveDialog->FileName.c_str(),"w"))) return;
+	if (!(fp=fopen(SaveDialog_FileName.c_str(),"w"))) return;
 	for (int i=0;i<PntList->RowCount;i++) {
 		if (PntList->Cells[3][i]=="") break;
 		fprintf(fp,"%s %s %s %s\n",

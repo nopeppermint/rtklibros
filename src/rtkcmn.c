@@ -22,6 +22,11 @@
 *         wavelengths, Jounal of geophysical research, 1996
 *     [6] W.Gurtner and L.Estey, RINEX The Receiver Independent Exchange Format
 *         Version 3.00, November 28, 2007
+*     [7] J.Kouba, A Guide to using International GNSS Service (IGS) products,
+*         May 2009
+*     [8] China Satellite Navigation Office, BeiDou navigation satellite system
+*         signal in space interface control document, open service signal B1I
+*         (version 1.0), Dec 2012
 *
 * version : $Revision: 1.1 $ $Date: 2008/07/17 21:48:06 $
 * history : 2007/01/12 1.0 new
@@ -65,6 +70,16 @@
 *           2011/05/28 1.16 fix bug on half-hour offset by time2epoch()
 *                           added api:
 *                               uniqnav()
+*           2012/06/09 1.17 add a leap second after 2012-6-30
+*           2012/07/15 1.18 add api setbits(),setbitu(),utc2gmst()
+*                           fix bug on interpolation of antenna pcv
+*                           fix bug on str2num() for string with over 256 char
+*                           add api readblq(),satexclude(),setcodepri(),
+*                           getcodepri()
+*                           change api obs2code(),code2obs(),antmodel()
+*           2012/12/25 1.19 fix bug on satwavelen(),code2obs(),obs2code()
+*                           add api testsnr()
+*           2013/01/04 1.20 add api gpst2bdt(),bdt2gpst()
 *-----------------------------------------------------------------------------*/
 #define _POSIX_C_SOURCE 199309
 #include <stdarg.h>
@@ -89,6 +104,7 @@ const static double gpst0[]={1980,1, 6,0,0,0}; /* gps time reference */
 const static double gst0 []={1999,8,22,0,0,0}; /* galileo system time reference */
 
 const static double leaps[][7]={ /* leap seconds {y,m,d,h,m,s,utc-gpst,...} */
+    {2012,7,1,0,0,0,-16},
     {2009,1,1,0,0,0,-15},
     {2006,1,1,0,0,0,-14},
     {1999,1,1,0,0,0,-13},
@@ -122,7 +138,7 @@ const double lam[]={            /* carrier wave length (m) */
 };
 const prcopt_t prcopt_default={ /* defaults processing options */
     PMODE_SINGLE,0,2,SYS_GPS,   /* mode,soltype,nf,navsys */
-    15.0*D2R,0.0,               /* elmin,snrmin */
+    15.0*D2R,{{0,0}},           /* elmin,snrmask */
     0,1,1,5,0,10,               /* sateph,modear,glomodear,maxout,minlock,minfix */
     0,0,0,0,                    /* estion,esttrop,dynamics,tidecorr */
     1,0,0,0,0,                  /* niter,codesmooth,intpref,sbascorr,sbassatsel */
@@ -131,7 +147,8 @@ const prcopt_t prcopt_default={ /* defaults processing options */
     {100.0,0.003,0.003,0.0,1.0}, /* err[] */
     {30.0,0.03,0.3},            /* std[] */
     {1E-4,1E-3,1E-4,1E-1,1E-2}, /* prn[] */
-    5E-12,3.0,                  /* sclkstab,thresar */
+    5E-12,                      /* sclkstab */
+    {3.0,0.9999,0.20},          /* thresar */
     0.0,0.0,0.05,               /* elmaskar,almaskhold,thresslip */
     30.0,30.0,30.0,             /* maxtdif,maxinno,maxgdop */
     {0},{0},{0},                /* baseline,ru,rb */
@@ -148,7 +165,7 @@ const solopt_t solopt_default={ /* defaults solution output options */
 const char *formatstrs[]={      /* stream format strings */
     "RTCM 2",                   /*  0 */
     "RTCM 3",                   /*  1 */
-    "NovAtel OEM4/V",           /*  2 */
+    "NovAtel OEM4",             /*  2 */
     "NovAtel OEM3",             /*  3 */
     "u-blox",                   /*  4 */
     "Superstar II",             /*  5 */
@@ -156,9 +173,9 @@ const char *formatstrs[]={      /* stream format strings */
     "SkyTraq",                  /*  7 */
     "GW10",                     /*  8 */
     "Javad",                    /*  9 */
-    "LEX Receiver",             /* 10 */
-    "Ashtech",                  /* 11 */
-    "Garmin",                   /* 12 */
+    "NVS BINR",                 /* 10 */
+    "LEX Receiver",             /* 11 */
+    "Ashtech",                  /* 12 */
     "SiRF",                     /* 13 */
     "RINEX",                    /* 14 */
     "SP3",                      /* 15 */
@@ -168,10 +185,30 @@ const char *formatstrs[]={      /* stream format strings */
     NULL
 };
 static char *obscodes[]={       /* observation code strings */
-    ""  ,"1C","1P","1W","1Y", "1M","1N","1S","1L","1E",
-    "1A","1B","1X","1Z","2C", "2D","2S","2L","2X","2P",
-    "2W","2Y","2M","2N","5I", "5Q","5X","7I","7Q","7X",
-    "6A","6B","6C","6X","6Z", "6S","6L","8L","8Q","8X",""
+    
+    ""  ,"1C","1P","1W","1Y", "1M","1N","1S","1L","1E", /*  0- 9 */
+    "1A","1B","1X","1Z","2C", "2D","2S","2L","2X","2P", /* 10-19 */
+    "2W","2Y","2M","2N","5I", "5Q","5X","7I","7Q","7X", /* 20-29 */
+    "6A","6B","6C","6X","6Z", "6S","6L","8L","8Q","8X", /* 30-39 */
+    "2I","2Q","6I","6Q","3I", "3Q","3X",""              /* 40-49 */
+};
+static unsigned char obsfreqs[]={ /* 1:L1,2:L2,3:L5,4:L6,5:L7,6:L8,7:L3 */
+    
+    0, 1, 1, 1, 1,  1, 1, 1, 1, 1, /*  0- 9 */
+    1, 1, 1, 1, 2,  2, 2, 2, 2, 2, /* 10-19 */
+    2, 2, 2, 2, 3,  3, 3, 5, 5, 5, /* 20-29 */
+    4, 4, 4, 4, 4,  4, 4, 6, 6, 6, /* 30-39 */
+    2, 2, 4, 4, 3,  3, 3, 0        /* 40-49 */
+};
+static char codepris[6][MAXFREQ][16]={  /* code priority table */
+   
+   /* L1,G1E1a   L2,G2,B1     L5,G3,E5a L6,LEX,B3 E5a,B2    E5a+b */
+    {"CPYWMNSL","PYWCMNDSLX","IQX"     ,""       ,""       ,""   }, /* GPS */
+    {"PC"      ,"PC"        ,"IQX"     ,""       ,""       ,""   }, /* GLO */
+    {"CABXZ"   ,""          ,"IQX"     ,"ABCXZ"  ,"IQX"    ,"IQX"}, /* GAL */
+    {"CSLXZ"   ,"SLX"       ,"IQX"     ,"SLX"    ,""       ,""   }, /* QZS */
+    {"C"       ,""          ,"IQX"     ,""       ,""       ,""   }, /* SBS */
+    {""        ,"IQX"       ,""        ,"IQX"    ,"IQX"    ,""   }  /* CMP */
 };
 /* lapack/blas prototypes ----------------------------------------------------*/
 #ifdef MKL
@@ -294,51 +331,163 @@ extern int satid2no(const char *id)
 /* satellite number to satellite id --------------------------------------------
 * convert satellite number to satellite id
 * args   : int    sat       I   satellite number
-*          char   *id       O   satellite id ( nn,Gnn,Rnn,Enn,Jnn,Cnn or nnn)
+*          char   *id       O   satellite id (Gnn,Rnn,Enn,Jnn,Cnn or nnn)
 * return : none
 *-----------------------------------------------------------------------------*/
 extern void satno2id(int sat, char *id)
 {
     int prn;
     switch (satsys(sat,&prn)) {
-        case SYS_GPS: sprintf(id,"%d" ,prn-MINPRNGPS+1); return;
-        case SYS_GLO: sprintf(id,"R%d",prn-MINPRNGLO+1); return;
-        case SYS_GAL: sprintf(id,"E%d",prn-MINPRNGAL+1); return;
-        case SYS_QZS: sprintf(id,"J%d",prn-MINPRNQZS+1); return;
-        case SYS_CMP: sprintf(id,"C%d",prn-MINPRNCMP+1); return;
-        case SYS_SBS: sprintf(id,"%d" ,prn); return;
+        case SYS_GPS: sprintf(id,"G%02d",prn-MINPRNGPS+1); return;
+        case SYS_GLO: sprintf(id,"R%02d",prn-MINPRNGLO+1); return;
+        case SYS_GAL: sprintf(id,"E%02d",prn-MINPRNGAL+1); return;
+        case SYS_QZS: sprintf(id,"J%02d",prn-MINPRNQZS+1); return;
+        case SYS_CMP: sprintf(id,"C%02d",prn-MINPRNCMP+1); return;
+        case SYS_SBS: sprintf(id,"%03d" ,prn); return;
     }
     strcpy(id,"");
+}
+/* test excluded satellite -----------------------------------------------------
+* test excluded satellite
+* args   : int    sat       I   satellite number
+*          int    svh       I   sv health flag
+*          prcopt_t *opt    I   processing options (NULL: not used)
+* return : status (1:excluded,0:not excluded)
+*-----------------------------------------------------------------------------*/
+extern int satexclude(int sat, int svh, const prcopt_t *opt)
+{
+    int sys=satsys(sat,NULL);
+    
+    if (svh<0) return 1; /* ephemeris unavailable */
+    
+    if (opt) {
+        if (opt->exsats[sat-1]==1) return 1; /* excluded satellite */
+        if (opt->exsats[sat-1]==2) return 0; /* included satellite */
+        if (!(sys&opt->navsys)) return 1; /* unselected sat sys */
+    }
+    if (sys==SYS_QZS) svh&=0xFE; /* mask QZSS LEX health */
+    if (svh) {
+        trace(3,"unhealthy satellite: sat=%3d svh=%02X\n",sat,svh);
+        return 1;
+    }
+    return 0;
+}
+/* test SNR mask ---------------------------------------------------------------
+* test SNR mask
+* args   : int    base      I   rover or base-station (0:rover,1:base station)
+*          int    freq      I   frequency (0:L1,1:L2,2:L3,...)
+*          double el        I   elevation angle (rad)
+*          double snr       I   C/N0 (dBHz)
+*          snrmask_t *mask  I   SNR mask
+* return : status (1:masked,0:unmasked)
+*-----------------------------------------------------------------------------*/
+extern int testsnr(int base, int freq, double el, double snr,
+                   const snrmask_t *mask)
+{
+    double minsnr,a;
+    int i;
+    
+    if (!mask->ena[base]||freq<0||freq>=NFREQ) return 0;
+    
+    a=(el*R2D+5.0)/10.0;
+    i=(int)floor(a); a-=i;
+    if      (i<1) minsnr=mask->mask[freq][0];
+    else if (i>8) minsnr=mask->mask[freq][8];
+    else minsnr=(1.0-a)*mask->mask[freq][i-1]+a*mask->mask[freq][i];
+    
+    return snr<minsnr;
 }
 /* obs type string to obs code -------------------------------------------------
 * convert obs code type string to obs code
 * args   : char   *str   I      obs code string ("1C","1P","1Y",...)
+*          int    *freq  IO     frequency (1:L1,2:L2,3:L5,4:L6,5:L7,6:L8,0:err)
+*                               (NULL: no output)
 * return : obs code (CODE_???)
 * notes  : obs codes are based on reference [6] and qzss extension
 *-----------------------------------------------------------------------------*/
-extern unsigned char obs2code(const char *obs)
+extern unsigned char obs2code(const char *obs, int *freq)
 {
     int i;
+    if (freq) *freq=0;
     for (i=1;*obscodes[i];i++) {
-        if (!strcmp(obscodes[i],obs)) return (unsigned char)i;
+        if (strcmp(obscodes[i],obs)) continue;
+        if (freq) *freq=obsfreqs[i];
+        return (unsigned char)i;
     }
     return CODE_NONE;
 }
 /* obs code to obs code string -------------------------------------------------
 * convert obs code to obs code string
 * args   : unsigned char code I obs code (CODE_???)
+*          int    *freq  IO     frequency (1:L1,2:L2,3:L5,4:L6,5:L7,6:L8,0:err)
+*                               (NULL: no output)
 * return : obs code string ("1C","1P","1P",...)
 * notes  : obs codes are based on reference [6] and qzss extension
 *-----------------------------------------------------------------------------*/
-extern char *code2obs(unsigned char code)
+extern char *code2obs(unsigned char code, int *freq)
 {
-    return code<=CODE_NONE||CODE_L8X<code?"":obscodes[code];
+    if (freq) *freq=0;
+    if (code<=CODE_NONE||MAXCODE<code) return "";
+    if (freq) *freq=obsfreqs[code];
+    return obscodes[code];
+}
+/* set code priority -----------------------------------------------------------
+* set code priority for multiple codes in a frequency
+* args   : int    sys     I     system (or of SYS_???)
+*          int    freq    I     frequency (1:L1,2:L2,3:L5,4:L6,5:L7,6:L8)
+*          char   *pri    I     priority of codes (series of code characters)
+*                               (higher priority precedes lower)
+* return : none
+*-----------------------------------------------------------------------------*/
+extern void setcodepri(int sys, int freq, const char *pri)
+{
+    trace(3,"setcodepri:sys=%d freq=%d pri=%s\n",sys,freq,pri);
+    
+    if (freq<=0||MAXFREQ<freq) return;
+    if (sys&SYS_GPS) strcpy(codepris[0][freq-1],pri);
+    if (sys&SYS_GLO) strcpy(codepris[1][freq-1],pri);
+    if (sys&SYS_GAL) strcpy(codepris[2][freq-1],pri);
+    if (sys&SYS_QZS) strcpy(codepris[3][freq-1],pri);
+    if (sys&SYS_SBS) strcpy(codepris[4][freq-1],pri);
+    if (sys&SYS_CMP) strcpy(codepris[5][freq-1],pri);
+}
+/* get code priority -----------------------------------------------------------
+* get code priority for multiple codes in a frequency
+* args   : int    sys     I     system (SYS_???)
+*          unsigned char code I obs code (CODE_???)
+*          char   *opt    I     code options (NULL:no option)
+* return : priority (15:highest-1:lowest,0:error)
+*-----------------------------------------------------------------------------*/
+extern int getcodepri(int sys, unsigned char code, const char *opt)
+{
+    const char *p,*optstr;
+    char *obs,str[8]="";
+    int i,j;
+    
+    switch (sys) {
+        case SYS_GPS: i=0; optstr="-GL%2s"; break;
+        case SYS_GLO: i=1; optstr="-RL%2s"; break;
+        case SYS_GAL: i=2; optstr="-EL%2s"; break;
+        case SYS_QZS: i=3; optstr="-JL%2s"; break;
+        case SYS_SBS: i=4; optstr="-SL%2s"; break;
+        case SYS_CMP: i=5; optstr="-CL%2s"; break;
+        default: return 0;
+    }
+    obs=code2obs(code,&j);
+    
+    /* parse code options */
+    for (p=opt;p&&(p=strchr(p,'-'));p++) {
+        if (sscanf(p,optstr,str)<1||str[0]!=obs[0]) continue;
+        return str[1]==obs[1]?15:0;
+    }
+    /* search code priority */
+    return (p=strchr(codepris[i][j-1],obs[1]))?14-(int)(p-codepris[i][j-1]):0;
 }
 /* extract unsigned/signed bits ------------------------------------------------
-* extract unsigned bits from byte data
+* extract unsigned/signed bits from byte data
 * args   : unsigned char *buff I byte data
 *          int    pos    I      bit position from start of data (bits)
-*          int    len    I      bit length (bits) (<=32)
+*          int    len    I      bit length (bits) (len<=32)
 * return : extracted unsigned/signed bits
 *-----------------------------------------------------------------------------*/
 extern unsigned int getbitu(const unsigned char *buff, int pos, int len)
@@ -353,6 +502,28 @@ extern int getbits(const unsigned char *buff, int pos, int len)
     unsigned int bits=getbitu(buff,pos,len);
     if (len<=0||32<=len||!(bits&(1u<<(len-1)))) return (int)bits;
     return (int)(bits|(~0u<<len)); /* extend sign */
+}
+/* set unsigned/signed bits ----------------------------------------------------
+* set unsigned/signed bits to byte data
+* args   : unsigned char *buff IO byte data
+*          int    pos    I      bit position from start of data (bits)
+*          int    len    I      bit length (bits) (len<=32)
+*         (unsigned) int I      unsigned/signed data
+* return : none
+*-----------------------------------------------------------------------------*/
+extern void setbitu(unsigned char *buff, int pos, int len, unsigned int data)
+{
+    unsigned int mask=1u<<(len-1);
+    int i;
+    if (len<=0||32<len) return;
+    for (i=pos;i<pos+len;i++,mask>>=1) {
+        if (data&mask) buff[i/8]|=1u<<(7-i%8); else buff[i/8]&=~(1u<<(7-i%8));
+    }
+}
+extern void setbits(unsigned char *buff, int pos, int len, int data)
+{
+    if (data<0) data|=1<<(len-1); else data&=~(1<<(len-1)); /* set sign bit */
+    setbitu(buff,pos,len,(unsigned int)data);
 }
 /* crc-32 parity ---------------------------------------------------------------
 * compute crc-32 parity for novatel raw
@@ -868,7 +1039,7 @@ extern double str2num(const char *s, int i, int n)
     double value;
     char str[256],*p=str;
     
-    if (i<0||(int)strlen(s)<i||sizeof(str)-1<i) return 0.0;
+    if (i<0||(int)strlen(s)<i||(int)sizeof(str)-1<n) return 0.0;
     for (s+=i;*s&&--n>=0;s++) *p++=*s=='d'||*s=='D'?'E':*s; *p='\0';
     return sscanf(str,"%lf",&value)==1?value:0.0;
 }
@@ -884,7 +1055,7 @@ extern int str2time(const char *s, int i, int n, gtime_t *t)
     double ep[6];
     char str[256],*p=str;
     
-    if (i<0||(int)strlen(s)<i||sizeof(str)-1<i) return -1;
+    if (i<0||(int)strlen(s)<i||(int)sizeof(str)-1<i) return -1;
     for (s+=i;*s&&--n>=0;) *p++=*s++; *p='\0';
     if (sscanf(str,"%lf %lf %lf %lf %lf %lf",ep,ep+1,ep+2,ep+3,ep+4,ep+5)<6)
         return -1;
@@ -1069,7 +1240,7 @@ extern gtime_t gpst2utc(gtime_t t)
     gtime_t tu;
     int i;
     
-    for (i=0;i<sizeof(leaps)/sizeof(*leaps);i++) {
+    for (i=0;i<(int)sizeof(leaps)/(int)sizeof(*leaps);i++) {
         tu=timeadd(t,leaps[i][6]);
         if (timediff(tu,epoch2time(leaps[i]))>=0.0) return tu;
     }
@@ -1085,10 +1256,63 @@ extern gtime_t utc2gpst(gtime_t t)
 {
     int i;
     
-    for (i=0;i<sizeof(leaps)/sizeof(*leaps);i++) {
+    for (i=0;i<(int)sizeof(leaps)/(int)sizeof(*leaps);i++) {
         if (timediff(t,epoch2time(leaps[i]))>=0.0) return timeadd(t,-leaps[i][6]);
     }
     return t;
+}
+/* gpstime to bdt --------------------------------------------------------------
+* convert gpstime to bdt (beidou navigation satellite system time)
+* args   : gtime_t t        I   time expressed in gpstime
+* return : time expressed in bdt
+* notes  : ref [8] 3.3, 2006/1/1 00:00 BDT = 2006/1/1 00:00 UTC
+*          no leap seconds in BDT
+*          ignore slight time offset under 100 ns
+*-----------------------------------------------------------------------------*/
+extern gtime_t gpst2bdt(gtime_t t)
+{
+    return timeadd(t,-14.0);
+}
+/* bdt to gpstime --------------------------------------------------------------
+* convert bdt (beidou navigation satellite system time) to gpstime
+* args   : gtime_t t        I   time expressed in bdt
+* return : time expressed in gpstime
+* notes  : see gpst2bdt()
+*-----------------------------------------------------------------------------*/
+extern gtime_t bdt2gpst(gtime_t t)
+{
+    return timeadd(t,14.0);
+}
+/* time to day and sec -------------------------------------------------------*/
+static double time2sec(gtime_t time, gtime_t *day)
+{
+    double ep[6],sec;
+    time2epoch(time,ep);
+    sec=ep[3]*3600.0+ep[4]*60.0+ep[5];
+    ep[3]=ep[4]=ep[5]=0.0;
+    *day=epoch2time(ep);
+    return sec;
+}
+/* utc to gmst -----------------------------------------------------------------
+* convert utc to gmst (Greenwich mean sidereal time)
+* args   : gtime_t t        I   time expressed in utc
+*          double ut1_utc   I   UT1-UTC (s)
+* return : gmst (rad)
+*-----------------------------------------------------------------------------*/
+extern double utc2gmst(gtime_t t, double ut1_utc)
+{
+    const double ep2000[]={2000,1,1,12,0,0};
+    gtime_t tut,tut0;
+    double ut,t1,t2,t3,gmst0,gmst;
+    
+    tut=timeadd(t,ut1_utc);
+    ut=time2sec(tut,&tut0);
+    t1=timediff(tut0,epoch2time(ep2000))/86400.0/36525.0;
+    t2=t1*t1; t3=t2*t1;
+    gmst0=24110.54841+8640184.812866*t1+0.093104*t2-6.2E-6*t3;
+    gmst=gmst0+1.002737909350795*ut;
+    
+    return fmod(gmst,86400.0)*PI/43200.0; /* 0 <= gmst <= 2*PI */
 }
 /* time to string --------------------------------------------------------------
 * convert gtime_t struct to string
@@ -1309,6 +1533,243 @@ extern void covecef(const double *pos, const double *Q, double *P)
     xyz2enu(pos,E);
     matmul("TN",3,3,3,1.0,E,Q,0.0,EQ);
     matmul("NN",3,3,3,1.0,EQ,E,0.0,P);
+}
+/* coordinate rotation matrix ------------------------------------------------*/
+#define Rx(t,X) do { \
+    (X)[0]=1.0; (X)[1]=(X)[2]=(X)[3]=(X)[6]=0.0; \
+    (X)[4]=(X)[8]=cos(t); (X)[7]=sin(t); (X)[5]=-(X)[7]; \
+} while (0)
+
+#define Ry(t,X) do { \
+    (X)[4]=1.0; (X)[1]=(X)[3]=(X)[5]=(X)[7]=0.0; \
+    (X)[0]=(X)[8]=cos(t); (X)[2]=sin(t); (X)[6]=-(X)[2]; \
+} while (0)
+
+#define Rz(t,X) do { \
+    (X)[8]=1.0; (X)[2]=(X)[5]=(X)[6]=(X)[7]=0.0; \
+    (X)[0]=(X)[4]=cos(t); (X)[3]=sin(t); (X)[1]=-(X)[3]; \
+} while (0)
+
+/* astronomical arguments: f={l,l',F,D,OMG} (rad) ----------------------------*/
+static void ast_args(double t, double *f)
+{
+    static const double fc[][5]={ /* coefficients for iau 1980 nutation */
+        { 134.96340251, 1717915923.2178,  31.8792,  0.051635, -0.00024470},
+        { 357.52910918,  129596581.0481,  -0.5532,  0.000136, -0.00001149},
+        {  93.27209062, 1739527262.8478, -12.7512, -0.001037,  0.00000417},
+        { 297.85019547, 1602961601.2090,  -6.3706,  0.006593, -0.00003169},
+        { 125.04455501,   -6962890.2665,   7.4722,  0.007702  -0.00005939}
+    };
+    double tt[4];
+    int i,j;
+    
+    for (tt[0]=t,i=1;i<4;i++) tt[i]=tt[i-1]*t;
+    for (i=0;i<5;i++) {
+        f[i]=fc[i][0]*3600.0;
+        for (j=0;j<4;j++) f[i]+=fc[i][j+1]*tt[j];
+        f[i]=fmod(f[i]*AS2R,2.0*PI);
+    }
+}
+/* iau 1980 nutation ---------------------------------------------------------*/
+static void nut_iau1980(double t, const double *f, double *dpsi, double *deps)
+{
+    static const double nut[106][10]={
+        {   0,   0,   0,   0,   1, -6798.4, -171996, -174.2, 92025,   8.9},
+        {   0,   0,   2,  -2,   2,   182.6,  -13187,   -1.6,  5736,  -3.1},
+        {   0,   0,   2,   0,   2,    13.7,   -2274,   -0.2,   977,  -0.5},
+        {   0,   0,   0,   0,   2, -3399.2,    2062,    0.2,  -895,   0.5},
+        {   0,  -1,   0,   0,   0,  -365.3,   -1426,    3.4,    54,  -0.1},
+        {   1,   0,   0,   0,   0,    27.6,     712,    0.1,    -7,   0.0},
+        {   0,   1,   2,  -2,   2,   121.7,    -517,    1.2,   224,  -0.6},
+        {   0,   0,   2,   0,   1,    13.6,    -386,   -0.4,   200,   0.0},
+        {   1,   0,   2,   0,   2,     9.1,    -301,    0.0,   129,  -0.1},
+        {   0,  -1,   2,  -2,   2,   365.2,     217,   -0.5,   -95,   0.3},
+        {  -1,   0,   0,   2,   0,    31.8,     158,    0.0,    -1,   0.0},
+        {   0,   0,   2,  -2,   1,   177.8,     129,    0.1,   -70,   0.0},
+        {  -1,   0,   2,   0,   2,    27.1,     123,    0.0,   -53,   0.0},
+        {   1,   0,   0,   0,   1,    27.7,      63,    0.1,   -33,   0.0},
+        {   0,   0,   0,   2,   0,    14.8,      63,    0.0,    -2,   0.0},
+        {  -1,   0,   2,   2,   2,     9.6,     -59,    0.0,    26,   0.0},
+        {  -1,   0,   0,   0,   1,   -27.4,     -58,   -0.1,    32,   0.0},
+        {   1,   0,   2,   0,   1,     9.1,     -51,    0.0,    27,   0.0},
+        {  -2,   0,   0,   2,   0,  -205.9,     -48,    0.0,     1,   0.0},
+        {  -2,   0,   2,   0,   1,  1305.5,      46,    0.0,   -24,   0.0},
+        {   0,   0,   2,   2,   2,     7.1,     -38,    0.0,    16,   0.0},
+        {   2,   0,   2,   0,   2,     6.9,     -31,    0.0,    13,   0.0},
+        {   2,   0,   0,   0,   0,    13.8,      29,    0.0,    -1,   0.0},
+        {   1,   0,   2,  -2,   2,    23.9,      29,    0.0,   -12,   0.0},
+        {   0,   0,   2,   0,   0,    13.6,      26,    0.0,    -1,   0.0},
+        {   0,   0,   2,  -2,   0,   173.3,     -22,    0.0,     0,   0.0},
+        {  -1,   0,   2,   0,   1,    27.0,      21,    0.0,   -10,   0.0},
+        {   0,   2,   0,   0,   0,   182.6,      17,   -0.1,     0,   0.0},
+        {   0,   2,   2,  -2,   2,    91.3,     -16,    0.1,     7,   0.0},
+        {  -1,   0,   0,   2,   1,    32.0,      16,    0.0,    -8,   0.0},
+        {   0,   1,   0,   0,   1,   386.0,     -15,    0.0,     9,   0.0},
+        {   1,   0,   0,  -2,   1,   -31.7,     -13,    0.0,     7,   0.0},
+        {   0,  -1,   0,   0,   1,  -346.6,     -12,    0.0,     6,   0.0},
+        {   2,   0,  -2,   0,   0, -1095.2,      11,    0.0,     0,   0.0},
+        {  -1,   0,   2,   2,   1,     9.5,     -10,    0.0,     5,   0.0},
+        {   1,   0,   2,   2,   2,     5.6,      -8,    0.0,     3,   0.0},
+        {   0,  -1,   2,   0,   2,    14.2,      -7,    0.0,     3,   0.0},
+        {   0,   0,   2,   2,   1,     7.1,      -7,    0.0,     3,   0.0},
+        {   1,   1,   0,  -2,   0,   -34.8,      -7,    0.0,     0,   0.0},
+        {   0,   1,   2,   0,   2,    13.2,       7,    0.0,    -3,   0.0},
+        {  -2,   0,   0,   2,   1,  -199.8,      -6,    0.0,     3,   0.0},
+        {   0,   0,   0,   2,   1,    14.8,      -6,    0.0,     3,   0.0},
+        {   2,   0,   2,  -2,   2,    12.8,       6,    0.0,    -3,   0.0},
+        {   1,   0,   0,   2,   0,     9.6,       6,    0.0,     0,   0.0},
+        {   1,   0,   2,  -2,   1,    23.9,       6,    0.0,    -3,   0.0},
+        {   0,   0,   0,  -2,   1,   -14.7,      -5,    0.0,     3,   0.0},
+        {   0,  -1,   2,  -2,   1,   346.6,      -5,    0.0,     3,   0.0},
+        {   2,   0,   2,   0,   1,     6.9,      -5,    0.0,     3,   0.0},
+        {   1,  -1,   0,   0,   0,    29.8,       5,    0.0,     0,   0.0},
+        {   1,   0,   0,  -1,   0,   411.8,      -4,    0.0,     0,   0.0},
+        {   0,   0,   0,   1,   0,    29.5,      -4,    0.0,     0,   0.0},
+        {   0,   1,   0,  -2,   0,   -15.4,      -4,    0.0,     0,   0.0},
+        {   1,   0,  -2,   0,   0,   -26.9,       4,    0.0,     0,   0.0},
+        {   2,   0,   0,  -2,   1,   212.3,       4,    0.0,    -2,   0.0},
+        {   0,   1,   2,  -2,   1,   119.6,       4,    0.0,    -2,   0.0},
+        {   1,   1,   0,   0,   0,    25.6,      -3,    0.0,     0,   0.0},
+        {   1,  -1,   0,  -1,   0, -3232.9,      -3,    0.0,     0,   0.0},
+        {  -1,  -1,   2,   2,   2,     9.8,      -3,    0.0,     1,   0.0},
+        {   0,  -1,   2,   2,   2,     7.2,      -3,    0.0,     1,   0.0},
+        {   1,  -1,   2,   0,   2,     9.4,      -3,    0.0,     1,   0.0},
+        {   3,   0,   2,   0,   2,     5.5,      -3,    0.0,     1,   0.0},
+        {  -2,   0,   2,   0,   2,  1615.7,      -3,    0.0,     1,   0.0},
+        {   1,   0,   2,   0,   0,     9.1,       3,    0.0,     0,   0.0},
+        {  -1,   0,   2,   4,   2,     5.8,      -2,    0.0,     1,   0.0},
+        {   1,   0,   0,   0,   2,    27.8,      -2,    0.0,     1,   0.0},
+        {  -1,   0,   2,  -2,   1,   -32.6,      -2,    0.0,     1,   0.0},
+        {   0,  -2,   2,  -2,   1,  6786.3,      -2,    0.0,     1,   0.0},
+        {  -2,   0,   0,   0,   1,   -13.7,      -2,    0.0,     1,   0.0},
+        {   2,   0,   0,   0,   1,    13.8,       2,    0.0,    -1,   0.0},
+        {   3,   0,   0,   0,   0,     9.2,       2,    0.0,     0,   0.0},
+        {   1,   1,   2,   0,   2,     8.9,       2,    0.0,    -1,   0.0},
+        {   0,   0,   2,   1,   2,     9.3,       2,    0.0,    -1,   0.0},
+        {   1,   0,   0,   2,   1,     9.6,      -1,    0.0,     0,   0.0},
+        {   1,   0,   2,   2,   1,     5.6,      -1,    0.0,     1,   0.0},
+        {   1,   1,   0,  -2,   1,   -34.7,      -1,    0.0,     0,   0.0},
+        {   0,   1,   0,   2,   0,    14.2,      -1,    0.0,     0,   0.0},
+        {   0,   1,   2,  -2,   0,   117.5,      -1,    0.0,     0,   0.0},
+        {   0,   1,  -2,   2,   0,  -329.8,      -1,    0.0,     0,   0.0},
+        {   1,   0,  -2,   2,   0,    23.8,      -1,    0.0,     0,   0.0},
+        {   1,   0,  -2,  -2,   0,    -9.5,      -1,    0.0,     0,   0.0},
+        {   1,   0,   2,  -2,   0,    32.8,      -1,    0.0,     0,   0.0},
+        {   1,   0,   0,  -4,   0,   -10.1,      -1,    0.0,     0,   0.0},
+        {   2,   0,   0,  -4,   0,   -15.9,      -1,    0.0,     0,   0.0},
+        {   0,   0,   2,   4,   2,     4.8,      -1,    0.0,     0,   0.0},
+        {   0,   0,   2,  -1,   2,    25.4,      -1,    0.0,     0,   0.0},
+        {  -2,   0,   2,   4,   2,     7.3,      -1,    0.0,     1,   0.0},
+        {   2,   0,   2,   2,   2,     4.7,      -1,    0.0,     0,   0.0},
+        {   0,  -1,   2,   0,   1,    14.2,      -1,    0.0,     0,   0.0},
+        {   0,   0,  -2,   0,   1,   -13.6,      -1,    0.0,     0,   0.0},
+        {   0,   0,   4,  -2,   2,    12.7,       1,    0.0,     0,   0.0},
+        {   0,   1,   0,   0,   2,   409.2,       1,    0.0,     0,   0.0},
+        {   1,   1,   2,  -2,   2,    22.5,       1,    0.0,    -1,   0.0},
+        {   3,   0,   2,  -2,   2,     8.7,       1,    0.0,     0,   0.0},
+        {  -2,   0,   2,   2,   2,    14.6,       1,    0.0,    -1,   0.0},
+        {  -1,   0,   0,   0,   2,   -27.3,       1,    0.0,    -1,   0.0},
+        {   0,   0,  -2,   2,   1,  -169.0,       1,    0.0,     0,   0.0},
+        {   0,   1,   2,   0,   1,    13.1,       1,    0.0,     0,   0.0},
+        {  -1,   0,   4,   0,   2,     9.1,       1,    0.0,     0,   0.0},
+        {   2,   1,   0,  -2,   0,   131.7,       1,    0.0,     0,   0.0},
+        {   2,   0,   0,   2,   0,     7.1,       1,    0.0,     0,   0.0},
+        {   2,   0,   2,  -2,   1,    12.8,       1,    0.0,    -1,   0.0},
+        {   2,   0,  -2,   0,   1,  -943.2,       1,    0.0,     0,   0.0},
+        {   1,  -1,   0,  -2,   0,   -29.3,       1,    0.0,     0,   0.0},
+        {  -1,   0,   0,   1,   1,  -388.3,       1,    0.0,     0,   0.0},
+        {  -1,  -1,   0,   2,   1,    35.0,       1,    0.0,     0,   0.0},
+        {   0,   1,   0,   1,   0,    27.3,       1,    0.0,     0,   0.0}
+    };
+    double ang;
+    int i,j;
+    
+    *dpsi=*deps=0.0;
+    
+    for (i=0;i<106;i++) {
+        ang=0.0;
+        for (j=0;j<5;j++) ang+=nut[i][j]*f[j];
+        *dpsi+=(nut[i][6]+nut[i][7]*t)*sin(ang);
+        *deps+=(nut[i][8]+nut[i][9]*t)*cos(ang);
+    }
+    *dpsi*=1E-4*AS2R; /* 0.1 mas -> rad */
+    *deps*=1E-4*AS2R;
+}
+/* eci to ecef transformation matrix -------------------------------------------
+* compute eci to ecef transformation matrix
+* args   : gtime_t tutc     I   time in utc
+*          erp_t *erp       I   earth rotation parameters (NULL: not used)
+*          double *U        O   eci to ecef transformation matrix (3 x 3)
+*          double *gmst     IO  greenwich mean sidereal time (rad)
+*                               (NULL: no output)
+* return : none
+* note   : see ref [3] chap 5
+*          not thread-safe
+*-----------------------------------------------------------------------------*/
+extern void eci2ecef(gtime_t tutc, const erp_t *erp, double *U, double *gmst)
+{
+    const double ep2000[]={2000,1,1,12,0,0};
+    static gtime_t tutc_;
+    static double U_[9],gmst_;
+    gtime_t tgps;
+    erp_t erp_={0};
+    double eps,ze,th,z,t,t2,t3,dpsi,deps,gast,f[5];
+    double R1[9],R2[9],R3[9],R[9],W[9],N[9],P[9],NP[9];
+    int i;
+    
+    trace(3,"eci2ecef: tutc=%s\n",time_str(tutc,3));
+    
+    if (fabs(timediff(tutc,tutc_))<0.01) { /* read cache */
+        for (i=0;i<9;i++) U[i]=U_[i];
+        if (gmst) *gmst=gmst_; 
+        return;
+    }
+    tutc_=tutc;
+    if (erp) erp_=*erp;
+    
+    /* terrestrial time */
+    tgps=utc2gpst(tutc_);
+    t=(timediff(tgps,epoch2time(ep2000))+19.0+32.184)/86400.0/36525.0;
+    t2=t*t; t3=t2*t;
+    
+    /* astronomical arguments */
+    ast_args(t,f);
+    
+    /* iau 1976 precession */
+    ze=(2306.2181*t+0.30188*t2+0.017998*t3)*AS2R;
+    th=(2004.3109*t-0.42665*t2-0.041833*t3)*AS2R;
+    z =(2306.2181*t+1.09468*t2+0.018203*t3)*AS2R;
+    eps=(84381.448-46.8150*t-0.00059*t2+0.001813*t3)*AS2R;
+    Rz(-z,R1); Ry(th,R2); Rz(-ze,R3);
+    matmul("NN",3,3,3,1.0,R1,R2,0.0,R);
+    matmul("NN",3,3,3,1.0,R, R3,0.0,P); /* P=Rz(-z)*Ry(th)*Rz(-ze) */
+    
+    /* iau 1980 nutation */
+    nut_iau1980(t,f,&dpsi,&deps);
+    Rx(-eps-deps-erp_.ddeps,R1); Rz(-dpsi-erp_.ddpsi,R2); Rx(eps,R3);
+    matmul("NN",3,3,3,1.0,R1,R2,0.0,R);
+    matmul("NN",3,3,3,1.0,R ,R3,0.0,N); /* N=Rx(-eps)*Rz(-dspi)*Rx(eps) */
+    
+    /* greenwich aparent sidereal time (rad) */
+    gmst_=utc2gmst(tutc_,erp_.ut1_utc);
+    gast=gmst_+dpsi*cos(eps);
+    gast+=(0.00264*sin(f[4])+0.000063*sin(2.0*f[4]))*AS2R;
+    
+    /* eci to ecef transformation matrix */
+    Ry(-erp_.xp,R1); Rx(-erp_.yp,R2); Rz(gast,R3);
+    matmul("NN",3,3,3,1.0,R1,R2,0.0,W );
+    matmul("NN",3,3,3,1.0,W ,R3,0.0,R ); /* W=Ry(-xp)*Rx(-yp) */
+    matmul("NN",3,3,3,1.0,N ,P ,0.0,NP);
+    matmul("NN",3,3,3,1.0,R ,NP,0.0,U_); /* U=W*Rz(gast)*N*P */
+    
+    for (i=0;i<9;i++) U[i]=U_[i];
+    if (gmst) *gmst=gmst_; 
+    
+    trace(5,"gmst=%.12f gast=%.12f\n",gmst_,gast);
+    trace(5,"P=\n"); tracemat(5,P,3,3,15,12);
+    trace(5,"N=\n"); tracemat(5,N,3,3,15,12);
+    trace(5,"W=\n"); tracemat(5,W,3,3,15,12);
+    trace(5,"U=\n"); tracemat(5,U,3,3,15,12);
 }
 /* decode antenna parameter field --------------------------------------------*/
 static int decodef(char *p, int n, double *v)
@@ -1573,6 +2034,33 @@ extern void readpos(const char *file, const char *rcv, double *pos)
     }
     pos[0]=pos[1]=pos[2]=0.0;
 }
+/* read blq ocean tide loading parameters --------------------------------------
+* read blq ocean tide loading parameters
+* args   : char   *file       I   ocean tide loading parameter file (blq)
+*          char   *sta        I   station name
+*          double *otide      O   ocean tide loading parameters
+* return : status (1:ok,0:file open error)
+*-----------------------------------------------------------------------------*/
+extern int readblq(const char *file, const char *sta, double *otide)
+{
+#if 0
+    FILE *fp;
+    char buff[256];
+    int i,stat=0;
+    
+    trace(3,"readblq: file=%s sta=%s\n",file,sta);
+    
+    if (!(fp=fopen(file,"r"))) return 0;
+    
+    while (fgets(buff,sizeof(buff),fp)) {
+        
+    }
+    fclose(fp);
+    return stat;
+#else
+    return 0;
+#endif
+}
 /* compare ephemeris ---------------------------------------------------------*/
 static int cmpeph(const void *p1, const void *p2)
 {
@@ -1718,8 +2206,8 @@ static int cmpobs(const void *p1, const void *p2)
     if (q1->rcv!=q2->rcv) return (int)q1->rcv-(int)q2->rcv;
     return (int)q1->sat-(int)q2->sat;
 }
-/* sort observation data -------------------------------------------------------
-* sort observation data by time, rcv, sat
+/* sort and unique observation data --------------------------------------------
+* sort and unique observation data by time, rcv, sat
 * args   : obs_t *obs    IO     observation data
 * return : number of epochs
 *-----------------------------------------------------------------------------*/
@@ -1732,6 +2220,16 @@ extern int sortobs(obs_t *obs)
     if (obs->n<=0) return 0;
     
     qsort(obs->data,obs->n,sizeof(obsd_t),cmpobs);
+    
+    /* delete duplicated data */
+    for (i=j=0;i<obs->n;i++) {
+        if (obs->data[i].sat!=obs->data[j].sat||
+            obs->data[i].rcv!=obs->data[j].rcv||
+            timediff(obs->data[i].time,obs->data[j].time)!=0.0) {
+            obs->data[++j]=obs->data[i];
+        }
+    }
+    obs->n=j+1;
     
     for (i=n=0;i<obs->n;i=j,n++) {
         for (j=i+1;j<obs->n;j++) {
@@ -2055,7 +2553,7 @@ extern int execcmd(const char *cmd)
     DWORD stat;
     char cmds[1024];
     
-    trace(0,"execcmd: cmd=%s\n",cmd);
+    trace(3,"execcmd: cmd=%s\n",cmd);
     
     si.cb=sizeof(si);
     sprintf(cmds,"cmd /c %s",cmd);
@@ -2298,23 +2796,36 @@ extern int reppaths(const char *path, char *rpath[], int nmax, gtime_t ts,
 /* satellite carrier wave length -----------------------------------------------
 * get satellite carrier wave lengths
 * args   : int    sat       I   satellite number
-*          int    frq       I   frequency index (0:L1,1:L2,2:L5,...)
+*          int    frq       I   frequency index (0:L1,1:L2,2:L5/3,...)
 *          nav_t  *nav      I   navigation messages
 * return : carrier wave length (m) (0.0: error)
 *-----------------------------------------------------------------------------*/
 extern double satwavelen(int sat, int frq, const nav_t *nav)
 {
-    const double freq[]={FREQ1_GLO,FREQ2_GLO},dfrq[]={DFRQ1_GLO,DFRQ2_GLO};
-    int i;
+    const double freq_glo[]={FREQ1_GLO,FREQ2_GLO,FREQ3_GLO};
+    const double dfrq_glo[]={DFRQ1_GLO,DFRQ2_GLO,0.0};
+    int i,sys=satsys(sat,NULL);
     
-    if (satsys(sat,NULL)!=SYS_GLO) {
-        if (0<=frq&&frq<NFREQ) return lam[frq];
-    }
-    else if (0<=frq&&frq<2) {
-        for (i=0;i<nav->ng;i++) {
-            if (nav->geph[i].sat!=sat) continue;
-            return CLIGHT/(freq[frq]+dfrq[frq]*nav->geph[i].frq);
+    if (sys==SYS_GLO) {
+        if (0<=frq&&frq<=2) {
+            for (i=0;i<nav->ng;i++) {
+                if (nav->geph[i].sat!=sat) continue;
+                return CLIGHT/(freq_glo[frq]+dfrq_glo[frq]*nav->geph[i].frq);
+            }
         }
+    }
+    else if (sys==SYS_CMP) {
+        if      (frq==1) return CLIGHT/FREQ2_CMP; /* B1 */
+        else if (frq==3) return CLIGHT/FREQ6_CMP; /* B3 */
+        else if (frq==4) return CLIGHT/FREQ7_CMP; /* B2 */
+    }
+    else {
+        if      (frq==0) return CLIGHT/FREQ1; /* L1/E1 */
+        else if (frq==1) return CLIGHT/FREQ2; /* L2 */
+        else if (frq==2) return CLIGHT/FREQ5; /* L5/E5a */
+        else if (frq==3) return CLIGHT/FREQ6; /* L6/LEX */
+        else if (frq==4) return CLIGHT/FREQ7; /* E5b */
+        else if (frq==5) return CLIGHT/FREQ8; /* E5a+b */
     }
     return 0.0;
 }
@@ -2586,29 +3097,30 @@ extern double tropmapf(gtime_t time, const double pos[], const double azel[],
     
     return mapf(el,ah[0],ah[1],ah[2])+dm;
 }
-/* antenna model ---------------------------------------------------------------
-* compute antenna offset by antenna phase center parameters
-* args   : pcv_t *pcv       I   antenna phase center parameters
-*         (double *azel)    I   azimuth/elevation for receiver {az,el} (rad)
-*         (double nadir)    I   nadir angle for satellite (rad)
-*          double *dant     O   range offsets for each frequency (m)
-* return : none
-* notes  : current version does not support azimuth dependent terms
-*-----------------------------------------------------------------------------*/
+/* interpolate antenna phase center variation --------------------------------*/
 static double interpvar(double ang, const double *var)
 {
     double a=ang/5.0; /* ang=0-90 */
     int i=(int)a;
     if (i<0) return var[0]; else if (i>=18) return var[18];
-    return var[i]*(a-i)+var[i+1]*(1.0-a+i);
+    return var[i]*(1.0-a+i)+var[i+1]*(a-i);
 }
+/* receiver antenna model ------------------------------------------------------
+* compute antenna offset by antenna phase center parameters
+* args   : pcv_t *pcv       I   antenna phase center parameters
+*          double *azel     I   azimuth/elevation for receiver {az,el} (rad)
+*          int     opt      I   option (0:only offset,1:offset+pcv)
+*          double *dant     O   range offsets for each frequency (m)
+* return : none
+* notes  : current version does not support azimuth dependent terms
+*-----------------------------------------------------------------------------*/
 extern void antmodel(const pcv_t *pcv, const double *del, const double *azel,
-                     double *dant)
+                     int opt, double *dant)
 {
     double e[3],off[3],cosel=cos(azel[1]);
     int i,j;
     
-    trace(4,"antmodel: azel=%6.1f %4.1f\n",azel[0]*R2D,azel[1]*R2D);
+    trace(4,"antmodel: azel=%6.1f %4.1f opt=%d\n",azel[0]*R2D,azel[1]*R2D,opt);
     
     e[0]=sin(azel[0])*cosel;
     e[1]=cos(azel[0])*cosel;
@@ -2616,10 +3128,18 @@ extern void antmodel(const pcv_t *pcv, const double *del, const double *azel,
     
     for (i=0;i<NFREQ;i++) {
         for (j=0;j<3;j++) off[j]=pcv->off[i][j]+del[j];
-        dant[i]=-dot(off,e,3)+interpvar(90.0-azel[1]*R2D,pcv->var[i]);
+        
+        dant[i]=-dot(off,e,3)+(opt?interpvar(90.0-azel[1]*R2D,pcv->var[i]):0.0);
     }
     trace(5,"antmodel: dant=%6.3f %6.3f\n",dant[0],dant[1]);
 }
+/* satellite antenna model ------------------------------------------------------
+* compute satellite antenna phase center parameters
+* args   : pcv_t *pcv       I   antenna phase center parameters
+*          double nadir     I   nadir angle for satellite (rad)
+*          double *dant     O   range offsets for each frequency (m)
+* return : none
+*-----------------------------------------------------------------------------*/
 extern void antmodel_s(const pcv_t *pcv, double nadir, double *dant)
 {
     int i;
@@ -2630,6 +3150,140 @@ extern void antmodel_s(const pcv_t *pcv, double nadir, double *dant)
         dant[i]=interpvar(nadir*R2D/5.0,pcv->var[i]);
     }
     trace(5,"antmodel_s: dant=%6.3f %6.3f\n",dant[0],dant[1]);
+}
+/* sun and moon position in eci (ref [4] 5.1.1, 5.2.1) -----------------------*/
+static void sunmoonpos_eci(gtime_t tut, double *rsun, double *rmoon)
+{
+    const double ep2000[]={2000,1,1,12,0,0};
+    double t,f[5],eps,Ms,ls,rs,lm,pm,rm,sine,cose,sinp,cosp,sinl,cosl;
+    
+    trace(3,"sunmoonpos_eci: tut=%s\n",time_str(tut,3));
+    
+    t=timediff(tut,epoch2time(ep2000))/86400.0/36525.0;
+    
+    /* astronomical arguments */
+    ast_args(t,f);
+    
+    /* obliquity of the ecliptic */
+    eps=23.439291-0.0130042*t;
+    sine=sin(eps*D2R); cose=cos(eps*D2R);
+    
+    /* sun position in eci */
+    if (rsun) {
+        Ms=357.5277233+35999.05034*t;
+        ls=280.460+36000.770*t+1.914666471*sin(Ms*D2R)+0.019994643*sin(2.0*Ms*D2R);
+        rs=AU*(1.000140612-0.016708617*cos(Ms*D2R)-0.000139589*cos(2.0*Ms*D2R));
+        sinl=sin(ls*D2R); cosl=cos(ls*D2R);
+        rsun[0]=rs*cosl;
+        rsun[1]=rs*cose*sinl;
+        rsun[2]=rs*sine*sinl;
+        
+        trace(5,"rsun =%.3f %.3f %.3f\n",rsun[0],rsun[1],rsun[2]);
+    }
+    /* moon position in eci */
+    if (rmoon) {
+        lm=218.32+481267.883*t+6.29*sin(f[0])-1.27*sin(f[0]-2.0*f[3])+
+           0.66*sin(2.0*f[3])+0.21*sin(2.0*f[0])-0.19*sin(f[1])-0.11*sin(2.0*f[2]);
+        pm=5.13*sin(f[2])+0.28*sin(f[0]+f[2])-0.28*sin(f[2]-f[0])-
+           0.17*sin(f[2]-2.0*f[3]);
+        rm=RE_WGS84/sin((0.9508+0.0518*cos(f[0])+0.0095*cos(f[0]-2.0*f[3])+
+                   0.0078*cos(2.0*f[3])+0.0028*cos(2.0*f[0]))*D2R);
+        sinl=sin(lm*D2R); cosl=cos(lm*D2R);
+        sinp=sin(pm*D2R); cosp=cos(pm*D2R);
+        rmoon[0]=rm*cosp*cosl;
+        rmoon[1]=rm*(cose*cosp*sinl-sine*sinp);
+        rmoon[2]=rm*(sine*cosp*sinl+cose*sinp);
+        
+        trace(5,"rmoon=%.3f %.3f %.3f\n",rmoon[0],rmoon[1],rmoon[2]);
+    }
+}
+/* sun and moon position -------------------------------------------------------
+* get sun and moon position in ecef
+* args   : gtime_t tut      I   time in ut1
+*          erp_t  *erp      I   earth rotation parameters (NULL: not used)
+*          double *rsun     IO  sun position in ecef  (m) (NULL: not output)
+*          double *rmoon    IO  moon position in ecef (m) (NULL: not output)
+*          double *gmst     O   gmst (rad)
+* return : none
+*-----------------------------------------------------------------------------*/
+extern void sunmoonpos(gtime_t tutc, const erp_t *erp, double *rsun,
+                       double *rmoon, double *gmst)
+{
+    gtime_t tut;
+    double rs[3],rm[3],U[9],gmst_;
+    
+    trace(3,"sunmoonpos: tutc=%s\n",time_str(tutc,3));
+    
+    tut=erp?timeadd(tutc,erp->ut1_utc):tutc; /* utc -> ut1 */
+    
+    /* sun and moon position in eci */
+    sunmoonpos_eci(tut,rsun?rs:NULL,rmoon?rm:NULL);
+    
+    /* eci to ecef transformation matrix */
+    eci2ecef(tutc,erp,U,&gmst_);
+    
+    /* sun and moon postion in ecef */
+    if (rsun ) matmul("NN",3,1,3,1.0,U,rs,0.0,rsun );
+    if (rmoon) matmul("NN",3,1,3,1.0,U,rm,0.0,rmoon);
+    if (gmst ) *gmst=gmst_;
+}
+/* phase windup correction -----------------------------------------------------
+* phase windup correction (ref [7] 5.1.2)
+* args   : gtime_t time     I   time (GPST)
+*          double  *rs      I   satellite position (ecef) {x,y,z} (m)
+*          double  *rr      I   receiver  position (ecef) {x,y,z} (m)
+*          double  *phw     IO  phase windup correction (cycle)
+* return : none
+* notes  : the previous value of phase windup correction should be set to *phw
+*          as an input. the function assumes windup correction has no jump more
+*          than 0.5 cycle.
+*-----------------------------------------------------------------------------*/
+extern void windupcorr(gtime_t time, const double *rs, const double *rr,
+                       double *phw)
+{
+    double ek[3],exs[3],eys[3],ezs[3],ess[3],exr[3],eyr[3],eks[3],ekr[3],E[9];
+    double dr[3],ds[3],drs[3],r[3],pos[3],rsun[3],cosp,ph;
+    int i;
+    
+    trace(4,"windupcorr: time=%s\n",time_str(time,0));
+    
+    /* sun position in ecef */
+    sunmoonpos(gpst2utc(time),NULL,rsun,NULL,NULL);
+    
+    /* unit vector satellite to receiver */
+    for (i=0;i<3;i++) r[i]=rr[i]-rs[i];
+    if (!normv3(r,ek)) return;
+    
+    /* unit vectors of satellite antenna */
+    for (i=0;i<3;i++) r[i]=-rs[i];
+    if (!normv3(r,ezs)) return;
+    for (i=0;i<3;i++) r[i]=rsun[i]-rs[i];
+    if (!normv3(r,ess)) return;
+    cross3(ezs,ess,r);
+    if (!normv3(r,eys)) return;
+    cross3(eys,ezs,exs);
+    
+    /* unit vectors of receiver antenna */
+    ecef2pos(rr,pos);
+    xyz2enu(pos,E);
+    exr[0]= E[1]; exr[1]= E[4]; exr[2]= E[7]; /* x = north */
+    eyr[0]=-E[0]; eyr[1]=-E[3]; eyr[2]=-E[6]; /* y = west  */
+    
+    /* phase windup effect */
+    cross3(ek,eys,eks);
+    cross3(ek,eyr,ekr);
+    for (i=0;i<3;i++) {
+        ds[i]=exs[i]-ek[i]*dot(ek,exs,3)-eks[i];
+        dr[i]=exr[i]-ek[i]*dot(ek,exr,3)+ekr[i];
+    }
+    cosp=dot(ds,dr,3)/norm(ds,3)/norm(dr,3);
+    if      (cosp<-1.0) cosp=-1.0;
+    else if (cosp> 1.0) cosp= 1.0;
+    ph=acos(cosp)/2.0/PI;
+    cross3(ds,dr,drs);
+    if (dot(ek,drs,3)<0.0) ph=-ph;
+    
+    *phw=ph+floor(*phw-ph+0.5); /* in cycle */
 }
 /* carrier smoothing -----------------------------------------------------------
 * carrier smoothing by Hatch filter
@@ -2662,7 +3316,7 @@ extern void csmooth(obs_t *obs, int ns)
     }
 }
 /* uncompress file -------------------------------------------------------------
-* uncompress (uncompress/unzip/uncompact hatanaka-compression) file
+* uncompress (uncompress/unzip/uncompact hatanaka-compression/tar) file
 * args   : char   *file     I   input file
 *          char   *uncfile  O   uncompressed file
 * return : status (-1:error,0:not compressed file,1:uncompress completed)
@@ -2672,7 +3326,10 @@ extern void csmooth(obs_t *obs, int ns)
 extern int uncompress(const char *file, char *uncfile)
 {
     int stat=0;
-    char *p,cmd[1024]="",tmpfile[1024]="";
+    char *p,cmd[2048]="",tmpfile[1024]="";
+#ifdef WIN32
+    char buff[1024],*fname,*dir="";
+#endif
     
     trace(3,"uncompress: file=%s\n",file);
     
@@ -2694,8 +3351,30 @@ extern int uncompress(const char *file, char *uncfile)
         strcpy(tmpfile,uncfile);
         stat=1;
     }
+    /* extract tar file */
+    if ((p=strrchr(tmpfile,'.'))&&!strcmp(p,".tar")) {
+        
+        strcpy(uncfile,tmpfile); uncfile[p-tmpfile]='\0';
+#ifdef WIN32
+        strcpy(buff,tmpfile);
+        fname=buff;
+        if ((p=strrchr(buff,'\\'))) {
+            *p='\0'; dir=fname; fname=p+1;
+        }
+        sprintf(cmd,"set PATH=%%CD%%;%%PATH%% & cd /D \"%s\" & tar -xf \"%s\"",
+                dir,fname);
+#else
+        sprintf(cmd,"tar -xf \"%s\"",tmpfile);
+#endif
+        if (execcmd(cmd)) {
+            if (stat) remove(tmpfile);
+            return -1;
+        }
+        if (stat) remove(tmpfile);
+        stat=1;
+    }
     /* extract hatanaka-compressed file by cnx2rnx */
-    if ((p=strrchr(tmpfile,'.'))&&strlen(p)>3&&(*(p+3)=='d'||*(p+3)=='D')) {
+    else if ((p=strrchr(tmpfile,'.'))&&strlen(p)>3&&(*(p+3)=='d'||*(p+3)=='D')) {
         
         strcpy(uncfile,tmpfile);
         uncfile[p-tmpfile+3]=*(p+3)=='D'?'O':'o';
@@ -2724,7 +3403,7 @@ extern void settime(gtime_t time) {}
 extern int lexupdatecorr(const lexmsg_t *msg, nav_t *nav, gtime_t *tof) {return 0;}
 extern int lexreadmsg(const char *file, int sel, lex_t *lex) {return 0;}
 extern void lexoutmsg(FILE *fp, const lexmsg_t *msg) {}
-extern int lexconvbin(int type, const char *infile, const char *outfile) {return 0;}
+extern int lexconvbin(int type, int format, const char *infile, const char *outfile) {return 0;}
 extern int lexeph2pos(gtime_t time, int sat, const nav_t *nav, double *rs,
                       double *dts, double *var) {return 0;}
 extern int lexioncorr(gtime_t time, const nav_t *nav, const double *pos,
@@ -2734,10 +3413,3 @@ extern int input_lexrf(raw_t *raw, FILE *fp) {return 0;}
 extern int gen_lexr(const char *msg, unsigned char *buff) {return 0;}
 #endif /* EXTLEX */
 
-#ifndef EXTION
-extern void read_nvtec(const char *file, nav_t *nav) {}
-extern void read_ngtec(const char *file, nav_t *nav) {}
-extern void read_nvtec_bias(const char *file, nav_t *nav) {}
-extern int ion_ngtec(gtime_t time, const nav_t *nav, int sat, const double *pos,
-                     const double *azel, double *delay, double *var) {return 0;}
-#endif /* EXTION */

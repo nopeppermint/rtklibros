@@ -1,20 +1,25 @@
 //---------------------------------------------------------------------------
 // strsvr : stream server
 //
-//          Copyright (C) 2007-2011 by T.TAKASU, All rights reserved.
+//          Copyright (C) 2007-2012 by T.TAKASU, All rights reserved.
 //
-// options : strsvr [-t title][-i file]
+// options : strsvr [-t title][-i file][-auto][-tray]
 //
 //           -t title   window title
 //           -i file    ini file path
+//           -auto      auto start
+//           -tray      start as task tray icon
 //
 // version : $Revision:$ $Date:$
 // history : 2008/04/03  1.1 rtklib 2.3.1
 //           2010/07/18  1.2 rtklib 2.4.0
 //           2011/06/10  1.3 rtklib 2.4.1
+//           2012/12/15  1.4 rtklib 2.4.2
+//                       add stream conversion function
+//                       add option -auto and -tray
 //---------------------------------------------------------------------------
 #include <vcl.h>
-#include <vcl\inifiles.hpp>
+#include <inifiles.hpp>
 #include <mmsystem.h>
 #include <stdio.h>
 #pragma hdrstop
@@ -42,6 +47,8 @@ TMainForm *MainForm;
 #define TRACEFILE   "strsvr.trace"  // debug trace file
 #define CLORANGE    (TColor)0x00AAFF
 
+#define MIN(x,y)    ((x)<(y)?(x):(y))
+
 static strsvr_t strsvr;
 
 // number to comma-separated number -----------------------------------------
@@ -60,7 +67,12 @@ static void num2cnum(int num, char *str)
 __fastcall TMainForm::TMainForm(TComponent* Owner)
     : TForm(Owner)
 {
-    IniFile="strsvr.ini";
+    char file[1024]="strsvr.exe",*p;
+    
+    ::GetModuleFileName(NULL,file,sizeof(file));
+    if (!(p=strrchr(file,'.'))) p=file+strlen(file);
+    strcpy(p,".ini");
+    IniFile=file;
     
     DoubleBuffered=true;
 }
@@ -68,7 +80,7 @@ __fastcall TMainForm::TMainForm(TComponent* Owner)
 void __fastcall TMainForm::FormCreate(TObject *Sender)
 {
     AnsiString s;
-    int argc=0;
+    int argc=0,autorun=0,tasktray=0;
     char *p,*argv[32],buff[1024];
     
     strsvrinit(&strsvr,3);
@@ -95,14 +107,23 @@ void __fastcall TMainForm::FormCreate(TObject *Sender)
     LoadOpt();
     
     for (int i=1;i<argc;i++) {
-        if (!strcmp(argv[i],"-t")&&i+1<argc) Caption=argv[++i];
+        if      (!strcmp(argv[i],"-t")&&i+1<argc) Caption=argv[++i];
+        else if (!strcmp(argv[i],"-auto")) autorun=1;
+        else if (!strcmp(argv[i],"-tray")) tasktray=1;
     }
     SetTrayIcon(0);
+    
+    if (tasktray) {
+        Application->ShowMainForm=false;
+        TrayIcon->Visible=true;
+    }
+    if (autorun) {
+        SvrStart();
+    }
 }
 // callback on form show ----------------------------------------------------
 void __fastcall TMainForm::FormShow(TObject *Sender)
 {
-    ;
 }
 // callback on form close ---------------------------------------------------
 void __fastcall TMainForm::FormClose(TObject *Sender, TCloseAction &Action)
@@ -128,7 +149,8 @@ void __fastcall TMainForm::BtnStopClick(TObject *Sender)
 void __fastcall TMainForm::BtnOptClick(TObject *Sender)
 {
     for (int i=0;i<6;i++) SvrOptDialog->SvrOpt[i]=SvrOpt[i];
-    for (int i=0;i<3;i++) SvrOptDialog->NmeaPos[i]=NmeaPos[i];
+    for (int i=0;i<3;i++) SvrOptDialog->AntPos[i]=AntPos[i];
+    for (int i=0;i<3;i++) SvrOptDialog->AntOff[i]=AntOff[i];
     SvrOptDialog->TraceLevel=TraceLevel;
     SvrOptDialog->NmeaReq=NmeaReq;
     SvrOptDialog->FileSwapMargin=FileSwapMargin;
@@ -136,11 +158,16 @@ void __fastcall TMainForm::BtnOptClick(TObject *Sender)
     SvrOptDialog->ExeDirectory=ExeDirectory;
     SvrOptDialog->LocalDirectory=LocalDirectory;
     SvrOptDialog->ProxyAddress=ProxyAddress;
+    SvrOptDialog->StaId=StaId;
+    SvrOptDialog->StaSel=StaSel;
+    SvrOptDialog->AntType=AntType;
+    SvrOptDialog->RcvType=RcvType;
     
     if (SvrOptDialog->ShowModal()!=mrOk) return;
     
     for (int i=0;i<6;i++) SvrOpt[i]=SvrOptDialog->SvrOpt[i];
-    for (int i=0;i<3;i++) NmeaPos[i]=SvrOptDialog->NmeaPos[i];
+    for (int i=0;i<3;i++) AntPos[i]=SvrOptDialog->AntPos[i];
+    for (int i=0;i<3;i++) AntOff[i]=SvrOptDialog->AntOff[i];
     TraceLevel=SvrOptDialog->TraceLevel;
     NmeaReq=SvrOptDialog->NmeaReq;
     FileSwapMargin=SvrOptDialog->FileSwapMargin;
@@ -148,6 +175,10 @@ void __fastcall TMainForm::BtnOptClick(TObject *Sender)
     ExeDirectory=SvrOptDialog->ExeDirectory;
     LocalDirectory=SvrOptDialog->LocalDirectory;
     ProxyAddress=SvrOptDialog->ProxyAddress;
+    StaId=SvrOptDialog->StaId;
+    StaSel=SvrOptDialog->StaSel;
+    AntType=SvrOptDialog->AntType;
+    RcvType=SvrOptDialog->RcvType;
 }
 // callback on button-input-opt ---------------------------------------------
 void __fastcall TMainForm::BtnInputClick(TObject *Sender)
@@ -165,15 +196,31 @@ void __fastcall TMainForm::BtnInputClick(TObject *Sender)
 // callback on button-input-cmd ---------------------------------------------
 void __fastcall TMainForm::BtnCmdClick(TObject *Sender)
 {
-    CmdOptDialog->Cmds[0]=Cmds[0];
-    CmdOptDialog->Cmds[1]=Cmds[1];
-    CmdOptDialog->CmdEna[0]=CmdEna[0];
-    CmdOptDialog->CmdEna[1]=CmdEna[1];
+    if (Input->ItemIndex==0) {
+        CmdOptDialog->Cmds[0]=Cmds[0];
+        CmdOptDialog->Cmds[1]=Cmds[1];
+        CmdOptDialog->CmdEna[0]=CmdEna[0];
+        CmdOptDialog->CmdEna[1]=CmdEna[1];
+    }
+    else {
+        CmdOptDialog->Cmds[0]=CmdsTcp[0];
+        CmdOptDialog->Cmds[1]=CmdsTcp[1];
+        CmdOptDialog->CmdEna[0]=CmdEnaTcp[0];
+        CmdOptDialog->CmdEna[1]=CmdEnaTcp[1];
+    }
     if (CmdOptDialog->ShowModal()!=mrOk) return;
-    Cmds[0]  =CmdOptDialog->Cmds[0];
-    Cmds[1]  =CmdOptDialog->Cmds[1];
-    CmdEna[0]=CmdOptDialog->CmdEna[0];
-    CmdEna[1]=CmdOptDialog->CmdEna[1];
+    if (Input->ItemIndex==0) {
+        Cmds[0]  =CmdOptDialog->Cmds[0];
+        Cmds[1]  =CmdOptDialog->Cmds[1];
+        CmdEna[0]=CmdOptDialog->CmdEna[0];
+        CmdEna[1]=CmdOptDialog->CmdEna[1];
+    }
+    else {
+        CmdsTcp[0]  =CmdOptDialog->Cmds[0];
+        CmdsTcp[1]  =CmdOptDialog->Cmds[1];
+        CmdEnaTcp[0]=CmdOptDialog->CmdEna[0];
+        CmdEnaTcp[1]=CmdOptDialog->CmdEna[1];
+    }
 }
 // callback on button-output1-opt -------------------------------------------
 void __fastcall TMainForm::BtnOutput1Click(TObject *Sender)
@@ -211,20 +258,47 @@ void __fastcall TMainForm::BtnOutput3Click(TObject *Sender)
 // callback on button-output1-conv ------------------------------------------
 void __fastcall TMainForm::BtnConv1Click(TObject *Sender)
 {
-    // yet implemented
+    ConvDialog->ConvEna=ConvEna[0];
+    ConvDialog->ConvInp=ConvInp[0];
+    ConvDialog->ConvOut=ConvOut[0];
+    ConvDialog->ConvMsg=ConvMsg[0];
+    ConvDialog->ConvOpt=ConvOpt[0];
     if (ConvDialog->ShowModal()!=mrOk) return;
+    ConvEna[0]=ConvDialog->ConvEna;
+    ConvInp[0]=ConvDialog->ConvInp;
+    ConvOut[0]=ConvDialog->ConvOut;
+    ConvMsg[0]=ConvDialog->ConvMsg;
+    ConvOpt[0]=ConvDialog->ConvOpt;
 }
 // callback on button-output2-conv ------------------------------------------
 void __fastcall TMainForm::BtnConv2Click(TObject *Sender)
 {
-    // yet implemented
+    ConvDialog->ConvEna=ConvEna[1];
+    ConvDialog->ConvInp=ConvInp[1];
+    ConvDialog->ConvOut=ConvOut[1];
+    ConvDialog->ConvMsg=ConvMsg[1];
+    ConvDialog->ConvOpt=ConvOpt[1];
     if (ConvDialog->ShowModal()!=mrOk) return;
+    ConvEna[1]=ConvDialog->ConvEna;
+    ConvInp[1]=ConvDialog->ConvInp;
+    ConvOut[1]=ConvDialog->ConvOut;
+    ConvMsg[1]=ConvDialog->ConvMsg;
+    ConvOpt[1]=ConvDialog->ConvOpt;
 }
 // callback on button-output3-conv ------------------------------------------
 void __fastcall TMainForm::BtnConv3Click(TObject *Sender)
 {
-    // yet implemented
+    ConvDialog->ConvEna=ConvEna[2];
+    ConvDialog->ConvInp=ConvInp[2];
+    ConvDialog->ConvOut=ConvOut[2];
+    ConvDialog->ConvMsg=ConvMsg[2];
+    ConvDialog->ConvOpt=ConvOpt[2];
     if (ConvDialog->ShowModal()!=mrOk) return;
+    ConvEna[2]=ConvDialog->ConvEna;
+    ConvInp[2]=ConvDialog->ConvInp;
+    ConvOut[2]=ConvDialog->ConvOut;
+    ConvMsg[2]=ConvDialog->ConvMsg;
+    ConvOpt[2]=ConvDialog->ConvOpt;
 }
 // callback on buttn-about --------------------------------------------------
 void __fastcall TMainForm::BtnAboutClick(TObject *Sender)
@@ -249,7 +323,6 @@ void __fastcall TMainForm::TrayIconDblClick(TObject *Sender)
 void __fastcall TMainForm::TrayIconMouseDown(TObject *Sender,
       TMouseButton Button, TShiftState Shift, int X, int Y)
 {
-    if (Shift.Contains(ssRight)) PopupMenu->Popup(X,Y);
 }
 // callback on menu-expand --------------------------------------------------
 void __fastcall TMainForm::MenuExpandClick(TObject *Sender)
@@ -277,6 +350,21 @@ void __fastcall TMainForm::BtnStrMonClick(TObject *Sender)
 {
     Console->Caption="Input Monitor";
     Console->Show();
+}
+// callback on output1 enable -----------------------------------------------
+void __fastcall TMainForm::EnaOut1Click(TObject *Sender)
+{
+    UpdateEnable();
+}
+// callback on output2 enable -----------------------------------------------
+void __fastcall TMainForm::EnaOut2Click(TObject *Sender)
+{
+    UpdateEnable();
+}
+// callback on output3 enable -----------------------------------------------
+void __fastcall TMainForm::EnaOut3Click(TObject *Sender)
+{
+    UpdateEnable();
 }
 // callback on input type change --------------------------------------------
 void __fastcall TMainForm::InputChange(TObject *Sender)
@@ -319,7 +407,7 @@ void __fastcall TMainForm::Timer1Timer(TObject *Sender)
         e1[i]->Caption=s1;
         e2[i]->Caption=s2;
     }
-    Progress->Position=!stat[0]?0:(int)(fmod(byte[0]/500.0,101.0)+0.5);
+    Progress->Position=!stat[0]?0:MIN(100,(int)(fmod(byte[0]/500.0,110.0)));
     
     time2str(time,s1,0);
     Time->Caption=s.sprintf("%s GPST",s1);
@@ -346,32 +434,41 @@ void __fastcall TMainForm::Timer1Timer(TObject *Sender)
 // start stream server ------------------------------------------------------
 void __fastcall TMainForm::SvrStart(void)
 {
+    strconv_t *conv[3]={0};
+    static char str[4][1024];
     int itype[]={
         STR_SERIAL,STR_TCPCLI,STR_TCPSVR,STR_NTRIPCLI,STR_FILE,STR_FTP,STR_HTTP
     };
     int otype[]={
         STR_NONE,STR_SERIAL,STR_TCPCLI,STR_TCPSVR,STR_NTRIPSVR,STR_FILE
     };
-    int ip[]={0,1,1,1,2,3,3},strs[4]={0},opt[7]={0};
-    char *paths[4],*cmd=NULL,filepath[1024],*p;
+    int ip[]={0,1,1,1,2,3,3},strs[4]={0},opt[7]={0},n;
+    char *paths[4],*cmd=NULL,filepath[1024],buff[1024];
+    char *ant[3]={"","",""},*rcv[3]={"","",""},*p;
     FILE *fp;
     
     if (TraceLevel>0) {
         traceopen(TRACEFILE);
         tracelevel(TraceLevel);
     }
+    for (int i=0;i<4;i++) paths[i]=str[i];
+    
     strs[0]=itype[Input->ItemIndex];
     strs[1]=otype[Output1->ItemIndex];
     strs[2]=otype[Output2->ItemIndex];
     strs[3]=otype[Output3->ItemIndex];
     
-    paths[0]=Paths[0][ip[Input->ItemIndex]].c_str();
-    paths[1]=!Output1->ItemIndex?"":Paths[1][ip[Output1->ItemIndex-1]].c_str();
-    paths[2]=!Output2->ItemIndex?"":Paths[2][ip[Output2->ItemIndex-1]].c_str();
-    paths[3]=!Output3->ItemIndex?"":Paths[3][ip[Output3->ItemIndex-1]].c_str();
+    strcpy(paths[0],Paths[0][ip[Input->ItemIndex]].c_str());
+    strcpy(paths[1],!Output1->ItemIndex?"":Paths[1][ip[Output1->ItemIndex-1]].c_str());
+    strcpy(paths[2],!Output2->ItemIndex?"":Paths[2][ip[Output2->ItemIndex-1]].c_str());
+    strcpy(paths[3],!Output3->ItemIndex?"":Paths[3][ip[Output3->ItemIndex-1]].c_str());
     
-    if (CmdEna[0]) cmd=MainForm->Cmds[0].c_str();
-    
+    if (Input->ItemIndex==0) {
+        if (CmdEna[0]) cmd=MainForm->Cmds[0].c_str();
+    }
+    else if (Input->ItemIndex==1||Input->ItemIndex==3) {
+        if (CmdEnaTcp[0]) cmd=MainForm->CmdsTcp[0].c_str();
+    }
     for (int i=0;i<5;i++) {
         opt[i]=SvrOpt[i];
     }
@@ -391,7 +488,25 @@ void __fastcall TMainForm::SvrStart(void)
     strsetdir(LocalDirectory.c_str());
     strsetproxy(ProxyAddress.c_str());
     
-    if (!strsvrstart(&strsvr,opt,strs,paths,cmd,NmeaPos)) return;
+    for (int i=0;i<3;i++) {
+        if (!ConvEna[i]) continue;
+        if (!(conv[i]=strconvnew(ConvInp[i],ConvOut[i],ConvMsg[i].c_str(),
+                                 StaId,StaSel,ConvOpt[i].c_str()))) continue;
+        strcpy(buff,AntType.c_str());
+        for (p=strtok(buff,","),n=0;p&&n<3;p=strtok(NULL,",")) ant[n++]=p;
+        strcpy(conv[i]->out.sta.antdes,ant[0]);
+        strcpy(conv[i]->out.sta.antsno,ant[1]);
+        conv[i]->out.sta.antsetup=atoi(ant[2]);
+        strcpy(buff,RcvType.c_str());
+        for (p=strtok(buff,","),n=0;p&&n<3;p=strtok(NULL,",")) rcv[n++]=p;
+        strcpy(conv[i]->out.sta.rectype,rcv[0]);
+        strcpy(conv[i]->out.sta.recver ,rcv[1]);
+        strcpy(conv[i]->out.sta.recsno ,rcv[2]);
+        matcpy(conv[i]->out.sta.pos,AntPos,3,1);
+        matcpy(conv[i]->out.sta.del,AntOff,3,1);
+    }
+    // stream server start
+    if (!strsvrstart(&strsvr,opt,strs,paths,conv,cmd,AntPos)) return;
     
     StartTime=utc2gpst(timeget());
     Panel1    ->Enabled=false;
@@ -399,10 +514,6 @@ void __fastcall TMainForm::SvrStart(void)
     BtnStop   ->Enabled=true;
     BtnOpt    ->Enabled=false;
     BtnExit   ->Enabled=false;
-    BtnInput  ->Enabled=false;
-    BtnOutput1->Enabled=false;
-    BtnOutput2->Enabled=false;
-    BtnOutput3->Enabled=false;
     MenuStart ->Enabled=false;
     MenuStop  ->Enabled=true;
     MenuExit  ->Enabled=false;
@@ -413,8 +524,12 @@ void __fastcall TMainForm::SvrStop(void)
 {
     char *cmd=NULL;
     
-    if (CmdEna[1]) cmd=Cmds[1].c_str();
-    
+    if (Input->ItemIndex==0) {
+        if (CmdEna[1]) cmd=Cmds[1].c_str();
+    }
+    else if (Input->ItemIndex==1||Input->ItemIndex==3) {
+        if (CmdEnaTcp[1]) cmd=CmdsTcp[1].c_str();
+    }
     strsvrstop(&strsvr,cmd);
     
     EndTime=utc2gpst(timeget());
@@ -423,15 +538,14 @@ void __fastcall TMainForm::SvrStop(void)
     BtnStop   ->Enabled=false;
     BtnOpt    ->Enabled=true;
     BtnExit   ->Enabled=true;
-    BtnInput  ->Enabled=true;
-    BtnOutput1->Enabled=true;
-    BtnOutput2->Enabled=true;
-    BtnOutput3->Enabled=true;
     MenuStart ->Enabled=true;
     MenuStop  ->Enabled=false;
     MenuExit  ->Enabled=true;
     SetTrayIcon(0);
     
+    for (int i=0;i<3;i++) {
+        if (ConvEna[i]) strconvfree(strsvr.conv[i]);
+    }
     if (TraceLevel>0) traceclose();
 }
 // callback on interval timer for stream monitor ----------------------------
@@ -494,22 +608,22 @@ void __fastcall TMainForm::FtpOpt(int index, int opt)
 // undate enable of widgets -------------------------------------------------
 void __fastcall TMainForm::UpdateEnable(void)
 {
-    BtnCmd->Enabled=Input->ItemIndex==0;
-    BtnOutput1->Enabled=Output1->ItemIndex>0;
-    BtnOutput2->Enabled=Output2->ItemIndex>0;
-    BtnOutput3->Enabled=Output3->ItemIndex>0;
-    //BtnConv1->Enabled=Output1->ItemIndex>0;
-    //BtnConv2->Enabled=Output2->ItemIndex>0;
-    //BtnConv3->Enabled=Output3->ItemIndex>0;
-    Output1Byte->Font->Color=Output1->ItemIndex>0?clBlack:clGray;
-    Output2Byte->Font->Color=Output2->ItemIndex>0?clBlack:clGray;
-    Output3Byte->Font->Color=Output3->ItemIndex>0?clBlack:clGray;
-    Output1Bps->Font->Color=Output1->ItemIndex>0?clBlack:clGray;
-    Output2Bps->Font->Color=Output2->ItemIndex>0?clBlack:clGray;
-    Output3Bps->Font->Color=Output3->ItemIndex>0?clBlack:clGray;
+    BtnCmd->Enabled=Input->ItemIndex<2||Input->ItemIndex==3;
     LabelOutput1->Font->Color=Output1->ItemIndex>0?clBlack:clGray;
     LabelOutput2->Font->Color=Output2->ItemIndex>0?clBlack:clGray;
     LabelOutput3->Font->Color=Output3->ItemIndex>0?clBlack:clGray;
+    Output1Byte ->Font->Color=Output1->ItemIndex>0?clBlack:clGray;
+    Output2Byte ->Font->Color=Output2->ItemIndex>0?clBlack:clGray;
+    Output3Byte ->Font->Color=Output3->ItemIndex>0?clBlack:clGray;
+    Output1Bps  ->Font->Color=Output1->ItemIndex>0?clBlack:clGray;
+    Output2Bps  ->Font->Color=Output2->ItemIndex>0?clBlack:clGray;
+    Output3Bps  ->Font->Color=Output3->ItemIndex>0?clBlack:clGray;
+    BtnOutput1->Enabled=Output1->ItemIndex>0;
+    BtnOutput2->Enabled=Output2->ItemIndex>0;
+    BtnOutput3->Enabled=Output3->ItemIndex>0;
+    BtnConv1  ->Enabled=BtnOutput1->Enabled;
+    BtnConv2  ->Enabled=BtnOutput2->Enabled;
+    BtnConv3  ->Enabled=BtnOutput3->Enabled;
 }
 // set task-tray icon -------------------------------------------------------
 void __fastcall TMainForm::SetTrayIcon(int index)
@@ -533,15 +647,28 @@ void __fastcall TMainForm::LoadOpt(void)
     TraceLevel        =ini->ReadInteger("set","tracelevel",  0);
     NmeaReq           =ini->ReadInteger("set","nmeareq",     0);
     FileSwapMargin    =ini->ReadInteger("set","fswapmargin",30);
+    StaId             =ini->ReadInteger("set","staid"       ,0);
+    StaSel            =ini->ReadInteger("set","stasel"      ,0);
+    AntType           =ini->ReadString ("set","anttype",    "");
+    RcvType           =ini->ReadString ("set","rcvtype",    "");
     
     for (int i=0;i<6;i++) {
         SvrOpt[i]=ini->ReadInteger("set",s.sprintf("svropt_%d",i),optdef[i]);
     }
     for (int i=0;i<3;i++) {
-        NmeaPos[i]=ini->ReadFloat("set",s.sprintf("nmeapos_%d",i),0.0);
+        AntPos[i]=ini->ReadFloat("set",s.sprintf("antpos_%d",i),0.0);
+        AntOff[i]=ini->ReadFloat("set",s.sprintf("antoff_%d",i),0.0);
+    }
+    for (int i=0;i<3;i++) {
+        ConvEna[i]=ini->ReadInteger("conv",s.sprintf("ena_%d",i), 0);
+        ConvInp[i]=ini->ReadInteger("conv",s.sprintf("inp_%d",i), 0);
+        ConvOut[i]=ini->ReadInteger("conv",s.sprintf("out_%d",i), 0);
+        ConvMsg[i]=ini->ReadString ("conv",s.sprintf("msg_%d",i),"");
+        ConvOpt[i]=ini->ReadString ("conv",s.sprintf("opt_%d",i),"");
     }
     for (int i=0;i<2;i++) {
-        CmdEna[i]=ini->ReadInteger("set",s.sprintf("cmdena_%d",i),1);
+        CmdEna   [i]=ini->ReadInteger("serial",s.sprintf("cmdena_%d",i),1);
+        CmdEnaTcp[i]=ini->ReadInteger("tcpip" ,s.sprintf("cmdena_%d",i),1);
     }
     for (int i=0;i<4;i++) for (int j=0;j<4;j++) {
         Paths[i][j]=ini->ReadString("path",s.sprintf("path_%d_%d",i,j),"");
@@ -549,6 +676,12 @@ void __fastcall TMainForm::LoadOpt(void)
     for (int i=0;i<2;i++) {
         Cmds[i]=ini->ReadString("serial",s.sprintf("cmd_%d",i),"");
         for (char *p=Cmds[i].c_str();*p;p++) {
+            if ((p=strstr(p,"@@"))) strncpy(p,"\r\n",2); else break;
+        }
+    }
+    for (int i=0;i<2;i++) {
+        CmdsTcp[i]=ini->ReadString("tcpip",s.sprintf("cmd_%d",i),"");
+        for (char *p=CmdsTcp[i].c_str();*p;p++) {
             if ((p=strstr(p,"@@"))) strncpy(p,"\r\n",2); else break;
         }
     }
@@ -579,15 +712,28 @@ void __fastcall TMainForm::SaveOpt(void)
     ini->WriteInteger("set","tracelevel", TraceLevel);
     ini->WriteInteger("set","nmeareq",    NmeaReq);
     ini->WriteInteger("set","fswapmargin",FileSwapMargin);
+    ini->WriteInteger("set","staid",      StaId);
+    ini->WriteInteger("set","stasel",     StaSel);
+    ini->WriteString ("set","anttype",    AntType);
+    ini->WriteString ("set","rcvtype",    RcvType);
     
     for (int i=0;i<6;i++) {
         ini->WriteInteger("set",s.sprintf("svropt_%d",i),SvrOpt[i]);
     }
     for (int i=0;i<3;i++) {
-        ini->WriteFloat("set",s.sprintf("nmeapos_%d",i),NmeaPos[i]);
+        ini->WriteFloat("set",s.sprintf("antpos_%d",i),AntPos[i]);
+        ini->WriteFloat("set",s.sprintf("antoff_%d",i),AntOff[i]);
+    }
+    for (int i=0;i<3;i++) {
+        ini->WriteInteger("conv",s.sprintf("ena_%d",i),ConvEna[i]);
+        ini->WriteInteger("conv",s.sprintf("inp_%d",i),ConvInp[i]);
+        ini->WriteInteger("conv",s.sprintf("out_%d",i),ConvOut[i]);
+        ini->WriteString ("conv",s.sprintf("msg_%d",i),ConvMsg[i]);
+        ini->WriteString ("conv",s.sprintf("opt_%d",i),ConvOpt[i]);
     }
     for (int i=0;i<2;i++) {
-        ini->WriteInteger("set",s.sprintf("cmdena_%d",i),CmdEna[i]);
+        ini->WriteInteger("serial",s.sprintf("cmdena_%d",i),CmdEna   [i]);
+        ini->WriteInteger("tcpip" ,s.sprintf("cmdena_%d",i),CmdEnaTcp[i]);
     }
     for (int i=0;i<4;i++) for (int j=0;j<4;j++) {
         ini->WriteString("path",s.sprintf("path_%d_%d",i,j),Paths[i][j]);
@@ -597,6 +743,12 @@ void __fastcall TMainForm::SaveOpt(void)
             if ((p=strstr(p,"\r\n"))) strncpy(p,"@@",2); else break;
         }
         ini->WriteString("serial",s.sprintf("cmd_%d",i),Cmds[i]);
+    }
+    for (int i=0;i<2;i++) {
+        for (char *p=CmdsTcp[i].c_str();*p;p++) {
+            if ((p=strstr(p,"\r\n"))) strncpy(p,"@@",2); else break;
+        }
+        ini->WriteString("tcpip",s.sprintf("cmd_%d",i),CmdsTcp[i]);
     }
     for (int i=0;i<MAXHIST;i++) {
         ini->WriteString("tcpopt",s.sprintf("history%d",i),TcpOptDialog->History[i]);
@@ -610,4 +762,5 @@ void __fastcall TMainForm::SaveOpt(void)
     ini->WriteString("dirs"  ,"proxyaddress"  ,ProxyAddress  );
     delete ini;
 }
-// --------------------------------------------------------------------------
+//---------------------------------------------------------------------------
+

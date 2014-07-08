@@ -139,7 +139,6 @@ object InputStrDialog: TInputStrDialog
     Width = 107
     Height = 21
     Style = csDropDownList
-    ItemHeight = 13
     ItemIndex = 0
     TabOrder = 3
     Text = 'Serial'
@@ -155,7 +154,7 @@ object InputStrDialog: TInputStrDialog
     Left = 236
     Top = 18
     Width = 19
-    Height = 19
+    Height = 20
     Caption = '...'
     Font.Charset = DEFAULT_CHARSET
     Font.Color = clWindowText
@@ -172,7 +171,6 @@ object InputStrDialog: TInputStrDialog
     Width = 107
     Height = 21
     Style = csDropDownList
-    ItemHeight = 13
     ItemIndex = 0
     TabOrder = 9
     Text = 'Serial'
@@ -188,7 +186,7 @@ object InputStrDialog: TInputStrDialog
     Left = 236
     Top = 40
     Width = 19
-    Height = 19
+    Height = 20
     Caption = '...'
     Font.Charset = DEFAULT_CHARSET
     Font.Color = clWindowText
@@ -206,7 +204,6 @@ object InputStrDialog: TInputStrDialog
     Height = 21
     Style = csDropDownList
     DropDownCount = 16
-    ItemHeight = 13
     TabOrder = 6
   end
   object Format2: TComboBox
@@ -216,14 +213,13 @@ object InputStrDialog: TInputStrDialog
     Height = 21
     Style = csDropDownList
     DropDownCount = 16
-    ItemHeight = 13
     TabOrder = 12
   end
   object BtnCmd1: TButton
     Left = 256
     Top = 18
     Width = 19
-    Height = 19
+    Height = 20
     Caption = '...'
     Font.Charset = DEFAULT_CHARSET
     Font.Color = clWindowText
@@ -238,7 +234,7 @@ object InputStrDialog: TInputStrDialog
     Left = 256
     Top = 40
     Width = 19
-    Height = 19
+    Height = 20
     Caption = '...'
     Font.Charset = DEFAULT_CHARSET
     Font.Color = clWindowText
@@ -273,9 +269,9 @@ object InputStrDialog: TInputStrDialog
   end
   object BtnFile1: TButton
     Left = 374
-    Top = 140
+    Top = 139
     Width = 17
-    Height = 19
+    Height = 20
     Caption = '...'
     Font.Charset = DEFAULT_CHARSET
     Font.Color = clWindowText
@@ -288,9 +284,9 @@ object InputStrDialog: TInputStrDialog
   end
   object BtnFile2: TButton
     Left = 374
-    Top = 162
+    Top = 161
     Width = 17
-    Height = 19
+    Height = 20
     Caption = '...'
     Font.Charset = DEFAULT_CHARSET
     Font.Color = clWindowText
@@ -307,7 +303,6 @@ object InputStrDialog: TInputStrDialog
     Width = 117
     Height = 21
     Style = csDropDownList
-    ItemHeight = 13
     ItemIndex = 0
     TabOrder = 20
     Text = 'OFF'
@@ -323,7 +318,6 @@ object InputStrDialog: TInputStrDialog
     Width = 49
     Height = 21
     DropDownCount = 20
-    ItemHeight = 13
     TabOrder = 29
     Text = 'x1'
     Items.Strings = (
@@ -356,7 +350,7 @@ object InputStrDialog: TInputStrDialog
     Left = 374
     Top = 101
     Width = 17
-    Height = 19
+    Height = 20
     Caption = '...'
     Font.Charset = DEFAULT_CHARSET
     Font.Color = clWindowText
@@ -376,9 +370,9 @@ object InputStrDialog: TInputStrDialog
   end
   object BtnFile3: TButton
     Left = 374
-    Top = 184
+    Top = 183
     Width = 17
-    Height = 19
+    Height = 20
     Caption = '...'
     Font.Charset = DEFAULT_CHARSET
     Font.Color = clWindowText
@@ -404,7 +398,6 @@ object InputStrDialog: TInputStrDialog
     Width = 107
     Height = 21
     Style = csDropDownList
-    ItemHeight = 13
     ItemIndex = 0
     TabOrder = 15
     Text = 'Serial'
@@ -422,7 +415,7 @@ object InputStrDialog: TInputStrDialog
     Left = 236
     Top = 62
     Width = 19
-    Height = 19
+    Height = 20
     Caption = '...'
     Font.Charset = DEFAULT_CHARSET
     Font.Color = clWindowText
@@ -440,14 +433,13 @@ object InputStrDialog: TInputStrDialog
     Height = 21
     Style = csDropDownList
     DropDownCount = 16
-    ItemHeight = 13
     TabOrder = 18
   end
   object BtnCmd3: TButton
     Left = 256
     Top = 62
     Width = 19
-    Height = 19
+    Height = 20
     Caption = '...'
     Font.Charset = DEFAULT_CHARSET
     Font.Color = clWindowText
@@ -462,7 +454,7 @@ object InputStrDialog: TInputStrDialog
     Left = 374
     Top = 18
     Width = 17
-    Height = 19
+    Height = 20
     Caption = '...'
     Font.Charset = DEFAULT_CHARSET
     Font.Color = clWindowText
@@ -477,7 +469,7 @@ object InputStrDialog: TInputStrDialog
     Left = 374
     Top = 40
     Width = 17
-    Height = 19
+    Height = 20
     Caption = '...'
     Font.Charset = DEFAULT_CHARSET
     Font.Color = clWindowText
@@ -492,7 +484,7 @@ object InputStrDialog: TInputStrDialog
     Left = 374
     Top = 62
     Width = 17
-    Height = 19
+    Height = 20
     Caption = '...'
     Font.Charset = DEFAULT_CHARSET
     Font.Color = clWindowText
@@ -508,7 +500,6 @@ object InputStrDialog: TInputStrDialog
       'All File (*.*)|*.*|Log File (*.log)|*.log|RTCM 2 File (*.rtcm2)|' +
       '*.rtcm2|RTCM 3 File (*.rtcm3)|*.rtcm3'
     Options = [ofHideReadOnly, ofNoChangeDir, ofEnableSizing]
-    OptionsEx = [ofExNoPlacesBar]
     Title = 'Input File Path'
     Left = 178
     Top = 202

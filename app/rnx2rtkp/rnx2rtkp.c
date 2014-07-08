@@ -82,7 +82,7 @@ extern void settime(gtime_t time) {}
 static void printhelp(void)
 {
     int i;
-    for (i=0;i<sizeof(help)/sizeof(*help);i++) fprintf(stderr,"%s\n",help[i]);
+    for (i=0;i<(int)(sizeof(help)/sizeof(*help));i++) fprintf(stderr,"%s\n",help[i]);
     exit(0);
 }
 /* rnx2rtkp main -------------------------------------------------------------*/
@@ -128,7 +128,7 @@ int main(int argc, char **argv)
         else if (!strcmp(argv[i],"-p")&&i+1<argc) prcopt.mode=atoi(argv[++i]);
         else if (!strcmp(argv[i],"-f")&&i+1<argc) prcopt.nf=atoi(argv[++i]);
         else if (!strcmp(argv[i],"-m")&&i+1<argc) prcopt.elmin=atof(argv[++i])*D2R;
-        else if (!strcmp(argv[i],"-v")&&i+1<argc) prcopt.thresar=atof(argv[++i]);
+        else if (!strcmp(argv[i],"-v")&&i+1<argc) prcopt.thresar[0]=atof(argv[++i]);
         else if (!strcmp(argv[i],"-s")&&i+1<argc) strcpy(solopt.sep,argv[++i]);
         else if (!strcmp(argv[i],"-d")&&i+1<argc) solopt.timeu=atoi(argv[++i]);
         else if (!strcmp(argv[i],"-b")) prcopt.soltype=1;

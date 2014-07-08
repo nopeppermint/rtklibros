@@ -205,10 +205,10 @@ object MainForm: TMainForm
         OnClick = TimeStartClick
       end
       object TimeH1UD: TUpDown
-        Left = 140
-        Top = 20
+        Left = 141
+        Top = 19
         Width = 17
-        Height = 20
+        Height = 23
         Min = -32000
         Max = 32000
         TabOrder = 4
@@ -224,17 +224,17 @@ object MainForm: TMainForm
         Text = '2099/12/31'
       end
       object TimeY2UD: TUpDown
-        Left = 226
-        Top = 20
+        Left = 229
+        Top = 19
         Width = 17
-        Height = 20
+        Height = 23
         Min = -32000
         Max = 32000
         TabOrder = 7
         OnChangingEx = TimeY2UDChangingEx
       end
       object TimeH2: TEdit
-        Left = 244
+        Left = 246
         Top = 20
         Width = 55
         Height = 21
@@ -242,10 +242,10 @@ object MainForm: TMainForm
         Text = '23:59:59'
       end
       object TimeH2UD: TUpDown
-        Left = 300
-        Top = 20
+        Left = 301
+        Top = 19
         Width = 17
-        Height = 20
+        Height = 23
         Min = -32000
         Max = 32000
         TabOrder = 9
@@ -279,10 +279,10 @@ object MainForm: TMainForm
         Text = '24'
       end
       object TimeY1UD: TUpDown
-        Left = 68
-        Top = 20
+        Left = 69
+        Top = 19
         Width = 17
-        Height = 20
+        Height = 23
         Min = -32000
         Max = 32000
         TabOrder = 2
@@ -295,7 +295,6 @@ object MainForm: TMainForm
         Width = 47
         Height = 21
         DropDownCount = 20
-        ItemHeight = 13
         TabOrder = 11
         Text = '0'
         Items.Strings = (
@@ -387,7 +386,7 @@ object MainForm: TMainForm
       end
       object BtnInputView3: TSpeedButton
         Left = 384
-        Top = 74
+        Top = 75
         Width = 17
         Height = 17
         Flat = True
@@ -485,7 +484,7 @@ object MainForm: TMainForm
       end
       object BtnInputView4: TSpeedButton
         Left = 402
-        Top = 74
+        Top = 75
         Width = 17
         Height = 17
         Flat = True
@@ -513,7 +512,7 @@ object MainForm: TMainForm
       end
       object BtnInputView5: TSpeedButton
         Left = 420
-        Top = 74
+        Top = 75
         Width = 17
         Height = 17
         Flat = True
@@ -551,10 +550,9 @@ object MainForm: TMainForm
       object InputFile1: TComboBox
         Left = 4
         Top = 18
-        Width = 417
+        Width = 416
         Height = 21
         DropDownCount = 20
-        ItemHeight = 0
         TabOrder = 0
         OnChange = InputFile1Change
       end
@@ -591,10 +589,9 @@ object MainForm: TMainForm
       object InputFile3: TComboBox
         Left = 4
         Top = 92
-        Width = 417
+        Width = 416
         Height = 21
         DropDownCount = 20
-        ItemHeight = 0
         TabOrder = 4
       end
       object BtnInputFile2: TButton
@@ -615,19 +612,17 @@ object MainForm: TMainForm
       object InputFile2: TComboBox
         Left = 4
         Top = 54
-        Width = 417
+        Width = 416
         Height = 21
         DropDownCount = 20
-        ItemHeight = 0
         TabOrder = 2
       end
       object InputFile4: TComboBox
         Left = 4
         Top = 114
-        Width = 417
+        Width = 416
         Height = 21
         DropDownCount = 20
-        ItemHeight = 0
         TabOrder = 6
       end
       object BtnInputFile4: TButton
@@ -648,10 +643,9 @@ object MainForm: TMainForm
       object InputFile5: TComboBox
         Left = 4
         Top = 136
-        Width = 417
+        Width = 416
         Height = 21
         DropDownCount = 20
-        ItemHeight = 0
         TabOrder = 8
       end
       object BtnInputFile5: TButton
@@ -703,10 +697,9 @@ object MainForm: TMainForm
       object OutputFile: TComboBox
         Left = 4
         Top = 26
-        Width = 417
+        Width = 416
         Height = 21
         DropDownCount = 20
-        ItemHeight = 0
         TabOrder = 3
       end
       object BtnOutputFile: TButton
@@ -727,7 +720,7 @@ object MainForm: TMainForm
       object OutDir: TEdit
         Left = 82
         Top = 4
-        Width = 339
+        Width = 338
         Height = 21
         Enabled = False
         TabOrder = 1
@@ -760,27 +753,27 @@ object MainForm: TMainForm
     BevelOuter = bvNone
     TabOrder = 1
     object BtnPlot: TButton
-      Left = 2
+      Left = 1
       Top = 2
-      Width = 72
+      Width = 73
       Height = 23
       Caption = '&Plot...'
       TabOrder = 0
       OnClick = BtnPlotClick
     end
     object BtnView: TButton
-      Left = 76
+      Left = 75
       Top = 2
-      Width = 72
+      Width = 73
       Height = 23
       Caption = '&View...'
       TabOrder = 1
       OnClick = BtnViewClick
     end
     object BtnToKML: TButton
-      Left = 150
+      Left = 149
       Top = 2
-      Width = 72
+      Width = 73
       Height = 23
       Caption = 'To &KML...'
       TabOrder = 2
@@ -789,7 +782,7 @@ object MainForm: TMainForm
     object BtnOption: TButton
       Left = 223
       Top = 2
-      Width = 72
+      Width = 73
       Height = 23
       Caption = '&Options...'
       TabOrder = 3
@@ -798,7 +791,7 @@ object MainForm: TMainForm
     object BtnExec: TButton
       Left = 297
       Top = 2
-      Width = 72
+      Width = 73
       Height = 23
       Caption = 'E&xecute'
       TabOrder = 4
@@ -822,14 +815,12 @@ object MainForm: TMainForm
       '*.clk*|SBAS Log (*.sbs,*.ems)|*.sbs;*.ems|IONEX (*.*i,*.ionex)|*' +
       '.*i;*.ionex'
     Options = [ofHideReadOnly, ofNoChangeDir, ofAllowMultiSelect, ofEnableSizing]
-    OptionsEx = [ofExNoPlacesBar]
     Left = 354
     Top = 254
   end
   object SaveDialog: TSaveDialog
     Filter = 'All Files (*.*)|*.*|Position Files (*.pos)|*.pos'
     Options = [ofHideReadOnly, ofNoChangeDir, ofEnableSizing]
-    OptionsEx = [ofExNoPlacesBar]
     Left = 326
     Top = 254
   end

@@ -2,10 +2,10 @@
 
 BINDIR = /usr/local/bin
 SRC    = ../../../src
-CFLAGS = -Wall -O3 -ansi -pedantic -I$(SRC) -DTRACE
+CFLAGS = -Wall -ggdb -O3 -ansi -pedantic -I$(SRC) -DTRACE
 LDLIBS  = -lm
 
-pos2kml    : pos2kml.o convkml.o solution.o geoid.o rtkcmn.o
+pos2kml    : pos2kml.o convkml.o solution.o geoid.o rtkcmn.o preceph.o
 
 pos2kml.o  : ../pos2kml.c
 	$(CC) -c $(CFLAGS) ../pos2kml.c
@@ -17,12 +17,15 @@ geoid.o    : $(SRC)/geoid.c
 	$(CC) -c $(CFLAGS) $(SRC)/geoid.c
 rtkcmn.o   : $(SRC)/rtkcmn.c
 	$(CC) -c $(CFLAGS) $(SRC)/rtkcmn.c
+preceph.o  : $(SRC)/preceph.c
+	$(CC) -c $(CFLAGS) $(SRC)/preceph.c
 
 pos2kml.o  : $(SRC)/rtklib.h
 convkml.o  : $(SRC)/rtklib.h
 solution.o : $(SRC)/rtklib.h
 geoid.o    : $(SRC)/rtklib.h
 rtkcmn.o   : $(SRC)/rtklib.h
+preceph.o  : $(SRC)/rtklib.h
 
 install:
 	cp pos2kml $(BINDIR)

@@ -1,9 +1,10 @@
 /*------------------------------------------------------------------------------
 * stream.c : stream input/output functions
 *
-*          Copyright (C) 2008-2011 by T.TAKASU, All rights reserved.
+*          Copyright (C) 2008-2012 by T.TAKASU, All rights reserved.
 *
 * options : -DWIN32    use WIN32 API
+*           -DSVR_REUSEADDR reuse tcp server address
 *
 * references :
 *     [1] RTCM Recommendaed Standards for Networked Transport for RTCM via
@@ -30,6 +31,10 @@
 *                           change api strsetopt()
 *                           introduce non_block send for send socket
 *                           add api: strsetproxy()
+*           2011/12/21 1.7  fix bug decode tcppath (rtklib_2.4.1_p5)
+*           2012/06/09 1.8  fix problem if user or password contains /
+*                           (rtklib_2.4.1_p7)
+*           2012/12/25 1.9  compile option SVR_REUSEADDR added
 *-----------------------------------------------------------------------------*/
 #include <ctype.h>
 #include "rtklib.h"
@@ -737,22 +742,22 @@ static void decodetcppath(const char *path, char *addr, char *port, char *user,
     
     strcpy(buff,path);
     
-    if ((p=strchr(buff,'/'))) {
+    if ((p=strrchr(buff,'/'))) {
         if ((q=strchr(p+1,':'))) {
             *q='\0'; if (str) strcpy(str,q+1);
         }
         *p='\0'; if (mntpnt) strcpy(mntpnt,p+1);
     }
-    if ((p=strchr(buff,'@'))) {
+    if ((p=strrchr(buff,'@'))) {
         *p++='\0';
         if ((q=strchr(buff,':'))) {
              *q='\0'; if (passwd) strcpy(passwd,q+1);
         }
-        *q='\0'; if (user) strcpy(user,buff); 
+        if (user) strcpy(user,buff);
     }
     else p=buff;
     if ((q=strchr(p,':'))) {
-        *q='\0'; if (port) strcpy(port,q+1); 
+        *q='\0'; if (port) strcpy(port,q+1);
     }
     if (addr) strcpy(addr,p);
 }
@@ -856,14 +861,14 @@ static int send_nb(socket_t sock, unsigned char *buff, int n)
 static int gentcp(tcp_t *tcp, int type, char *msg)
 {
     struct hostent *hp;
-#if 0
+#ifdef SVR_REUSEADDR
     int opt=1;
 #endif
     
     tracet(3,"gentcp: type=%d\n",type);
     
     /* generate socket */
-    if ((tcp->sock=socket(AF_INET,SOCK_STREAM,0))==-1) {
+    if ((tcp->sock=socket(AF_INET,SOCK_STREAM,0))==(socket_t)-1) {
         sprintf(msg,"socket error (%d)",errsock());
         tracet(1,"gentcp: socket error err=%d\n",errsock());
         tcp->state=-1;
@@ -879,7 +884,8 @@ static int gentcp(tcp_t *tcp, int type, char *msg)
     
     if (type==0) { /* server socket */
     
-#if 0 /* multiple-use of server socket */
+#ifdef SVR_REUSEADDR
+        /* multiple-use of server socket */
         setsockopt(tcp->sock,SOL_SOCKET,SO_REUSEADDR,(const char *)&opt,
                    sizeof(opt));
 #endif
@@ -1000,7 +1006,7 @@ static int accsock(tcpsvr_t *tcpsvr, char *msg)
     for (i=0;i<MAXCLI;i++) if (tcpsvr->cli[i].state==0) break;
     if (i>=MAXCLI) return 0; /* too many client */
     
-    if ((sock=accept_nb(tcpsvr->svr.sock,(struct sockaddr *)&addr,&len))==-1) {
+    if ((sock=accept_nb(tcpsvr->svr.sock,(struct sockaddr *)&addr,&len))==(socket_t)-1) {
         err=errsock();
         sprintf(msg,"accept error (%d)",err);
         tracet(1,"accsock: accept error sock=%d err=%d\n",tcpsvr->svr.sock,err);
@@ -2163,6 +2169,9 @@ extern void strsendcmd(stream_t *str, const char *cmd)
             }
             else if (!strncmp(msg+1,"STQ",3)) { /* skytraq */
                 if ((m=gen_stq(msg+4,buff))>0) strwrite(str,buff,m);
+            }
+            else if (!strncmp(msg+1,"NVS",3)) { /* nvs */
+                if ((m=gen_nvs(msg+4,buff))>0) strwrite(str,buff,m);
             }
             else if (!strncmp(msg+1,"LEXR",3)) { /* lex receiver */
                 if ((m=gen_lexr(msg+5,buff))>0) strwrite(str,buff,m);

@@ -67,16 +67,16 @@ void __fastcall TTextViewer::BtnCloseClick(TObject *Sender)
 //---------------------------------------------------------------------------
 void __fastcall TTextViewer::BtnFindClick(TObject *Sender)
 {
-	char *p,*str=FindStr->Text.c_str();
+	wchar_t *p,*str=FindStr->Text.c_str();
 	
 	if (!TextStr) return;
 	
 	if (Text->SelLength>0) p=TextStr+Text->SelStart+1;
 	else p=TextStr+Text->SelStart;
 	
-	if ((p=strstr(p,str))) {
-		Text->SelStart=p-TextStr;
-		Text->SelLength=strlen(str);
+	if ((p=wcsstr(p,str))) {
+		Text->SelStart=(int)(p-TextStr);
+		Text->SelLength=wcslen(str);
 	}
 	else {
 		Text->SelStart=0;
@@ -114,18 +114,22 @@ void __fastcall TTextViewer::Read(AnsiString file)
 void __fastcall TTextViewer::ReadText(AnsiString file)
 {
 	FILE *fp;
-	int len,n=0,nmax=0;
+	int i,len,n=0,nmax=0;
 	char buff[1024];
+	wchar_t wbuff[1024];
 	
 	free(TextStr); TextStr=NULL;
 	
-	if (!(fp=fopen(file.c_str(),"rb"))) return;
+	if (!(fp=fopen(file.c_str(),"r"))) return;
 		
-	while (fgets(buff,sizeof(buff),fp)) {
-		len=strlen(buff);
-		if (n+len+1>=nmax) nmax=nmax<=0?16384:nmax*2;
-		if (!(TextStr=(char *)realloc(TextStr,nmax))) break;
-		strcpy(TextStr+n,buff);
+	for (i=0;fgets(buff,sizeof(buff),fp)&&i<MAXLINE;i++) {
+		::MultiByteToWideChar(CP_UTF8,0,buff,-1,wbuff,1024);
+		len=wcslen(wbuff);
+		if (n+len+1>=nmax) {
+			nmax=nmax<=0?16384:nmax*2;
+			if (!(TextStr=(wchar_t *)realloc(TextStr,sizeof(wchar_t)*nmax))) break;
+		}
+		wcscpy(TextStr+n,wbuff);
 		n+=len;
 	}
 	fclose(fp);

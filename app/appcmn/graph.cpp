@@ -12,9 +12,13 @@
 #define MAXSCALE	1E7			// max scale factor (pixel/unit)
 #define SIZEORIGIN	6
 
+#define MIN(x,y)	((x)<(y)?(x):(y))
+#define MAX(x,y)	((x)>(y)?(x):(y))
+
 // constructor --------------------------------------------------------------
 TGraph::TGraph(TPaintBox *parent)
 {
+	TPoint point;
 	Parent=parent; X=Y=0; Width=parent->Width; Height=parent->Height;
 	XCent =YCent =0.0;			// center coordinate (unit)
 	XScale=YScale=0.02; 		// scale factor (unit/pixel)
@@ -23,12 +27,14 @@ TGraph::TGraph(TPaintBox *parent)
 	XGrid=YGrid=1;				// show grid (0:off,1:on)
 	XTick=YTick=0.0;			// grid interval (unit) (0:auto)
 	XLPos=YLPos=1;				// grid label pos (0:off,1:outer,2:inner,
-								// 3:outer-rot,4:inner-rot,5/6:time)
+								// 3:outer-rot,4:inner-rot,5/6:time,7:axis)
 	Week=0;						// gpsweek no. for time label
 	Title=XLabel=YLabel="";		// lable string ("":no label)
 	Color[0]=Parent->Color;		// background color
 	Color[1]=clGray;			// grid color
 	Color[2]=clBlack;			// title/label color
+	
+	p_=point; mark_=0; color_=clBlack; size_=0; rot_=0;
 }
 // --------------------------------------------------------------------------
 int TGraph::IsInArea(TPoint &p)
@@ -120,7 +126,7 @@ void TGraph::SetTick(double xt, double yt)
 //---------------------------------------------------------------------------
 void TGraph::GetTick(double &xt, double &yt)
 {
-	xt=XTick>0.0?XTick:(XLPos>=5?AutoTickTime(XScale):AutoTick(XScale));
+	xt=XTick>0.0?XTick:(XLPos==5||XLPos==6?AutoTickTime(XScale):AutoTick(XScale));
 	yt=YTick>0.0?YTick:AutoTick(YScale);
 }
 //---------------------------------------------------------------------------
@@ -138,7 +144,7 @@ double TGraph::AutoTickTime(double scale)
 		7200.0,10800.0,21600.0,43200.0,86400.0,86400.0*2,86400.0*7,86400.0*14,
 		86400.0*35,86400.0*70};
 	double tick=60.0*scale;
-	for (int i=0;i<sizeof(t)/sizeof(*t);i++) if (tick<=t[i]) return t[i];
+	for (int i=0;i<(int)(sizeof(t)/sizeof(*t));i++) if (tick<=t[i]) return t[i];
 	return 86400.0*140;
 }
 //---------------------------------------------------------------------------
@@ -189,21 +195,34 @@ void TGraph::DrawGridLabel(double xt, double yt)
 	GetLim(xl,yl);
 	if (XLPos) {
 		for (int i=(int)ceil(xl[0]/xt);i*xt<=xl[1];i++) {
-			ToPoint(i*xt,yl[0],p); if (XLPos==1) p.y-=1;
 			if (XLPos<=4) {
+				ToPoint(i*xt,yl[0],p); if (XLPos==1) p.y-=1;
 				int ha=XLPos<=2?0:(XLPos==3?2:1),va=XLPos>=3?0:(XLPos==1?2:1);
 				DrawText(p,NumText(i*xt,xt),Color[2],ha,va,XLPos>=3?90:0);
 			}
 			else if (XLPos==6) {
+				ToPoint(i*xt,yl[0],p);
 				DrawText(p,TimeText(i*xt,xt),Color[2],0,2,0);
+			}
+			else if (XLPos==7) {
+				if (i==0) continue;
+				ToPoint(i*xt,0.0,p);
+				DrawText(p,NumText(i*xt,xt),Color[2],0,2,0);
 			}
 		}
 	}
 	if (YLPos) {
 		for (int i=(int)ceil(yl[0]/yt);i*yt<=yl[1];i++) {
-			ToPoint(xl[0],i*yt,p);
-			int ha=YLPos>=3?0:(YLPos==1?2:1),va=YLPos<=2?0:(YLPos==3?1:2);
-			DrawText(p,NumText(i*yt,yt),Color[2],ha,va,YLPos>=3?90:0);
+			if (YLPos<=4) {
+				ToPoint(xl[0],i*yt,p);
+				int ha=YLPos>=3?0:(YLPos==1?2:1),va=YLPos<=2?0:(YLPos==3?1:2);
+				DrawText(p,NumText(i*yt,yt),Color[2],ha,va,YLPos>=3?90:0);
+			}
+			else if (YLPos==7) {
+				if (i==0) continue;
+				ToPoint(0.0,i*yt,p); p.x+=2;
+				DrawText(p,NumText(i*yt,yt),Color[2],1,0,0);
+			}
 		}
 	}
 }
@@ -264,9 +283,6 @@ void TGraph::DrawMark(TPoint p, int mark, TColor color, int size, int rot)
 	// rot  = rotation angle (deg)
 	
 	// if the same mark already drawn, skip it
-	static TPoint p_;
-	static int mark_,size_,rot_;
-	static TColor color_;
 	if (p.x==p_.x&&p.y==p_.y&&mark==mark_&&color==color_&&size==size_&&
 		rot==rot_) {
 		return;
@@ -361,25 +377,31 @@ void TGraph::DrawMarks(const double *x, const double *y, const TColor *color,
 void TGraph::DrawText(TPoint p, AnsiString str, TColor color, int ha, int va,
 	int rot)
 {
+	// str = UTF-8 string
 	// ha  = horizontal alignment (0: center, 1: left,   2: right)
 	// va  = vertical alignment   (0: center, 1: bottom, 2: top  )
 	// rot = rotation angle (deg)
 
+	wchar_t buff[1024]={0};
+	::MultiByteToWideChar(CP_UTF8,0,str.c_str(),-1,buff,2048);
+	UnicodeString u_str(buff);
+	
 	TCanvas *c=Parent->Canvas;
+	AnsiString Font_Name=c->Font->Name;
 	LOGFONT lf={0};
 	lf.lfHeight=c->Font->Height;
 	lf.lfCharSet=c->Font->Charset;
-	strcpy(lf.lfFaceName,c->Font->Name.c_str());
+	strcpy(lf.lfFaceName,Font_Name.c_str());
 	lf.lfEscapement=lf.lfOrientation=rot*10;
 	c->Font->Handle=CreateFontIndirect(&lf);
-	TSize off=c->TextExtent(str);
+	TSize off=c->TextExtent(u_str);
 	TPoint ps,pr;
 	ps.x=ha==0?(-off.cx+1)/2:(ha==1?3:-off.cx-3);
 	ps.y=va==0?(off.cy+1)/2:(va==1?off.cy+1:-2);
 	RotPoint(&ps,1,p,rot,&pr);
 	c->Font->Color=color;
 	c->Brush->Style=bsClear;
-	c->TextOut(pr.x,pr.y,str);
+	c->TextOut(pr.x,pr.y,u_str);
 }
 //---------------------------------------------------------------------------
 void TGraph::DrawText(double x, double y, AnsiString str, TColor color,
@@ -405,6 +427,30 @@ void TGraph::DrawCircle(double x, double y, TColor color, double rx,
 	TPoint p;
 	ToPoint(x,y,p);
 	DrawCircle(p,color,(int)(rx/XScale+0.5),(int)(ry/YScale+0.5),style);
+}
+//---------------------------------------------------------------------------
+void TGraph::DrawCircles(int label)
+{
+	TCanvas *c=Parent->Canvas;
+	TPoint p;
+	double xl[2],yl[2],xt,yt,x2,y2,r;
+	GetLim(xl,yl);
+	x2=MAX(xl[0]*xl[0],xl[1]*xl[1]);
+	y2=MAX(yl[0]*yl[0],yl[1]*yl[1]);
+	r=sqrt(x2+y2);
+	GetTick(xt,yt);
+	for (int i=(int)floor(r/xt);i>0;i--) {
+		DrawCircle(0.0,0.0,Color[1],i*xt,i*xt,1);
+	}
+	ToPoint(0.0,0.0,p);
+	c->Pen->Style=psSolid;
+	c->MoveTo(p.x,Y); c->LineTo(p.x,Y+Height-1);
+	c->MoveTo(X,p.y); c->LineTo(X+Width-1,p.y);
+	DrawMark(0.0,0.0,0,Color[1],SIZEORIGIN,0);
+	if (xt/XScale<50.0) xt*=2.0;
+	if (yt/YScale<50.0) yt*=2.0;
+	if (label) DrawGridLabel(xt,yt);
+	DrawBox();
 }
 //---------------------------------------------------------------------------
 int TGraph::OnAxis(TPoint p)

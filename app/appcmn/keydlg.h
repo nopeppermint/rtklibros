@@ -44,6 +44,12 @@ __published:
 	TLabel *Label30;
 	TLabel *Label31;
 	TLabel *Label32;
+	TLabel *Label33;
+	TLabel *Label34;
+	TLabel *Label35;
+	TLabel *Label36;
+	TLabel *Label37;
+	TLabel *Label38;
 	void __fastcall BtnOkClick(TObject *Sender);
 	void __fastcall FormShow(TObject *Sender);
 private:

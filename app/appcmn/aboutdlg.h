@@ -24,6 +24,7 @@ __published:
 	TImage *Icon7;
 	TPanel *Panel1;
 	TButton *BtnOk;
+	TImage *Icon8;
 	void __fastcall FormShow(TObject *Sender);
 private:
 public:

@@ -3,26 +3,40 @@
 #include <vcl.h>
 #pragma hdrstop
 //---------------------------------------------------------------------------
-USEFORM("plotmain.cpp", Plot);
+
+
+
+
+
+
+
+
+
+
+
+USEFORM("pntdlg.cpp", PntDialog);
 USEFORM("plotopt.cpp", PlotOptDialog);
 USEFORM("satdlg.cpp", SatDialog);
-USEFORM("..\appcmn\refdlg.cpp", RefDialog);
-USEFORM("..\appcmn\aboutdlg.cpp", AboutDialog);
-USEFORM("..\appcmn\tspandlg.cpp", SpanDialog);
-USEFORM("..\appcmn\timedlg.cpp", TimeDialog);
-USEFORM("..\appcmn\serioptdlg.cpp", SerialOptDialog);
-USEFORM("..\appcmn\tcpoptdlg.cpp", TcpOptDialog);
-USEFORM("..\appcmn\cmdoptdlg.cpp", CmdOptDialog);
-USEFORM("..\appcmn\fileoptdlg.cpp", FileOptDialog);
 USEFORM("..\appcmn\keydlg.cpp", KeyDialog);
-USEFORM("conndlg.cpp", ConnectDialog);
-USEFORM("..\appcmn\ftpoptdlg.cpp", FtpOptDialog);
-USEFORM("..\appcmn\console.cpp", Console);
-USEFORM("..\appcmn\viewer.cpp", TextViewer);
-USEFORM("..\appcmn\vieweropt.cpp", ViewerOptDialog);
-USEFORM("pntdlg.cpp", PntDialog);
-USEFORM("mapdlg.cpp", MapAreaDialog);
+USEFORM("..\appcmn\tcpoptdlg.cpp", TcpOptDialog);
+USEFORM("..\appcmn\serioptdlg.cpp", SerialOptDialog);
+USEFORM("..\appcmn\refdlg.cpp", RefDialog);
 USEFORM("..\appcmn\confdlg.cpp", ConfDialog);
+USEFORM("..\appcmn\cmdoptdlg.cpp", CmdOptDialog);
+USEFORM("..\appcmn\aboutdlg.cpp", AboutDialog);
+USEFORM("..\appcmn\ftpoptdlg.cpp", FtpOptDialog);
+USEFORM("..\appcmn\fileoptdlg.cpp", FileOptDialog);
+USEFORM("..\appcmn\console.cpp", Console);
+USEFORM("..\appcmn\timedlg.cpp", TimeDialog);
+USEFORM("mapdlg.cpp", MapAreaDialog);
+USEFORM("plotmain.cpp", Plot);
+USEFORM("..\appcmn\vieweropt.cpp", ViewerOptDialog);
+USEFORM("..\appcmn\viewer.cpp", TextViewer);
+USEFORM("..\appcmn\tspandlg.cpp", SpanDialog);
+USEFORM("geview.cpp", GoogleEarthView);
+USEFORM("fileseldlg.cpp", FileSelDialog);
+USEFORM("conndlg.cpp", ConnectDialog);
+USEFORM("gmview.cpp", GoogleMapView);
 //---------------------------------------------------------------------------
 WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 {
@@ -48,6 +62,11 @@ WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		Application->CreateForm(__classid(TPntDialog), &PntDialog);
 		Application->CreateForm(__classid(TMapAreaDialog), &MapAreaDialog);
 		Application->CreateForm(__classid(TConfDialog), &ConfDialog);
+		Application->CreateForm(__classid(TFileSelDialog), &FileSelDialog);
+		Application->CreateForm(__classid(TGoogleEarthView), &GoogleEarthView);
+		Application->CreateForm(__classid(TFtpOptDialog), &FtpOptDialog);
+		Application->CreateForm(__classid(TConsole), &Console);
+		Application->CreateForm(__classid(TGoogleMapView), &GoogleMapView);
 		Application->Run();
 	}
 	catch (Exception &exception)

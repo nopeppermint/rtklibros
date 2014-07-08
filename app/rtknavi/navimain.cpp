@@ -1,7 +1,7 @@
 //---------------------------------------------------------------------------
 // rtknavi : real-time positioning ap
 //
-//          Copyright (C) 2007-2011 by T.TAKASU, All rights reserved.
+//          Copyright (C) 2007-2012 by T.TAKASU, All rights reserved.
 //
 // options : rtknavi [-t title][-i file]
 //
@@ -14,9 +14,10 @@
 //           2010/08/16  1.2 fix bug on setting of satellite antenna model
 //           2010/09/04  1.3 fix bug on setting of receiver antenna delta
 //           2011/06/10  1.4 rtklib 2.4.1
+//           2012/04/03  1.5 rtklib 2.4.2
 //---------------------------------------------------------------------------
 #include <vcl.h>
-#include <vcl\inifiles.hpp>
+#include <inifiles.hpp>
 #include <mmsystem.h>
 #include <stdio.h>
 #include <math.h>
@@ -43,7 +44,7 @@ TMainForm *MainForm;
 #define TRACEFILE   "rtknavi.trace"     // debug trace file
 #define CLORANGE    (TColor)0x00AAFF
 #define CLLGRAY     (TColor)0xDDDDDD
-#define CHARDEG     "\260"              // character code of degree
+#define CHARDEG     0x00B0              // character code of degree
 #define SATSIZE     20                  // satellite circle size in skyplot
 #define MINSNR      10                  // minimum snr
 #define MAXSNR      60                  // maximum snr
@@ -62,6 +63,7 @@ TMainForm *MainForm;
 #define MAXPORTOFF  9                   // max port number offset
 
 #define SQRT(x)     ((x)<0.0?0.0:sqrt(x))
+#define MIN(x,y)    ((x)<(y)?(x):(y))
 
 //---------------------------------------------------------------------------
 
@@ -82,7 +84,7 @@ static void degtodms(double deg, double *dms)
     dms[2]=(deg-dms[0]-dms[1]/60.0)*3600;
     dms[0]*=sgn;
 }
-// convert deg-min-sec to degree --------------------------------------------
+// execute command ----------------------------------------------------------
 int __fastcall TMainForm::ExecCmd(AnsiString cmd, int show)
 {
     PROCESS_INFORMATION info;
@@ -127,16 +129,22 @@ __fastcall TMainForm::TMainForm(TComponent* Owner)
     Caption=PRGNAME;
     Caption=Caption+" ver."+VER_RTKLIB;
     DoubleBuffered=true;
+    
+    TLEData.n=TLEData.nmax=0;
+    TLEData.data=NULL;
 }
 // callback on form create --------------------------------------------------
 void __fastcall TMainForm::FormCreate(TObject *Sender)
 {
-    char *p,*argv[32],buff[1024];
+    char *p,*argv[32],buff[1024],file[1024]="rtknavi.exe";
     int argc=0;
     
     trace(3,"FormCreate\n");
     
-    IniFile="rtknavi.ini";
+    ::GetModuleFileName(NULL,file,sizeof(file));
+    if (!(p=strrchr(file,'.'))) p=file+strlen(file);
+    strcpy(p,".ini");
+    IniFile=file;
     
     InitSolBuff();
     SetTrayIcon(1);
@@ -173,6 +181,12 @@ void __fastcall TMainForm::FormShow(TObject *Sender)
 {
     trace(3,"FormShow\n");
     
+    if (TLEFileF!="") {
+        tle_read(TLEFileF.c_str(),&TLEData);
+    }
+    if (TLESatFileF!="") {
+        tle_name_read(TLESatFileF.c_str(),&TLEData);
+    }
     Panel21->Visible=PlotType<=4;
     IndQ->Visible=!Panel21->Visible;
     BtnSolType2->Visible=!Panel21->Visible;
@@ -181,6 +195,7 @@ void __fastcall TMainForm::FormShow(TObject *Sender)
     UpdateFont();
     UpdatePos();
     UpdatePlot();
+    UpdatePanel();
 }
 // callback on form close ---------------------------------------------------
 void __fastcall TMainForm::FormClose(TObject *Sender, TCloseAction &Action)
@@ -231,7 +246,7 @@ void __fastcall TMainForm::BtnStopClick(TObject *Sender)
 // callback on button-plot --------------------------------------------------
 void __fastcall TMainForm::BtnPlotClick(TObject *Sender)
 {
-    AnsiString cmd;
+    AnsiString cmd,Ansi_Caption=Caption;
     
     trace(3,"BtnPlotClick\n");
     
@@ -240,7 +255,7 @@ void __fastcall TMainForm::BtnPlotClick(TObject *Sender)
         return;
     }
     cmd.sprintf("rtkplot -p tcpcli://localhost:%d -t \"%s %s\"",OpenPort,
-                Caption.c_str(),": RTKPLOT");
+                Ansi_Caption.c_str(),": RTKPLOT");
     if (!ExecCmd(cmd,1)) {
         ShowMessage("error : rtkplot execution");
     }
@@ -272,6 +287,9 @@ void __fastcall TMainForm::BtnOptClick(TObject *Sender)
     OptDialog->StaPosFileF=StaPosFileF;
     OptDialog->GeoidDataFileF=GeoidDataFileF;
     OptDialog->DCBFileF   =DCBFileF;
+    OptDialog->EOPFileF   =EOPFileF;
+    OptDialog->TLEFileF   =TLEFileF;
+    OptDialog->TLESatFileF=TLESatFileF;
     OptDialog->LocalDirectory=LocalDirectory;
     
     OptDialog->SvrCycle   =SvrCycle;
@@ -319,6 +337,9 @@ void __fastcall TMainForm::BtnOptClick(TObject *Sender)
     StaPosFileF=OptDialog->StaPosFileF;
     GeoidDataFileF=OptDialog->GeoidDataFileF;
     DCBFileF   =OptDialog->DCBFileF;
+    EOPFileF   =OptDialog->EOPFileF;
+    TLEFileF   =OptDialog->TLEFileF;
+    TLESatFileF=OptDialog->TLESatFileF;
     LocalDirectory=OptDialog->LocalDirectory;
     
     SvrCycle   =OptDialog->SvrCycle;
@@ -352,6 +373,7 @@ void __fastcall TMainForm::BtnOptClick(TObject *Sender)
     PosFont->Assign(OptDialog->PosFont);
     
     UpdateFont();
+    UpdatePanel();
     
     if (!chgmoni) return;
     
@@ -381,8 +403,10 @@ void __fastcall TMainForm::BtnInputStrClick(TObject *Sender)
         for (j=0;j<4;j++) InputStrDialog->Paths[i][j]=Paths[i][j];
     }
     for (i=0;i<3;i++) for (j=0;j<2;j++) {
-        InputStrDialog->CmdEna[i][j]=CmdEna[i][j];
-        InputStrDialog->Cmds  [i][j]=Cmds  [i][j];
+        InputStrDialog->CmdEna   [i][j]=CmdEna   [i][j];
+        InputStrDialog->Cmds     [i][j]=Cmds     [i][j];
+        InputStrDialog->CmdEnaTcp[i][j]=CmdEnaTcp[i][j];
+        InputStrDialog->CmdsTcp  [i][j]=CmdsTcp  [i][j];
     }
     for (i=0;i<10;i++) {
         InputStrDialog->History [i]=History [i];
@@ -405,8 +429,10 @@ void __fastcall TMainForm::BtnInputStrClick(TObject *Sender)
         for (j=0;j<4;j++) Paths[i][j]=InputStrDialog->Paths[i][j];
     }
     for (i=0;i<3;i++) for (j=0;j<2;j++) {
-        CmdEna[i][j]=InputStrDialog->CmdEna[i][j];
-        Cmds  [i][j]=InputStrDialog->Cmds  [i][j];
+        CmdEna   [i][j]=InputStrDialog->CmdEna   [i][j];
+        Cmds     [i][j]=InputStrDialog->Cmds     [i][j];
+        CmdEnaTcp[i][j]=InputStrDialog->CmdEnaTcp[i][j];
+        CmdsTcp  [i][j]=InputStrDialog->CmdsTcp  [i][j];
     }
     for (i=0;i<10;i++) {
         History [i]=InputStrDialog->History [i];
@@ -677,9 +703,6 @@ void __fastcall TMainForm::TrayIconDblClick(TObject *Sender)
 void __fastcall TMainForm::TrayIconMouseDown(TObject *Sender,
       TMouseButton Button, TShiftState Shift, int X, int Y)
 {
-   trace(3,"TaskIconMouseDown\n");
-    
-   if (Shift.Contains(ssRight)) PopupMenu->Popup(X,Y); 
 }
 // callback on menu-expand --------------------------------------------------
 void __fastcall TMainForm::MenuExpandClick(TObject *Sender)
@@ -830,7 +853,13 @@ void __fastcall TMainForm::SvrStart(void)
         else paths[i]=Paths[i][1].c_str();
     }
     for (i=0;i<3;i++) {
-        if (CmdEna[i][0]) cmds[i]=Cmds[i][0].c_str();
+        if (strs[i]==STR_SERIAL) {
+            if (CmdEna[i][0]) cmds[i]=Cmds[i][0].c_str();
+        }
+        else if (strs[i]==STR_TCPCLI||strs[i]==STR_TCPSVR||
+                 strs[i]==STR_NTRIPCLI) {
+            if (CmdEnaTcp[i][0]) cmds[i]=CmdsTcp[i][0].c_str();
+        }
         rcvopts[i]=RcvOpt[i].c_str();
     }
     NmeaCycle=NmeaCycle<1000?1000:NmeaCycle;
@@ -905,12 +934,19 @@ void __fastcall TMainForm::SvrStart(void)
 void __fastcall TMainForm::SvrStop(void)
 {
     char *cmds[3]={0};
-    int i,n,m;
+    int i,n,m,str;
     
     trace(3,"SvrStop\n");
     
     for (i=0;i<3;i++) {
-        if (CmdEna[i][1]) cmds[i]=Cmds[i][1].c_str();
+        str=rtksvr.stream[i].type;
+        
+        if (str==STR_SERIAL) {
+            if (CmdEna[i][1]) cmds[i]=Cmds[i][1].c_str();
+        }
+        else if (str==STR_TCPCLI||str==STR_TCPSVR||str==STR_NTRIPCLI) {
+            if (CmdEnaTcp[i][1]) cmds[i]=CmdsTcp[i][1].c_str();
+        }
     }
     rtksvrstop(&rtksvr,cmds);
     
@@ -1002,7 +1038,7 @@ void __fastcall TMainForm::ChangePlot(void)
 // update time-system -------------------------------------------------------
 void __fastcall TMainForm::UpdateTimeSys(void)
 {
-    AnsiString label[]={"GPST","UTC","JST","GPST"};
+    AnsiString label[]={"GPST","UTC","LT","GPST"};
     
     trace(3,"UpdateTimeSys\n");
     
@@ -1069,6 +1105,7 @@ void __fastcall TMainForm::UpdateFont(void)
 void __fastcall TMainForm::UpdateTime(void)
 {
     gtime_t time=Time[PSol];
+    struct tm *t;
     double tow;
     int week;
     char tstr[64];
@@ -1077,7 +1114,13 @@ void __fastcall TMainForm::UpdateTime(void)
     
     if      (TimeSys==0) time2str(time,tstr,1);
     else if (TimeSys==1) time2str(gpst2utc(time),tstr,1);
-    else if (TimeSys==2) time2str(timeadd(gpst2utc(time),9*3600.0),tstr,1);
+    else if (TimeSys==2) {
+        time=gpst2utc(time);
+        if (!(t=localtime(&time.time))) strcpy(tstr,"2000/01/01 00:00:00.0");
+        else sprintf(tstr,"%04d/%02d/%02d %02d:%02d:%02d.%d",t->tm_year+1900,
+                     t->tm_mon+1,t->tm_mday,t->tm_hour,t->tm_min,t->tm_sec,
+                     (int)(time.sec*10));
+    }
     else if (TimeSys==3) {
         tow=time2gpst(time,&week); sprintf(tstr,"week %04d %8.1f s",week,tow);
     }
@@ -1087,7 +1130,8 @@ void __fastcall TMainForm::UpdateTime(void)
 void __fastcall TMainForm::UpdatePos(void)
 {
     TLabel *label[]={Plabel1,Plabel2,Plabel3,Pos1,Pos2,Pos3,LabelStd,LabelNSat};
-    AnsiString sol[]={"----","FIX","FLOAT","SBAS","DGPS","SINGLE","PPP"},s[8];
+    AnsiString sol[]={"----","FIX","FLOAT","SBAS","DGPS","SINGLE","PPP"};
+    UnicodeString s[8];
     TColor color[]={clSilver,clGreen,CLORANGE,clFuchsia,clBlue,clRed,clTeal};
     gtime_t time;
     double *rr=SolRov+PSol*3,*rb=SolRef+PSol*3,*qr=Qr+PSol*9,pos[3]={0},Qe[9]={0};
@@ -1110,39 +1154,41 @@ void __fastcall TMainForm::UpdatePos(void)
             degtodms(pos[1]*R2D,dms2);
             if (SolOpt.height==1) pos[2]-=geoidh(pos); /* geodetic */
         }
-        s[0]=pos[0]<0?"S:":"N:"; s[1]=pos[1]<0?"W:":"E:"; s[2]="H:";
-        s[3].sprintf("%.0f%s %02.0f' %07.4f\"",fabs(dms1[0]),CHARDEG,dms1[1],dms1[2]);
-        s[4].sprintf("%.0f%s %02.0f' %07.4f\"",fabs(dms2[0]),CHARDEG,dms2[1],dms2[2]);
-        s[5].sprintf("%.3f m",pos[2]);
-        s[6].sprintf("N:%6.3f E:%6.3f U:%6.3f m",SQRT(Qe[4]),SQRT(Qe[0]),SQRT(Qe[8]));
+        s[0]=pos[0]<0?L"S:":L"N:"; s[1]=pos[1]<0?L"W:":L"E:";
+        s[2]=SolOpt.height==1?L"H:":L"He:";
+        s[3].sprintf(L"%.0f%c %02.0f' %07.4f\"",fabs(dms1[0]),CHARDEG,dms1[1],dms1[2]);
+        s[4].sprintf(L"%.0f%c %02.0f' %07.4f\"",fabs(dms2[0]),CHARDEG,dms2[1],dms2[2]);
+        s[5].sprintf(L"%.3f m",pos[2]);
+        s[6].sprintf(L"N:%6.3f E:%6.3f U:%6.3f m",SQRT(Qe[4]),SQRT(Qe[0]),SQRT(Qe[8]));
     }
     else if (SolType==1) {
         if (norm(rr,3)>0.0) {
             ecef2pos(rr,pos); covenu(pos,qr,Qe);
             if (SolOpt.height==1) pos[2]-=geoidh(pos); /* geodetic */
         }
-        s[0]=pos[0]<0?"S:":"N:"; s[1]=pos[1]<0?"W:":"E:"; s[2]="H:";
-        s[3].sprintf("%.8f %s",fabs(pos[0])*R2D,CHARDEG);
-        s[4].sprintf("%.8f %s",fabs(pos[1])*R2D,CHARDEG);
-        s[5].sprintf("%.3f m",pos[2]);
-        s[6].sprintf("E:%6.3f N:%6.3f U:%6.3f m",SQRT(Qe[0]),SQRT(Qe[4]),SQRT(Qe[8]));
+        s[0]=pos[0]<0?L"S:":L"N:"; s[1]=pos[1]<0?L"W:":L"E:";
+        s[2]=SolOpt.height==1?L"H:":L"He:";
+        s[3].sprintf(L"%.8f %c",fabs(pos[0])*R2D,CHARDEG);
+        s[4].sprintf(L"%.8f %c",fabs(pos[1])*R2D,CHARDEG);
+        s[5].sprintf(L"%.3f m",pos[2]);
+        s[6].sprintf(L"E:%6.3f N:%6.3f U:%6.3f m",SQRT(Qe[0]),SQRT(Qe[4]),SQRT(Qe[8]));
     }
     else if (SolType==2) {
-        s[0]="X:"; s[1]="Y:"; s[2]="Z:";
-        s[3].sprintf("%.3f m",rr[0]);
-        s[4].sprintf("%.3f m",rr[1]);
-        s[5].sprintf("%.3f m",rr[2]);
-        s[6].sprintf("X:%6.3f Y:%6.3f Z:%6.3f m",SQRT(qr[0]),SQRT(qr[4]),SQRT(qr[8]));
+        s[0]=L"X:"; s[1]=L"Y:"; s[2]=L"Z:";
+        s[3].sprintf(L"%.3f m",rr[0]);
+        s[4].sprintf(L"%.3f m",rr[1]);
+        s[5].sprintf(L"%.3f m",rr[2]);
+        s[6].sprintf(L"X:%6.3f Y:%6.3f Z:%6.3f m",SQRT(qr[0]),SQRT(qr[4]),SQRT(qr[8]));
     }
     else if (SolType==3) {
         if (len>0.0) {
             ecef2pos(rb,pos); ecef2enu(pos,bl,enu); covenu(pos,qr,Qe);
         }
-        s[0]="E:"; s[1]="N:"; s[2]="U:";
-        s[3].sprintf("%.3f m",enu[0]);
-        s[4].sprintf("%.3f m",enu[1]);
-        s[5].sprintf("%.3f m",enu[2]);
-        s[6].sprintf("E:%6.3f N:%6.3f U:%6.3f m",SQRT(Qe[0]),SQRT(Qe[4]),SQRT(Qe[8]));
+        s[0]=L"E:"; s[1]=L"N:"; s[2]=L"U:";
+        s[3].sprintf(L"%.3f m",enu[0]);
+        s[4].sprintf(L"%.3f m",enu[1]);
+        s[5].sprintf(L"%.3f m",enu[2]);
+        s[6].sprintf(L"E:%6.3f N:%6.3f U:%6.3f m",SQRT(Qe[0]),SQRT(Qe[4]),SQRT(Qe[8]));
     }
     else {
         if (len>0.0) {
@@ -1150,13 +1196,13 @@ void __fastcall TMainForm::UpdatePos(void)
             pitch=asin(enu[2]/len);
             yaw=atan2(enu[0],enu[1]); if (yaw<0.0) yaw+=2.0*PI;
         }
-        s[0]="P:"; s[1]="Y:"; s[2]="L:";
-        s[3].sprintf("%.3f %s",pitch*R2D,CHARDEG);
-        s[4].sprintf("%.3f %s",yaw*R2D,CHARDEG);
-        s[5].sprintf("%.3f m",len);
-        s[6].sprintf("E:%6.3f N:%6.3f U:%6.3f m",SQRT(Qe[0]),SQRT(Qe[4]),SQRT(Qe[8]));
+        s[0]=L"P:"; s[1]=L"Y:"; s[2]=L"L:";
+        s[3].sprintf(L"%.3f %c",pitch*R2D,CHARDEG);
+        s[4].sprintf(L"%.3f %c",yaw*R2D,CHARDEG);
+        s[5].sprintf(L"%.3f m",len);
+        s[6].sprintf(L"E:%6.3f N:%6.3f U:%6.3f m",SQRT(Qe[0]),SQRT(Qe[4]),SQRT(Qe[8]));
     }
-    s[7].sprintf("Age:%4.1f s Ratio:%4.1f # of Sat:%2d",Age[PSol],Ratio[PSol],Nvsat[PSol]);
+    s[7].sprintf(L"Age:%4.1f s Ratio:%4.1f # of Sat:%2d",Age[PSol],Ratio[PSol],Nvsat[PSol]);
     
     for (i=0;i<8;i++) label[i]->Caption=s[i];
     for (i=3;i<6;i++) {
@@ -1182,15 +1228,16 @@ void __fastcall TMainForm::UpdateStr(void)
 // update solution plot -----------------------------------------------------
 void __fastcall TMainForm::UpdatePlot(void)
 {
-    AnsiString s;
+    UnicodeString s;
     gtime_t time;
     TCanvas *c=Plot->Canvas;
     TLabel *label[]={Plabel1,Plabel2,Plabel3,Pos1,Pos2,Pos3};
-    char *fstr[]={"","L1 ","L2 ","L5 ","L6 ","L7 ","L8 "};
+    wchar_t *fstr[]={L"",L"L1 ",L"L2 ",L"L5 ",L"L6 ",L"L7 ",L"L8 "};
     int w=PlotWidth,h=PlotHeight;
     int i,j,sat[2][MAXSAT],ns[2],snr[2][MAXSAT][NFREQ],vsat[2][MAXSAT];
     int *snr0[MAXSAT],*snr1[MAXSAT];
-    double az[2][MAXSAT],el[2][MAXSAT];
+    char name[16];
+    double az[2][MAXSAT],el[2][MAXSAT],rr[3],rs[6],e[3],pos[3],azel[2];
     
     trace(4,"UpdatePlot\n");
     
@@ -1200,8 +1247,23 @@ void __fastcall TMainForm::UpdatePlot(void)
     }
     ns[0]=rtksvrostat(&rtksvr,0,&time,sat[0],az[0],el[0],snr0,vsat[0]);
     ns[1]=rtksvrostat(&rtksvr,1,&time,sat[1],az[1],el[1],snr1,vsat[1]);
-     
+    
+    rtksvrlock(&rtksvr);
+    matcpy(rr,rtksvr.rtk.sol.rr,3,1);
+    ecef2pos(rr,pos);
+    rtksvrunlock(&rtksvr);
+    
     for (i=0;i<2;i++) {
+        for (j=0;j<ns[i];j++) {
+            if (az[i][j]!=0.0||el[i][j]!=0.0) continue;
+            satno2id(sat[i][j],name);
+            if (!tle_pos(time,name,"","",&TLEData,NULL,rs)) continue;
+            if (geodist(rs,rr,e)>0.0) {
+                satazel(pos,e,azel);
+                az[i][j]=azel[0];
+                el[i][j]=azel[1];
+            }
+        }
         if (ns[i]>0) {
             Nsat[i]=ns[i];
             for (int j=0;j<ns[i];j++) {
@@ -1229,27 +1291,27 @@ void __fastcall TMainForm::UpdatePlot(void)
     if (PlotType==0) {
         DrawSnr(c,w,(h-12)/2,15,0);
         DrawSnr(c,w,(h-12)/2,14+(h-12)/2,1);
-        s.sprintf("Rover:Base %sSNR (dBHz)",fstr[FreqType]);
+        s.sprintf(L"Rover:Base %sSNR (dBHz)",fstr[FreqType]);
         DrawText(c,3,1,s,clGray,0);
     }
     else if (PlotType==1) {
         DrawSnr(c,w,h-15,15,0);
-        s.sprintf("Rover %s SNR (dBHz)",fstr[FreqType]);
+        s.sprintf(L"Rover %s SNR (dBHz)",fstr[FreqType]);
         DrawText(c,3,1,s,clGray,0);
     }
     else if (PlotType==2) {
         DrawSat(c,w,h,0);
-        s.sprintf("Rover %s",fstr[!FreqType?1:FreqType]);
+        s.sprintf(L"Rover %s",fstr[!FreqType?1:FreqType]);
         DrawText(c,3,1,s,clGray,0);
     }
     else if (PlotType==3) {
         DrawSat(c,w,h,1);
-        s.sprintf("Base %s",fstr[!FreqType?1:FreqType]);
+        s.sprintf(L"Base %s",fstr[!FreqType?1:FreqType]);
         DrawText(c,3,1,s,clGray,0);
     }
     else if (PlotType==4) {
         DrawBL(c,w,h);
-        DrawText(c,3,1,"Baseline",clGray,0);
+        DrawText(c,3,1,L"Baseline",clGray,0);
     }
     else if (PlotType==5) {
         DrawSnr(c,w,(h-12)/2,15,0);
@@ -1260,22 +1322,48 @@ void __fastcall TMainForm::UpdatePlot(void)
     }
     if (PlotType>=5) {
         IndQ->Color=IndSol->Color;
-        s=label[0]->Caption+" "+label[3]->Caption+" "+
-          label[1]->Caption+" "+label[4]->Caption+" "+
-          label[2]->Caption+" "+label[5]->Caption;
+        s=label[0]->Caption+L" "+label[3]->Caption+L" "+
+          label[1]->Caption+L" "+label[4]->Caption+L" "+
+          label[2]->Caption+L" "+label[5]->Caption;
         DrawText(c,19,1,s,LabelTime->Font->Color,0);
-        s.sprintf("%s",fstr[FreqType]);
+        s.sprintf(L"%s",fstr[FreqType]);
         DrawText(c,6,18,s,clGray,0);
     }
     Disp->Canvas->CopyRect(Disp->ClientRect,c,Disp->ClientRect);
 }
+// snr color ----------------------------------------------------------------
+TColor __fastcall TMainForm::SnrColor(int snr)
+{
+    TColor color[]={clGreen,CLORANGE,clFuchsia,clBlue,clRed,clGray};
+    unsigned int c1,c2,r1,r2,g1,g2,b1,b2;
+    double a;
+    int i;
+    
+    if (snr<25) return color[5];
+    if (snr<27) return color[4];
+    if (snr>47) return color[0];
+    a=(snr-27.5)/5.0;
+    i=(int)a; a-=i;
+    c1=(unsigned int)color[3-i];
+    c2=(unsigned int)color[4-i];
+    r1=c1&0xFF; g1=(c1>>8)&0xFF; b1=(c1>>16)&0xFF;
+    r2=c2&0xFF; g2=(c2>>8)&0xFF; b2=(c2>>16)&0xFF;
+    r1=(unsigned int)(a*r1+(1.0-a)*r2)&0xFF;
+    g1=(unsigned int)(a*g1+(1.0-a)*g2)&0xFF;
+    b1=(unsigned int)(a*b1+(1.0-a)*b2)&0xFF;
+    
+    return (TColor)((b1<<16)+(g1<<8)+r1);
+}
 // draw snr plot ------------------------------------------------------------
 void __fastcall TMainForm::DrawSnr(TCanvas *c, int w, int h, int top, int index)
 {
-    TColor color[]={clGreen,CLORANGE,clFuchsia,clBlue,clRed,clGray};
-    AnsiString s; 
-    int i,j,k,x1,x2,y1,y2,y3,k1,hh=h-15,ww,www,snr[NFREQ+1];
-    char id[16];
+    TColor color[]={
+        (TColor)0x00008000,(TColor)0x00008080,(TColor)0x00A000A0,
+        (TColor)0x00800000,(TColor)0x00000080,(TColor)0x00808080
+    };
+    UnicodeString s; 
+    int i,j,k,n,x1,x2,y1,y2,y3,k1,hh=h-15,ww,www,snr[NFREQ+1],mask[6]={0};
+    char id[16],sys[]="GREJCS",*p;
     
     trace(4,"DrawSnr: w=%d h=%d top=%d index=%d\n",w,h,top,index);
     
@@ -1283,7 +1371,7 @@ void __fastcall TMainForm::DrawSnr(TCanvas *c, int w, int h, int top, int index)
     for (snr[0]=MINSNR+10;snr[0]<MAXSNR;snr[0]+=10) {
         y1=top+hh-(snr[0]-MINSNR)*hh/(MAXSNR-MINSNR);
         c->MoveTo(3,y1); c->LineTo(w-13,y1);
-        DrawText(c,w-9,y1,s.sprintf("%d",snr[0]),clGray,1);
+        DrawText(c,w-9,y1,s.sprintf(L"%d",snr[0]),clGray,1);
     }
     y1=top+hh;
     TRect b(1,top,w-2,y1);
@@ -1312,9 +1400,8 @@ void __fastcall TMainForm::DrawSnr(TCanvas *c, int w, int h, int top, int index)
             
             TRect r1(x1,y1,x1+www,y2);
             if (j==0) {
-                k1=(49-snr[k])/5;
                 c->Brush->Style=bsSolid;
-                c->Brush->Color=color[k1<0?0:(k1>5?5:k1)];
+                c->Brush->Color=SnrColor(snr[k]);
                 if (!Vsat[index][i]) c->Brush->Color=clSilver;
                 c->Rectangle(r1);
             }
@@ -1325,17 +1412,24 @@ void __fastcall TMainForm::DrawSnr(TCanvas *c, int w, int h, int top, int index)
             }
         }
         satno2id(Sat[index][i],id);
-        DrawText(c,x1+www/2,y1+6,(s=id),Vsat[index][i]?clGray:clSilver,1);
+        k=(p=strchr(sys,id[0]))?(int)(p-sys):5;
+        DrawText(c,x1+www/2,y1+6,(s=id+1),color[k],1);
+        mask[k]=1;
+    }
+    for (i=n=0;i<6;i++) if (mask[i]) n++;
+    for (i=j=0;i<6;i++) {
+        if (!mask[i]) continue;
+        sprintf(id,"%c",sys[i]);
+        DrawText(c,w-15+8*(-n+j++),top+3,(s=id),color[i],0);
     }
 }
 // draw satellites in skyplot -----------------------------------------------
 void __fastcall TMainForm::DrawSat(TCanvas *c, int w, int h, int index)
 {
-    TColor color[]={clGreen,CLORANGE,clFuchsia,clBlue,clRed,clGray};
-    AnsiString s;
+    UnicodeString s;
     TPoint p(w/2,h/2);
-    double r=w*0.85/2,azel[MAXSAT*2],dop[4];
-    int i,j,k,d,x[MAXSAT],y[MAXSAT],ns=0,f=!FreqType?0:FreqType-1;
+    double r=MIN(w*0.95,h*0.95)/2,azel[MAXSAT*2],dop[4];
+    int i,k,d,x[MAXSAT],y[MAXSAT],ns=0,f=!FreqType?0:FreqType-1;
     char id[16];
     
     trace(4,"DrawSat: w=%d h=%d index=%d\n",w,h,index);
@@ -1352,9 +1446,8 @@ void __fastcall TMainForm::DrawSat(TCanvas *c, int w, int h, int index)
         y[i]=(int)(p.y-r*(90-El[index][k]*R2D)/90*cos(Az[index][k]));
         c->Pen->Color=clGray;
         c->Brush->Style=bsSolid;
-        j=(49-Snr[index][k][f])/5;
         d=SATSIZE/2;
-        c->Brush->Color=Vsat[index][k]?color[j<0?0:(j>5?5:j)]:clSilver;
+        c->Brush->Color=!Vsat[index][k]?clSilver:SnrColor(Snr[index][k][f]);
         c->Ellipse(x[i]-d,y[i]-d,x[i]+d+1,y[i]+d+1);
         c->Brush->Style=bsClear;
         satno2id(Sat[index][k],id);
@@ -1362,16 +1455,16 @@ void __fastcall TMainForm::DrawSat(TCanvas *c, int w, int h, int index)
     }
     c->Brush->Style=bsClear;
     dops(ns,azel,0.0,dop);
-    DrawText(c,3,h-15,s.sprintf("# of Sat:%2d",Nsat[index]),clGray,0);
-    DrawText(c,w-3,h-15,s.sprintf("GDOP:%.1f",dop[0]),clGray,2);
+    DrawText(c,3,h-15,s.sprintf(L"# of Sat:%2d",Nsat[index]),clGray,0);
+    DrawText(c,w-3,h-15,s.sprintf(L"GDOP:%.1f",dop[0]),clGray,2);
 }
 // draw baseline plot -------------------------------------------------------
 void __fastcall TMainForm::DrawBL(TCanvas *c, int w, int h)
 {
     TColor color[]={clSilver,clGreen,CLORANGE,clFuchsia,clBlue,clRed,clTeal};
-    AnsiString s,label[]={"N","E","S","W"};
+    UnicodeString s,label[]={"N","E","S","W"};
     TPoint p(w/2,h/2),p1,p2,pp;
-    double r=w*0.85/2;
+    double r=MIN(w*0.95,h*0.95)/2;
     double *rr=SolRov+PSol*3,*rb=SolRef+PSol*3;
     double bl[3]={0},pos[3],enu[3],len=0.0,pitch=0.0,yaw=0.0;
     double cp,q;
@@ -1441,15 +1534,16 @@ void __fastcall TMainForm::DrawBL(TCanvas *c, int w, int h)
     c->Ellipse(pp.x-d2/2+2,pp.y-d2/2+2,pp.x+d2/2-1,pp.y+d2/2-1);
     c->Brush->Color=clWhite;
     digit=len<10.0?3:(len<100.0?2:(len<1000.0?1:0));
-    DrawText(c,p.x,p.y ,s.sprintf("%.*f m",digit,len),clGray,1);
-    DrawText(c,3,  h-15,s.sprintf("Y: %.1f%s",yaw*R2D,CHARDEG),clGray,0);
-    DrawText(c,w-3,h-15,s.sprintf("P: %.1f%s",pitch*R2D,CHARDEG),clGray,2);
+    DrawText(c,p.x,p.y ,s.sprintf(L"%.*f m",digit,len),clGray,1);
+    DrawText(c,3,  h-15,s.sprintf(L"Y: %.1f%c",yaw*R2D,CHARDEG),clGray,0);
+    DrawText(c,w-3,h-15,s.sprintf(L"P: %.1f%c",pitch*R2D,CHARDEG),clGray,2);
 }
 // draw skyplot -------------------------------------------------------------
 void __fastcall TMainForm::DrawSky(TCanvas *c, int w, int h)
 {
+    UnicodeString label[]={"N","E","S","W"};
     TPoint p(w/2,h/2);
-    double r=w*0.85/2;
+    double r=MIN(w*0.95,h*0.95)/2;
     int a,e,d,x,y;
     
     c->Brush->Color=clWhite;
@@ -1459,7 +1553,6 @@ void __fastcall TMainForm::DrawSky(TCanvas *c, int w, int h)
         c->Pen->Color=e==0?clGray:clSilver;
         c->Ellipse(p.x-d,p.y-d,p.x+d+1,p.y+d+1);
     }
-    AnsiString label[]={"N","E","S","W"};
     for (a=0;a<360;a+=45) {
         x=(int)(r*sin(a*D2R));
         y=(int)(r*cos(a*D2R));
@@ -1469,7 +1562,7 @@ void __fastcall TMainForm::DrawSky(TCanvas *c, int w, int h)
     }
 }
 // draw text ----------------------------------------------------------------
-void __fastcall TMainForm::DrawText(TCanvas *c, int x, int y, AnsiString s,
+void __fastcall TMainForm::DrawText(TCanvas *c, int x, int y, UnicodeString s,
     TColor color, int align)
 {
     TSize off=c->TextExtent(s);
@@ -1557,6 +1650,7 @@ void __fastcall TMainForm::InitSolBuff(void)
 // save log file ------------------------------------------------------------
 void __fastcall TMainForm::SaveLog(void)
 {
+    AnsiString SaveDialog_FileName=SaveDialog->FileName;
     FILE *fp;
     int posf[]={SOLF_LLH,SOLF_LLH,SOLF_XYZ,SOLF_ENU,SOLF_ENU,SOLF_LLH};
     solopt_t opt;
@@ -1570,7 +1664,7 @@ void __fastcall TMainForm::SaveLog(void)
             ep[0],ep[1],ep[2],ep[3],ep[4],ep[5]);
     SaveDialog->FileName=file;
     if (!SaveDialog->Execute()) return;
-    if (!(fp=fopen(SaveDialog->FileName.c_str(),"wt"))) {
+    if (!(fp=fopen(SaveDialog_FileName.c_str(),"wt"))) {
         Message->Caption="log file open error"; return;
     }
     opt=SolOpt;
@@ -1749,10 +1843,22 @@ void __fastcall TMainForm::LoadOpt(void)
             if ((p=strstr(p,"@@"))) strncpy(p,"\r\n",2); else break;
         }
     }
+    for (i=0;i<3;i++) for (j=0;j<2;j++) {
+        CmdsTcp[i][j]=ini->ReadString("tcpip",s.sprintf("cmd_%d_%d",i,j),"");
+        CmdEnaTcp[i][j]=ini->ReadInteger("tcpip",s.sprintf("cmdena_%d_%d",i,j),0);
+        for (p=CmdsTcp[i][j].c_str();*p;p++) {
+            if ((p=strstr(p,"@@"))) strncpy(p,"\r\n",2); else break;
+        }
+    }
     PrcOpt.mode     =ini->ReadInteger("prcopt", "mode",            0);
     PrcOpt.nf       =ini->ReadInteger("prcopt", "nf",              2);
     PrcOpt.elmin    =ini->ReadFloat  ("prcopt", "elmin",    15.0*D2R);
-    PrcOpt.snrmin   =ini->ReadFloat  ("prcopt", "snrmin",        0.0);
+    PrcOpt.snrmask.ena[0]=ini->ReadInteger("prcopt","snrmask_ena1",0);
+    PrcOpt.snrmask.ena[1]=ini->ReadInteger("prcopt","snrmask_ena2",0);
+    for (i=0;i<NFREQ;i++) for (j=0;j<9;j++) {
+        PrcOpt.snrmask.mask[i][j]=
+            ini->ReadFloat("prcopt",s.sprintf("snrmask_%d_%d",i+1,j+1),0.0);
+    }
     PrcOpt.dynamics =ini->ReadInteger("prcopt", "dynamics",        0);
     PrcOpt.tidecorr =ini->ReadInteger("prcopt", "tidecorr",        0);
     PrcOpt.modear   =ini->ReadInteger("prcopt", "modear",          1);
@@ -1776,7 +1882,7 @@ void __fastcall TMainForm::LoadOpt(void)
     PrcOpt.prn[3]   =ini->ReadFloat  ("prcopt", "prn3",         10.0);
     PrcOpt.prn[4]   =ini->ReadFloat  ("prcopt", "prn4",         10.0);
     PrcOpt.sclkstab =ini->ReadFloat  ("prcopt", "sclkstab",    5E-12);
-    PrcOpt.thresar  =ini->ReadFloat  ("prcopt", "thresar",       3.0);
+    PrcOpt.thresar[0]=ini->ReadFloat ("prcopt", "thresar",       3.0);
     PrcOpt.elmaskar =ini->ReadFloat  ("prcopt", "elmaskar",      0.0);
     PrcOpt.elmaskhold=ini->ReadFloat ("prcopt", "elmaskhold",    0.0);
     PrcOpt.thresslip=ini->ReadFloat  ("prcopt", "thresslip",    0.05);
@@ -1785,6 +1891,11 @@ void __fastcall TMainForm::LoadOpt(void)
     PrcOpt.maxinno  =ini->ReadFloat  ("prcopt", "maxinno",      30.0);
     ExSats          =ini->ReadString ("prcopt", "exsats",         "");
     PrcOpt.navsys   =ini->ReadInteger("prcopt", "navsys",    SYS_GPS);
+    PrcOpt.posopt[0]=ini->ReadInteger("prcopt", "posopt1",         0);
+    PrcOpt.posopt[1]=ini->ReadInteger("prcopt", "posopt2",         0);
+    PrcOpt.posopt[2]=ini->ReadInteger("prcopt", "posopt3",         0);
+    PrcOpt.posopt[3]=ini->ReadInteger("prcopt", "posopt4",         0);
+    PrcOpt.posopt[4]=ini->ReadInteger("prcopt", "posopt5",         0);
     
     BaselineC       =ini->ReadInteger("prcopt", "baselinec",       0);
     Baseline[0]     =ini->ReadFloat  ("prcopt", "baseline1",     0.0);
@@ -1818,6 +1929,9 @@ void __fastcall TMainForm::LoadOpt(void)
     StaPosFileF     =ini->ReadString ("setting","staposfile",     "");
     GeoidDataFileF  =ini->ReadString ("setting","geoiddatafile",  "");
     DCBFileF        =ini->ReadString ("setting","dcbfile",        "");
+    EOPFileF        =ini->ReadString ("setting","eopfile",        "");
+    TLEFileF        =ini->ReadString ("setting","tlefile",        "");
+    TLESatFileF     =ini->ReadString ("setting","tlesatfile",     "");
     LocalDirectory  =ini->ReadString ("setting","localdirectory","C:\\Temp");
     
     SvrCycle        =ini->ReadInteger("setting","svrcycle",       10);
@@ -1871,18 +1985,22 @@ void __fastcall TMainForm::LoadOpt(void)
         PntPos[i][0]=PntPos[i][1]=PntPos[i][2]=0.0;
         sscanf(pos.c_str(),"%lf,%lf,%lf",PntPos[i],PntPos[i]+1,PntPos[i]+2);
     }
-    PosFont->Charset=ANSI_CHARSET;
     PosFont->Name=ini->ReadString ("setting","posfontname",POSFONTNAME);
     PosFont->Size=ini->ReadInteger("setting","posfontsize",POSFONTSIZE);
     PosFont->Color=(TColor)ini->ReadInteger("setting","posfontcolor",(int)clBlack);
     if (ini->ReadInteger("setting","posfontbold",  0)) PosFont->Style=PosFont->Style<<fsBold;
     if (ini->ReadInteger("setting","posfontitalic",0)) PosFont->Style=PosFont->Style<<fsItalic;
+    PosFont->Charset=ANSI_CHARSET;
     
     TTextViewer::Color1=(TColor)ini->ReadInteger("viewer","color1",(int)clBlack);
     TTextViewer::Color2=(TColor)ini->ReadInteger("viewer","color2",(int)clWhite);
     TTextViewer::FontD=new TFont;
     TTextViewer::FontD->Name=ini->ReadString ("viewer","fontname","Courier New");
     TTextViewer::FontD->Size=ini->ReadInteger("viewer","fontsize",9);
+    
+    Width         =ini->ReadInteger("window","width",   388);
+    Height        =ini->ReadInteger("window","height",  284);
+    Panel21->Width=ini->ReadInteger("window","splitpos",180);
     
     delete ini;
 }
@@ -1915,10 +2033,22 @@ void __fastcall TMainForm::SaveOpt(void)
         ini->WriteString ("serial",s.sprintf("cmd_%d_%d"   ,i,j),Cmds  [i][j]);
         ini->WriteInteger("serial",s.sprintf("cmdena_%d_%d",i,j),CmdEna[i][j]);
     }
+    for (i=0;i<3;i++) for (j=0;j<2;j++) {
+        for (p=CmdsTcp[i][j].c_str();*p;p++) {
+            if ((p=strstr(p,"\r\n"))) strncpy(p,"@@",2); else break;
+        }
+        ini->WriteString ("tcpip",s.sprintf("cmd_%d_%d"   ,i,j),CmdsTcp  [i][j]);
+        ini->WriteInteger("tcpip",s.sprintf("cmdena_%d_%d",i,j),CmdEnaTcp[i][j]);
+    }
     ini->WriteInteger("prcopt", "mode",       PrcOpt.mode        );
     ini->WriteInteger("prcopt", "nf",         PrcOpt.nf          );
     ini->WriteFloat  ("prcopt", "elmin",      PrcOpt.elmin       );
-    ini->WriteFloat  ("prcopt", "snrmin",     PrcOpt.snrmin      );
+    ini->WriteFloat  ("prcopt", "snrmask_ena1",PrcOpt.snrmask.ena[0]);
+    ini->WriteFloat  ("prcopt", "snrmask_ena2",PrcOpt.snrmask.ena[1]);
+    for (i=0;i<NFREQ;i++) for (j=0;j<9;j++) {
+        ini->WriteFloat("prcopt",s.sprintf("snrmask_%d_%d",i+1,j+1),
+                        PrcOpt.snrmask.mask[i][j]);
+    }
     ini->WriteInteger("prcopt", "dynamics",   PrcOpt.dynamics    );
     ini->WriteInteger("prcopt", "tidecorr",   PrcOpt.tidecorr    );
     ini->WriteInteger("prcopt", "modear",     PrcOpt.modear      );
@@ -1942,7 +2072,7 @@ void __fastcall TMainForm::SaveOpt(void)
     ini->WriteFloat  ("prcopt", "prn3",       PrcOpt.prn[3]      );
     ini->WriteFloat  ("prcopt", "prn4",       PrcOpt.prn[4]      );
     ini->WriteFloat  ("prcopt", "sclkstab",   PrcOpt.sclkstab    );
-    ini->WriteFloat  ("prcopt", "thresar",    PrcOpt.thresar     );
+    ini->WriteFloat  ("prcopt", "thresar",    PrcOpt.thresar[0]  );
     ini->WriteFloat  ("prcopt", "elmaskar",   PrcOpt.elmaskar    );
     ini->WriteFloat  ("prcopt", "elmaskhold", PrcOpt.elmaskhold  );
     ini->WriteFloat  ("prcopt", "thresslip",  PrcOpt.thresslip   );
@@ -1951,6 +2081,11 @@ void __fastcall TMainForm::SaveOpt(void)
     ini->WriteFloat  ("prcopt", "maxinno",    PrcOpt.maxinno     );
     ini->WriteString ("prcopt", "exsats",     ExSats             );
     ini->WriteInteger("prcopt", "navsys",     PrcOpt.navsys      );
+    ini->WriteInteger("prcopt", "posopt1",    PrcOpt.posopt[0]   );
+    ini->WriteInteger("prcopt", "posopt2",    PrcOpt.posopt[1]   );
+    ini->WriteInteger("prcopt", "posopt3",    PrcOpt.posopt[2]   );
+    ini->WriteInteger("prcopt", "posopt4",    PrcOpt.posopt[3]   );
+    ini->WriteInteger("prcopt", "posopt5",    PrcOpt.posopt[4]   );
     
     ini->WriteFloat  ("prcopt", "baselinec",  BaselineC          );
     ini->WriteFloat  ("prcopt", "baseline1",  Baseline[0]        );
@@ -1983,6 +2118,9 @@ void __fastcall TMainForm::SaveOpt(void)
     ini->WriteString ("setting","staposfile", StaPosFileF        );
     ini->WriteString ("setting","geoiddatafile",GeoidDataFileF   );
     ini->WriteString ("setting","dcbfile",    DCBFileF           );
+    ini->WriteString ("setting","eopfile",    EOPFileF           );
+    ini->WriteString ("setting","tlefile",    TLEFileF           );
+    ini->WriteString ("setting","tlesatfile", TLESatFileF        );
     ini->WriteString ("setting","localdirectory",LocalDirectory  );
     
     ini->WriteInteger("setting","svrcycle",   SvrCycle           );
@@ -2047,7 +2185,50 @@ void __fastcall TMainForm::SaveOpt(void)
     ini->WriteString ("viewer","fontname",TTextViewer::FontD->Name);
     ini->WriteInteger("viewer","fontsize",TTextViewer::FontD->Size);
     
+    ini->WriteInteger("window","width",    Width);
+    ini->WriteInteger("window","height",   Height);
+    ini->WriteInteger("window","splitpos", Panel21->Width);
+    
     delete ini;
 }
 //---------------------------------------------------------------------------
-
+void __fastcall TMainForm::Panel4Resize(TObject *Sender)
+{
+	TButton *btn[]={BtnStart,BtnStop,BtnPlot,BtnOpt,BtnExit};
+	TPanel *panel=(TPanel *)Sender;
+	int w=panel->Width/5;
+	for (int i=0;i<5;i++) {
+		btn[i]->Left=w*i+1;
+		btn[i]->Width=w-2;
+	}
+}
+//---------------------------------------------------------------------------
+void __fastcall TMainForm::Panel21Resize(TObject *Sender)
+{
+	UpdatePanel();
+}
+//---------------------------------------------------------------------------
+void __fastcall TMainForm::UpdatePanel(void)
+{
+	int h=abs(Pos1->Font->Height)-2,w=Panel211->Width;
+	int y0,y1,y2,y3,y4,y5;
+	
+	BtnSolType->Left=Panel21->Width-BtnSolType->Width-2;
+    
+	y2=Panel211->Height/2-h/2-6; 
+	y1=y2-h-10; y3=y2+h+10; y0=y1-h-12; y4=y3+h+10; y5=y4+14;
+	
+	PlabelA  ->Top=y0+2; Solution->Top=y0+5-h/2; IndSol->Top=y0+4;
+	Plabel1  ->Top=y1; Pos1->Top=y1;
+	Plabel2  ->Top=y2; Pos2->Top=y2;
+	Plabel3  ->Top=y3; Pos3->Top=y3;
+	LabelStd ->Top=y4;
+	LabelNSat->Top=y5;
+	Solution->Left=40; Solution->Width=w-75; IndSol->Left=w-24;
+	Plabel1->Left=14; Pos1->Left=30; Pos1->Width=w-42;
+	Plabel2->Left=14; Pos2->Left=30; Pos2->Width=w-42;
+	Plabel3->Left=14; Pos3->Left=30; Pos3->Width=w-42;
+	LabelStd ->Left=2; LabelStd ->Width=w-4;
+	LabelNSat->Left=2; LabelNSat->Width=w-4;
+}
+//---------------------------------------------------------------------------

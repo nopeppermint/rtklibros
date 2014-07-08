@@ -203,6 +203,14 @@
 				>
 			</File>
 			<File
+				RelativePath="..\..\..\src\rcv\nvs.c"
+				>
+			</File>
+			<File
+				RelativePath="..\..\..\src\preceph.c"
+				>
+			</File>
+			<File
 				RelativePath="..\..\..\src\rcvraw.c"
 				>
 			</File>
@@ -212,6 +220,14 @@
 			</File>
 			<File
 				RelativePath="..\..\..\src\rtcm.c"
+				>
+			</File>
+			<File
+				RelativePath="..\..\..\src\rtcm2.c"
+				>
+			</File>
+			<File
+				RelativePath="..\..\..\src\rtcm3.c"
 				>
 			</File>
 			<File
