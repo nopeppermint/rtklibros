@@ -1,98 +1,105 @@
-cmake_minimum_required(VERSION 2.4.6)
-include($ENV{ROS_ROOT}/core/rosbuild/rosbuild.cmake)
+cmake_minimum_required(VERSION 2.8.3)
+project(rtklibros)
 
-set(ROS_BUILD_TYPE Debug)
+## Find catkin macros and libraries
+## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
+## is used, also find other catkin packages
+find_package(catkin REQUIRED roscpp sensor_msgs std_msgs nav_msgs geometry_msgs rtk_msgs angles roslib)
 
-rosbuild_init()
-
-add_definitions("-Wall -ansi -pedantic -I$(SRC) -DTRACE -lpthread
- -DENAGLO -DENAQZS -DENAGAL -DNFREQ=3")
-
+add_definitions("-Wall -ansi -pedantic -I$(SRC) -DTRACE -lpthread -DENAGLO -DENAQZS -DENAGAL -DNFREQ=3")
+ 
 link_libraries(m)
 
-set(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/bin)
-set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)
+## Generate services in the 'srv' folder
+add_service_files(
+   FILES
+   SingleResponse.srv
+)
 
-rosbuild_gensrv()
-
-#add dynamic reconfigure api
-#rosbuild_find_ros_package(dynamic_reconfigure)
-#include(${dynamic_reconfigure_PACKAGE_PATH}/cmake/cfgbuild.cmake)
-#gencfg()
+## Generate added messages and services with any dependencies listed here
+generate_messages(
+   DEPENDENCIES
+)
 
 
-include_directories ("${PROJECT_SOURCE_DIR}/src")
+catkin_package(
+  #INCLUDE_DIRS include
+  #LIBRARIES UTMConverter
+#  CATKIN_DEPENDS other_catkin_pkg
+#  DEPENDS system_lib
+)
 
+## Specify additional locations of header files
+## Your package locations should be listed before other locations
+include_directories(src ${catkin_INCLUDE_DIRS})
+ 
 #pos2kml
-rosbuild_add_library(convkml src/convkml.c)
-rosbuild_add_library(solution src/solution.c)
-rosbuild_add_library(geoid src/geoid.c)
-rosbuild_add_library(rtkcmn src/rtkcmn.c)
-rosbuild_add_library(solution src/solution.c)
+add_library(convkml src/convkml.c)
+add_library(solution src/solution.c)
+add_library(geoid src/geoid.c)
+add_library(rtkcmn src/rtkcmn.c)
 
-rosbuild_add_executable(pos2kml app/pos2kml/pos2kml.c)
+
+add_executable(pos2kml app/pos2kml/pos2kml.c)
 target_link_libraries(pos2kml convkml solution geoid rtkcmn solution)
 
 #str2str
-rosbuild_add_library(ss2 src/rcv/ss2.c)
-rosbuild_add_library(crescent src/rcv/crescent.c)
-rosbuild_add_library(skytraq src/rcv/skytraq.c)
-rosbuild_add_library(gw10 src/rcv/gw10.c)
-rosbuild_add_library(javad src/rcv/javad.c)
-rosbuild_add_library(stream src/stream.c)
-rosbuild_add_library(rtkcmn src/rtkcmn.c)
-rosbuild_add_library(sbas src/sbas.c)
-rosbuild_add_library(geoid src/geoid.c)
-rosbuild_add_library(ublox src/rcv/ublox.c src/rcvraw.c)
+add_library(ss2 src/rcv/ss2.c)
+add_library(crescent src/rcv/crescent.c)
+add_library(skytraq src/rcv/skytraq.c)
+add_library(gw10 src/rcv/gw10.c)
+add_library(javad src/rcv/javad.c)
+add_library(stream src/stream.c)
+add_library(sbas src/sbas.c)
+add_library(ublox src/rcv/ublox.c src/rcvraw.c)
 target_link_libraries(ublox ss2 crescent gw10 javad skytraq crescent sbas novatel rtkcmn rinex rtcm)
-rosbuild_add_library(novatel src/rcv/novatel.c)
-rosbuild_add_library(streamsvr src/streamsvr.c)
+add_library(novatel src/rcv/novatel.c)
+add_library(streamsvr src/streamsvr.c)
 
-rosbuild_add_executable(str2str app/str2str/str2str.c)
-target_link_libraries(str2str stream rtkcmn solution geoid ublox skytraq streamsvr)
+add_executable(str2str app/str2str/str2str.c)
+target_link_libraries(str2str stream rtkcmn solution geoid ublox skytraq streamsvr pthread)
 
 #rnx2rtkp
-
-rosbuild_add_library(rtkcmn  src/rtkcmn.c)
-rosbuild_add_library(rinex  src/rinex.c)
-rosbuild_add_library(rtkpos  src/rtkpos.c)
-rosbuild_add_library(ephemeris  src/ephemeris.c)
+add_library(rinex  src/rinex.c)
+add_library(rtkpos  src/rtkpos.c)
+add_library(ephemeris  src/ephemeris.c)
 target_link_libraries(rtkpos lambda ppp pntpos ephemeris)
-rosbuild_add_library(postpos  src/postpos.c)
+add_library(postpos  src/postpos.c)
 target_link_libraries(postpos sbas rtkpos rtcm rinex)
-rosbuild_add_library(solution src/solution.c)
 
-rosbuild_add_library(lambda  src/lambda.c)
-rosbuild_add_library(preceph  src/preceph.c)
-rosbuild_add_library(ionex src/ionex.c)
-rosbuild_add_library(pntpos  src/pntpos.c)
+
+add_library(lambda  src/lambda.c)
+add_library(preceph  src/preceph.c)
+add_library(ionex src/ionex.c)
+add_library(pntpos  src/pntpos.c)
 target_link_libraries(pntpos ionex)
-rosbuild_add_library(options src/options.c)
-rosbuild_add_library(ppp  src/ppp.c)
+add_library(options src/options.c)
+add_library(ppp  src/ppp.c)
 target_link_libraries(ppp pntpos)
-rosbuild_add_library(rtcm  src/rtcm.c)
+add_library(rtcm  src/rtcm.c)
 
-rosbuild_add_executable(rnx2rtkp app/rnx2rtkp/rnx2rtkp.c)
+add_executable(rnx2rtkp app/rnx2rtkp/rnx2rtkp.c)
 target_link_libraries(rnx2rtkp rtkcmn postpos solution ionex
 geoid preceph pntpos ephemeris options rtcm ionex)
 
 #convbin
-rosbuild_add_library(convrnx src/convrnx.c)
+add_library(convrnx src/convrnx.c)
 target_link_libraries(convrnx rtkcmn sbas rtkpos rtcm rinex)
 
-rosbuild_add_executable(convbin app/convbin/convbin.c src/rcvraw.c)
+add_executable(convbin app/convbin/convbin.c src/rcvraw.c)
 target_link_libraries(convbin ublox rtkcmn rinex sbas convrnx rtcm skytraq 
 rtkcmn rtksvr rtkpos geoid solution lambda
 sbas stream rtcm preceph options pntpos ppp ublox 
  ephemeris rinex ionex)
 	
 #rtkrcv
-
-rosbuild_add_library(rtksvr src/rtksvr.cc)
-rosbuild_add_executable(rtkrcv app/rtkrcv/rtkrcvros.cc)
+add_library(rtksvr src/rtksvr.cc)
+add_executable(rtkrcv app/rtkrcv/rtkrcvros.cc)
+add_dependencies(rtkrcv rtklibros_generate_messages_cpp)
 target_link_libraries(rtkrcv rtkcmn rtksvr rtkpos geoid solution lambda
 sbas stream rtcm preceph options pntpos ppp ublox 
- ephemeris rinex ionex)
+ ephemeris rinex ionex ${catkin_LIBRARIES})
+
 
 
 
