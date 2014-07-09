@@ -59,7 +59,8 @@ static void saveoutbuf(rtksvr_t *svr, unsigned char *buff, int n, int index)
     rtksvrunlock(svr);
 }
 /* write solution to output stream -------------------------------------------*/
-static void writesol(rtksvr_t *svr, int index, geometry_msgs::PoseWithCovarianceStamped& pse, geometry_msgs::PoseWithCovarianceStamped& pse2)
+static void writesol(rtksvr_t *svr, int index, geometry_msgs::PoseWithCovarianceStamped& pse,
+                     geometry_msgs::PoseWithCovarianceStamped& pse2, sensor_msgs::NavSatFix& gps_msg,rtk_msgs::Status& status_msg)
 {
     solopt_t solopt=solopt_default;
     unsigned char buff[1024];
@@ -72,9 +73,12 @@ static void writesol(rtksvr_t *svr, int index, geometry_msgs::PoseWithCovariance
         n=outsols(buff,&svr->rtk.sol,svr->rtk.rb,svr->solopt+i);
         strwrite(svr->stream+i+3,buff,n);
 
+        ros::Time now = ros::Time::now();
         /*slynen{*/
-        pse.header.stamp = ros::Time::now();
-        pse2.header.stamp = ros::Time::now();
+        pse.header.stamp = now;
+        pse2.header.stamp = now;
+        gps_msg.header.stamp = now;
+        status_msg.stamp = now;
 
         double pos[6], rr[6], enu[6], P[36], Q[36];//pos and vel
 
@@ -114,17 +118,42 @@ static void writesol(rtksvr_t *svr, int index, geometry_msgs::PoseWithCovariance
 
         /*var quat to -1 == not applicable*/
         pse2.pose.covariance.elems[21] = pse.pose.covariance.elems[28] = pse.pose.covariance.elems[35] = -1;
+
+
+        if(svr->rtk.sol.stat != SOLQ_NONE){
+
+
+            gps_msg.latitude = pse2.pose.pose.position.x;
+            gps_msg.longitude = pse2.pose.pose.position.y;
+            gps_msg.altitude = pse2.pose.pose.position.z;
+
+            gps_msg.position_covariance_type = sensor_msgs::NavSatFix::COVARIANCE_TYPE_KNOWN;
+            for (int i=0;i<9;i++) gps_msg.position_covariance[i]=P[i];
+
+
+            gps_msg.status.status = svr->rtk.sol.stat==5 ? sensor_msgs::NavSatStatus::STATUS_FIX : sensor_msgs::NavSatStatus::STATUS_GBAS_FIX;
+            gps_msg.status.service = sensor_msgs::NavSatStatus::SERVICE_GPS;
+
+            status_msg.fix_quality = svr->rtk.sol.stat;
+            status_msg.number_of_satellites = svr->rtk.sol.ns;
+        }
+        else
+        {
+            gps_msg.status.status = sensor_msgs::NavSatStatus::STATUS_NO_FIX;
+            gps_msg.status.service = sensor_msgs::NavSatStatus::SERVICE_GPS;
+
+        }
         /*}gridanie*/
 
 
-        
+
         /* save output buffer */
         saveoutbuf(svr,buff,n,i);
-        
+
         /* output extended solution */
         n=outsolexs(buff,&svr->rtk.sol,svr->rtk.ssat,svr->solopt+i);
         strwrite(svr->stream+i+3,buff,n);
-        
+
         /* save output buffer */
         saveoutbuf(svr,buff,n,i);
     }
@@ -166,7 +195,7 @@ static void updatesvr(rtksvr_t *svr, int ret, obs_t *obs, nav_t *nav, int sat,
         if (iobs<MAXOBSBUF) {
             for (i=0;i<obs->n;i++) {
                 if (svr->rtk.opt.exsats[obs->data[i].sat-1]==1||
-                    !(satsys(obs->data[i].sat,NULL)&svr->rtk.opt.navsys)) continue;
+                        !(satsys(obs->data[i].sat,NULL)&svr->rtk.opt.navsys)) continue;
                 svr->obs[index][iobs].data[n]=obs->data[i];
                 svr->obs[index][iobs].data[n++].rcv=index+1;
             }
@@ -182,7 +211,7 @@ static void updatesvr(rtksvr_t *svr, int ret, obs_t *obs, nav_t *nav, int sat,
                 eph2=svr->nav.eph+sat-1;
                 eph3=svr->nav.eph+sat-1+MAXSAT;
                 if (eph2->ttr.time==0||
-                    (timediff(eph1->toe,eph2->toe)>0.0&&eph1->iode!=eph2->iode)) {
+                        (timediff(eph1->toe,eph2->toe)>0.0&&eph1->iode!=eph2->iode)) {
                     *eph3=*eph2;
                     *eph2=*eph1;
                     updatenav(&svr->nav);
@@ -191,18 +220,18 @@ static void updatesvr(rtksvr_t *svr, int ret, obs_t *obs, nav_t *nav, int sat,
             svr->nmsg[index][1]++;
         }
         else {
-           if (!svr->navsel||svr->navsel==index+1) {
-               geph1=nav->geph+prn-1;
-               geph2=svr->nav.geph+prn-1;
-               geph3=svr->nav.geph+prn-1+MAXPRNGLO;
-               if (geph2->tof.time==0||
-                   (timediff(geph1->toe,geph2->toe)>0.0&&geph1->iode!=geph2->iode)) {
-                   *geph3=*geph2;
-                   *geph2=*geph1;
-                   updatenav(&svr->nav);
-               }
-           }
-           svr->nmsg[index][6]++;
+            if (!svr->navsel||svr->navsel==index+1) {
+                geph1=nav->geph+prn-1;
+                geph2=svr->nav.geph+prn-1;
+                geph3=svr->nav.geph+prn-1+MAXPRNGLO;
+                if (geph2->tof.time==0||
+                        (timediff(geph1->toe,geph2->toe)>0.0&&geph1->iode!=geph2->iode)) {
+                    *geph3=*geph2;
+                    *geph2=*geph1;
+                    updatenav(&svr->nav);
+                }
+            }
+            svr->nmsg[index][6]++;
         }
     }
     else if (ret==3) { /* sbas message */
@@ -268,13 +297,13 @@ static void updatesvr(rtksvr_t *svr, int ret, obs_t *obs, nav_t *nav, int sat,
             /* check corresponding ephemeris exists */
             if (sys==SYS_GPS||sys==SYS_GAL||sys==SYS_QZS) {
                 if (svr->nav.eph[i       ].iode!=iode&&
-                    svr->nav.eph[i+MAXSAT].iode!=iode) {
+                        svr->nav.eph[i+MAXSAT].iode!=iode) {
                     continue;
                 }
             }
             else if (sys==SYS_GLO) {
                 if (svr->nav.geph[prn-1          ].iode!=iode&&
-                    svr->nav.geph[prn-1+MAXPRNGLO].iode!=iode) {
+                        svr->nav.geph[prn-1+MAXPRNGLO].iode!=iode) {
                     continue;
                 }
             }
@@ -372,7 +401,7 @@ static void decodefile(rtksvr_t *svr, int index)
     
     /* check file path completed */
     if ((nb=svr->nb[index])<=2||
-        svr->buff[index][nb-2]!='\r'||svr->buff[index][nb-1]!='\n') {
+            svr->buff[index][nb-2]!='\r'||svr->buff[index][nb-1]!='\n') {
         rtksvrunlock(svr);
         return;
     }
@@ -442,10 +471,13 @@ static void *rtksvrthread(void *arg)
 
     /*slynen{*/
     ros::NodeHandle ros_nh;
+    ros::NodeHandle pn("~");
     ros::Publisher pub_baseline = ros_nh.advertise<geometry_msgs::PoseWithCovarianceStamped>("baseline", 1000);
     ros::Publisher pub_latlon = ros_nh.advertise<geometry_msgs::PoseWithCovarianceStamped>("latlon", 1000);
+    ros::Publisher gps_pub = ros_nh.advertise<sensor_msgs::NavSatFix>("gps/fix", 50);
+    ros::Publisher status_pub = ros_nh.advertise<rtk_msgs::Status>("gps/status", 50);
     std::string frame_id;
-    ros_nh.getParam("frame_id", frame_id);
+    pn.param<std::string>("frame_id", frame_id,"gps_antenna");
     /*}*/
     
     for (cycle=0;svr->state;cycle++) {
@@ -504,9 +536,14 @@ static void *rtksvrthread(void *arg)
                 pse.header.frame_id = frame_id;
                 geometry_msgs::PoseWithCovarianceStamped pse2;
                 pse.header.frame_id = frame_id;
-                writesol(svr,i,pse,pse2);
+                sensor_msgs::NavSatFix gps_msg;
+                gps_msg.header.frame_id = frame_id;
+                rtk_msgs::Status status_msg;
+                writesol(svr,i,pse,pse2,gps_msg,status_msg);
                 pub_baseline.publish(pse);
                 pub_latlon.publish(pse2);
+                gps_pub.publish(gps_msg);
+                status_pub.publish(status_msg);
                 /*writesol(svr,i);*/
                 /*}*/
             }
@@ -527,10 +564,15 @@ static void *rtksvrthread(void *arg)
             pse.header.frame_id = frame_id;
             geometry_msgs::PoseWithCovarianceStamped pse2;
             pse.header.frame_id = frame_id;
+            sensor_msgs::NavSatFix gps_msg;
+            gps_msg.header.frame_id = frame_id;
+            rtk_msgs::Status status_msg;
             //ROS_WARN("No valid solution at the moment");
-            writesol(svr,0,pse,pse2);
+            writesol(svr,0,pse,pse2,gps_msg,status_msg);
             pub_baseline.publish(pse);
             pub_latlon.publish(pse2);
+            gps_pub.publish(gps_msg);
+            status_pub.publish(status_msg);
             /*writesol(svr,0);*/
             /*}*/
         }
@@ -602,8 +644,8 @@ extern int rtksvrinit(rtksvr_t *svr)
     svr->cputime=svr->prcout=0;
     
     if (!(svr->nav.eph =(eph_t  *)malloc(sizeof(eph_t )*MAXSAT *2))||
-        !(svr->nav.geph=(geph_t *)malloc(sizeof(geph_t)*NSATGLO*2))||
-        !(svr->nav.seph=(seph_t *)malloc(sizeof(seph_t)*NSATSBS*2))) {
+            !(svr->nav.geph=(geph_t *)malloc(sizeof(geph_t)*NSATGLO*2))||
+            !(svr->nav.seph=(seph_t *)malloc(sizeof(seph_t)*NSATSBS*2))) {
         tracet(1,"rtksvrinit: malloc error\n");
         return 0;
     }
@@ -710,7 +752,7 @@ extern int rtksvrstart(rtksvr_t *svr, int cycle, int buffsize, int *strs,
     for (i=0;i<3;i++) { /* input/log streams */
         svr->nb[i]=svr->npb[i]=0;
         if (!(svr->buff[i]=(unsigned char *)malloc(buffsize))||
-            !(svr->pbuf[i]=(unsigned char *)malloc(buffsize))) {
+                !(svr->pbuf[i]=(unsigned char *)malloc(buffsize))) {
             tracet(1,"rtksvrstart: malloc error\n");
             return 0;
         }
