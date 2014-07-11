@@ -31,6 +31,7 @@
 /*}*/
 
 #include <sensor_msgs/NavSatFix.h>
+#include <sensor_msgs/TimeReference.h>
 #include <rtk_msgs/Status.h>
 #include <rtk_msgs/UTMCoordinates.h>
 #include <rtk_msgs/ECEFCoordinates.h>
@@ -60,7 +61,8 @@ static void saveoutbuf(rtksvr_t *svr, unsigned char *buff, int n, int index)
 }
 /* write solution to output stream -------------------------------------------*/
 static void writesol(rtksvr_t *svr, int index, geometry_msgs::PoseWithCovarianceStamped& pse,
-                     geometry_msgs::PoseWithCovarianceStamped& pse2, sensor_msgs::NavSatFix& gps_msg,rtk_msgs::Status& status_msg)
+                     geometry_msgs::PoseWithCovarianceStamped& pse2, sensor_msgs::NavSatFix& gps_msg,
+                     rtk_msgs::Status& status_msg,sensor_msgs::TimeReference& time_msg)
 {
     solopt_t solopt=solopt_default;
     unsigned char buff[1024];
@@ -79,6 +81,7 @@ static void writesol(rtksvr_t *svr, int index, geometry_msgs::PoseWithCovariance
         pse2.header.stamp = now;
         gps_msg.header.stamp = now;
         status_msg.stamp = now;
+        time_msg.header.stamp=now;
 
         double pos[6], rr[6], enu[6], P[36], Q[36];//pos and vel
 
@@ -136,6 +139,10 @@ static void writesol(rtksvr_t *svr, int index, geometry_msgs::PoseWithCovariance
 
             status_msg.fix_quality = svr->rtk.sol.stat;
             status_msg.number_of_satellites = svr->rtk.sol.ns;
+
+            time_msg.time_ref.fromSec(svr->rtk.sol.time.time);
+            time_msg.time_ref.nsec=svr->rtk.sol.time.sec*1000000000;
+
         }
         else
         {
@@ -476,6 +483,7 @@ static void *rtksvrthread(void *arg)
     ros::Publisher pub_latlon = ros_nh.advertise<geometry_msgs::PoseWithCovarianceStamped>("latlon", 1000);
     ros::Publisher gps_pub = ros_nh.advertise<sensor_msgs::NavSatFix>("gps/fix", 50);
     ros::Publisher status_pub = ros_nh.advertise<rtk_msgs::Status>("gps/status", 50);
+    ros::Publisher time_pub = ros_nh.advertise<sensor_msgs::TimeReference>("gps/time", 50);
     std::string frame_id;
     pn.param<std::string>("frame_id", frame_id,"gps_antenna");
     /*}*/
@@ -539,11 +547,14 @@ static void *rtksvrthread(void *arg)
                 sensor_msgs::NavSatFix gps_msg;
                 gps_msg.header.frame_id = frame_id;
                 rtk_msgs::Status status_msg;
-                writesol(svr,i,pse,pse2,gps_msg,status_msg);
+                sensor_msgs::TimeReference time_msg;
+                time_msg.header.frame_id = frame_id;
+                writesol(svr,i,pse,pse2,gps_msg,status_msg,time_msg);
                 pub_baseline.publish(pse);
                 pub_latlon.publish(pse2);
                 gps_pub.publish(gps_msg);
                 status_pub.publish(status_msg);
+                time_pub.publish(time_msg);
                 /*writesol(svr,i);*/
                 /*}*/
             }
@@ -567,12 +578,15 @@ static void *rtksvrthread(void *arg)
             sensor_msgs::NavSatFix gps_msg;
             gps_msg.header.frame_id = frame_id;
             rtk_msgs::Status status_msg;
+            sensor_msgs::TimeReference time_msg;
+            time_msg.header.frame_id = frame_id;
             //ROS_WARN("No valid solution at the moment");
-            writesol(svr,0,pse,pse2,gps_msg,status_msg);
+            writesol(svr,0,pse,pse2,gps_msg,status_msg,time_msg);
             pub_baseline.publish(pse);
             pub_latlon.publish(pse2);
             gps_pub.publish(gps_msg);
             status_pub.publish(status_msg);
+            time_pub.publish(time_msg);
             /*writesol(svr,0);*/
             /*}*/
         }
