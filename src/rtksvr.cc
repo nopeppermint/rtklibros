@@ -131,7 +131,17 @@ static void writesol(rtksvr_t *svr, int index, geometry_msgs::PoseWithCovariance
             gps_msg.altitude = pse2.pose.pose.position.z;
 
             gps_msg.position_covariance_type = sensor_msgs::NavSatFix::COVARIANCE_TYPE_KNOWN;
-            for (int i=0;i<9;i++) gps_msg.position_covariance[i]=P[i];
+
+
+            gps_msg.position_covariance[0]=svr->rtk.sol.qr[0];
+            gps_msg.position_covariance[1]=svr->rtk.sol.qr[3];
+            gps_msg.position_covariance[2]=svr->rtk.sol.qr[5];
+            gps_msg.position_covariance[3]=svr->rtk.sol.qr[3];
+            gps_msg.position_covariance[4]=svr->rtk.sol.qr[1];
+            gps_msg.position_covariance[5]=svr->rtk.sol.qr[4];
+            gps_msg.position_covariance[6]=svr->rtk.sol.qr[5];
+            gps_msg.position_covariance[7]=svr->rtk.sol.qr[4];
+            gps_msg.position_covariance[8]=svr->rtk.sol.qr[2];
 
 
             gps_msg.status.status = svr->rtk.sol.stat==5 ? sensor_msgs::NavSatStatus::STATUS_FIX : sensor_msgs::NavSatStatus::STATUS_GBAS_FIX;
