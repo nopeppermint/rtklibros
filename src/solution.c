@@ -962,19 +962,15 @@ static int outecef(unsigned char *buff, const char *s, const sol_t *sol,
 }
 
 /*slynen{*/
-void outros(double* pos, double* rr, double* enu, double* P, double* Q, const sol_t *sol, const double *rb,
-        const solopt_t *opt)
+void outros(const sol_t *sol, const double *rb, const solopt_t *opt, double* pos, double* Q)
 {
-    int i;
-    for (i=0;i<6;i++) rr[i]=sol->rr[i]-rb[i];
-    ecef2pos(rb,pos); /*position*/
-    ecef2pos(rb + 3,pos + 3); /*velocity*/
-    soltocov(sol,P); /*pos cov (no vel cov provided)*/
-    covenu(pos,P,Q); /*pos cov (no vel cov provided)*/
-    ecef2enu(pos,rr,enu); /*position*/
-    ecef2enu(pos+3,rr+3,enu+3); /*velocity*/
 
+    double P[9];
     ecef2pos(sol->rr,pos);  /*lat lon of rover (instead of base) */
+    soltocov(sol,P);
+    covenu(pos,P,Q);
+
+
     /*p+=sprintf(p,"%s%s%14.4f%s%14.4f%s%14.4f%s%3d%s%3d%s%8.4f%s%8.4f%s%8.4f%s%8.4f%s%8.4f%s%8.4f%s%6.2f%s%6.1f\n",
             s,sep,enu[0],sep,enu[1],sep,enu[2],sep,sol->stat,sep,sol->ns,sep,
             SQRT(Q[0]),sep,SQRT(Q[4]),sep,SQRT(Q[8]),sep,sqvar(Q[1]),

@@ -1499,9 +1499,12 @@ extern void outsolhead(FILE *fp, const solopt_t *opt);
 extern void outsol  (FILE *fp, const sol_t *sol, const double *rb,
                      const solopt_t *opt);
 /*slynen{*/
-extern void outros(double* pos, double* rr, double* enu, double* P, double* Q, const sol_t *sol, const double *rb,
-        const solopt_t *opt);
+extern void outros(const sol_t *sol, const double *rb,
+        const solopt_t *opt,double* pos, double* Q);
 extern int repstr(char *str, const char *pat, const char *rep);
+
+
+
  /*}*/
 extern void outsolex(FILE *fp, const sol_t *sol, const ssat_t *ssat,
                      const solopt_t *opt);

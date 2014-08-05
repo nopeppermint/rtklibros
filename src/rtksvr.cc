@@ -59,9 +59,11 @@ static void saveoutbuf(rtksvr_t *svr, unsigned char *buff, int n, int index)
     
     rtksvrunlock(svr);
 }
+
+#define SQRT(x)    ((x)<0.0?0.0:sqrt(x))
+
 /* write solution to output stream -------------------------------------------*/
-static void writesol(rtksvr_t *svr, int index, geometry_msgs::PoseWithCovarianceStamped& pse,
-                     geometry_msgs::PoseWithCovarianceStamped& pse2, sensor_msgs::NavSatFix& gps_msg,
+static void writesol(rtksvr_t *svr, int index, sensor_msgs::NavSatFix& gps_msg,
                      rtk_msgs::Status& status_msg,sensor_msgs::TimeReference& time_msg)
 {
     solopt_t solopt=solopt_default;
@@ -77,72 +79,23 @@ static void writesol(rtksvr_t *svr, int index, geometry_msgs::PoseWithCovariance
 
         ros::Time now = ros::Time::now();
         /*slynen{*/
-        pse.header.stamp = now;
-        pse2.header.stamp = now;
         gps_msg.header.stamp = now;
         status_msg.stamp = now;
         time_msg.header.stamp=now;
 
-        double pos[6], rr[6], enu[6], P[36], Q[36];//pos and vel
+        double pos[3],Q[9];
 
-        outros(pos, rr, enu, P, Q, &svr->rtk.sol, svr->rtk.rb, svr->solopt+i);
-
-        pse.pose.pose.position.x = enu[0]; //X East
-        pse.pose.pose.position.y = enu[1]; //Y North
-        pse.pose.pose.position.z = enu[2]; //Z Up
-
-        pse.pose.covariance[0] = Q[0]; //var East
-        pse.pose.covariance[7] = Q[7]; //var North
-        pse.pose.covariance[14] = Q[14]; //var Up
-
-        pse.pose.covariance[1] = pse.pose.covariance[6] = Q[1]; //cov East/North
-        pse.pose.covariance[2] = pse.pose.covariance[12] = Q[8]; //cov North/Up
-        pse.pose.covariance[3] = pse.pose.covariance[13] = Q[2]; //cov East/Up
-
-
-
-        /*var quat to -1 == not applicable*/
-        pse.pose.covariance.elems[21] = pse.pose.covariance.elems[28] = pse.pose.covariance.elems[35] = -1;
-        /*}*/
-
-        /*gridanie{*/
-        // put the latitude and longitude into a second message
-        pse2.pose.pose.position.x = pos[0]*R2D; //latitude
-        pse2.pose.pose.position.y = pos[1]*R2D; //longitude
-        pse2.pose.pose.position.z = pos[2]; //height
-
-        pse2.pose.covariance[0] = Q[0]; //var East
-        pse2.pose.covariance[7] = Q[7]; //var North
-        pse2.pose.covariance[14] = Q[14]; //var Uup
-
-        pse2.pose.covariance[1] = pse.pose.covariance[6] = Q[1]; //cov East/North
-        pse2.pose.covariance[2] = pse.pose.covariance[12] = Q[8]; //cov North/Up
-        pse2.pose.covariance[3] = pse.pose.covariance[13] = Q[2]; //cov East/Up
-
-        /*var quat to -1 == not applicable*/
-        pse2.pose.covariance.elems[21] = pse.pose.covariance.elems[28] = pse.pose.covariance.elems[35] = -1;
-
+        outros(&svr->rtk.sol, svr->rtk.rb, svr->solopt+i,pos,Q);
 
         if(svr->rtk.sol.stat != SOLQ_NONE){
 
+            gps_msg.latitude = pos[0]*R2D;
+            gps_msg.longitude = pos[1]*R2D;
+            gps_msg.altitude = pos[2];
 
-            gps_msg.latitude = pse2.pose.pose.position.x;
-            gps_msg.longitude = pse2.pose.pose.position.y;
-            gps_msg.altitude = pse2.pose.pose.position.z;
+            for (int i=0;i<9;i++) gps_msg.position_covariance[i] = Q[i];
 
             gps_msg.position_covariance_type = sensor_msgs::NavSatFix::COVARIANCE_TYPE_KNOWN;
-
-
-            gps_msg.position_covariance[0]=svr->rtk.sol.qr[0];
-            gps_msg.position_covariance[1]=svr->rtk.sol.qr[3];
-            gps_msg.position_covariance[2]=svr->rtk.sol.qr[5];
-            gps_msg.position_covariance[3]=svr->rtk.sol.qr[3];
-            gps_msg.position_covariance[4]=svr->rtk.sol.qr[1];
-            gps_msg.position_covariance[5]=svr->rtk.sol.qr[4];
-            gps_msg.position_covariance[6]=svr->rtk.sol.qr[5];
-            gps_msg.position_covariance[7]=svr->rtk.sol.qr[4];
-            gps_msg.position_covariance[8]=svr->rtk.sol.qr[2];
-
 
             gps_msg.status.status = svr->rtk.sol.stat==5 ? sensor_msgs::NavSatStatus::STATUS_FIX : sensor_msgs::NavSatStatus::STATUS_GBAS_FIX;
             gps_msg.status.service = sensor_msgs::NavSatStatus::SERVICE_GPS;
@@ -489,8 +442,6 @@ static void *rtksvrthread(void *arg)
     /*slynen{*/
     ros::NodeHandle ros_nh;
     ros::NodeHandle pn("~");
-    ros::Publisher pub_baseline = ros_nh.advertise<geometry_msgs::PoseWithCovarianceStamped>("baseline", 1000);
-    ros::Publisher pub_latlon = ros_nh.advertise<geometry_msgs::PoseWithCovarianceStamped>("latlon", 1000);
     ros::Publisher gps_pub = ros_nh.advertise<sensor_msgs::NavSatFix>("gps/fix", 50);
     ros::Publisher status_pub = ros_nh.advertise<rtk_msgs::Status>("gps/status", 50);
     ros::Publisher time_pub = ros_nh.advertise<sensor_msgs::TimeReference>("gps/time", 50);
@@ -550,18 +501,12 @@ static void *rtksvrthread(void *arg)
                 
                 /* write solution */
                 /*slynen{*/
-                geometry_msgs::PoseWithCovarianceStamped pse;
-                pse.header.frame_id = frame_id;
-                geometry_msgs::PoseWithCovarianceStamped pse2;
-                pse.header.frame_id = frame_id;
                 sensor_msgs::NavSatFix gps_msg;
                 gps_msg.header.frame_id = frame_id;
                 rtk_msgs::Status status_msg;
                 sensor_msgs::TimeReference time_msg;
                 time_msg.header.frame_id = frame_id;
-                writesol(svr,i,pse,pse2,gps_msg,status_msg,time_msg);
-                pub_baseline.publish(pse);
-                pub_latlon.publish(pse2);
+                writesol(svr,i,gps_msg,status_msg,time_msg);
                 gps_pub.publish(gps_msg);
                 status_pub.publish(status_msg);
                 time_pub.publish(time_msg);
@@ -581,19 +526,13 @@ static void *rtksvrthread(void *arg)
 
             /* write solution */
             /*slynen{*/
-            geometry_msgs::PoseWithCovarianceStamped pse;
-            pse.header.frame_id = frame_id;
-            geometry_msgs::PoseWithCovarianceStamped pse2;
-            pse.header.frame_id = frame_id;
             sensor_msgs::NavSatFix gps_msg;
             gps_msg.header.frame_id = frame_id;
             rtk_msgs::Status status_msg;
             sensor_msgs::TimeReference time_msg;
             time_msg.header.frame_id = frame_id;
             //ROS_WARN("No valid solution at the moment");
-            writesol(svr,0,pse,pse2,gps_msg,status_msg,time_msg);
-            pub_baseline.publish(pse);
-            pub_latlon.publish(pse2);
+            writesol(svr,0,gps_msg,status_msg,time_msg);
             gps_pub.publish(gps_msg);
             status_pub.publish(status_msg);
             time_pub.publish(time_msg);
