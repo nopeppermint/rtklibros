@@ -971,6 +971,8 @@ void outros(const sol_t *sol, const double *rb, const solopt_t *opt, double* pos
     covenu(pos,P,Q);
 
 
+    /*SQRT(Q[0]),SQRT(Q[4]),SQRT(Q[8]),sqvar(Q[1]),sqvar(Q[5]),sqvar(Q[2])*/ //cov in m
+
     /*p+=sprintf(p,"%s%s%14.4f%s%14.4f%s%14.4f%s%3d%s%3d%s%8.4f%s%8.4f%s%8.4f%s%8.4f%s%8.4f%s%8.4f%s%6.2f%s%6.1f\n",
             s,sep,enu[0],sep,enu[1],sep,enu[2],sep,sol->stat,sep,sol->ns,sep,
             SQRT(Q[0]),sep,SQRT(Q[4]),sep,SQRT(Q[8]),sep,sqvar(Q[1]),
