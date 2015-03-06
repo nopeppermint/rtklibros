@@ -34,81 +34,123 @@ catkin_package(
 include_directories(src ${catkin_INCLUDE_DIRS})
  
 #pos2kml
-add_library(convkml src/convkml.c)
-add_library(solution src/solution.c)
-add_library(geoid src/geoid.c)
-add_library(rtkcmn src/rtkcmn.c)
-add_library(preceph src/preceph.c)
+add_library(${PROJECT_NAME}_convkml src/convkml.c)
+add_library(${PROJECT_NAME}_solution src/solution.c)
+add_library(${PROJECT_NAME}_geoid src/geoid.c)
+add_library(${PROJECT_NAME}_rtkcmn src/rtkcmn.c)
+add_library(${PROJECT_NAME}_preceph src/preceph.c)
 
-add_executable(pos2kml app/pos2kml/pos2kml.c)
-target_link_libraries(pos2kml convkml solution geoid rtkcmn solution preceph)
+add_executable(${PROJECT_NAME}_pos2kml app/pos2kml/pos2kml.c)
+target_link_libraries(${PROJECT_NAME}_pos2kml
+    ${PROJECT_NAME}_convkml
+    ${PROJECT_NAME}_solution
+    ${PROJECT_NAME}_geoid
+    ${PROJECT_NAME}_rtkcmn
+    ${PROJECT_NAME}_solution
+    ${PROJECT_NAME}_preceph)
+set_target_properties(${PROJECT_NAME}_pos2kml
+    PROPERTIES OUTPUT_NAME pos2kml
+    PREFIX "")
 
 #str2str
-add_library(ss2 src/rcv/ss2.c)
-add_library(crescent src/rcv/crescent.c)
-add_library(skytraq src/rcv/skytraq.c)
-add_library(gw10 src/rcv/gw10.c)
-add_library(javad src/rcv/javad.c)
-add_library(stream src/stream.c)
-add_library(sbas src/sbas.c)
-add_library(nvs src/rcv/nvs.c)
-add_library(ublox src/rcv/ublox.c src/rcvraw.c)
-target_link_libraries(ublox ss2 crescent gw10 javad skytraq crescent sbas novatel rtkcmn rinex rtcm nvs)
-add_library(novatel src/rcv/novatel.c)
-add_library(streamsvr src/streamsvr.c)
+add_library(${PROJECT_NAME}_ss2 src/rcv/ss2.c)
+add_library(${PROJECT_NAME}_crescent src/rcv/crescent.c)
+add_library(${PROJECT_NAME}_skytraq src/rcv/skytraq.c)
+add_library(${PROJECT_NAME}_gw10 src/rcv/gw10.c)
+add_library(${PROJECT_NAME}_javad src/rcv/javad.c)
+add_library(${PROJECT_NAME}_stream src/stream.c)
+add_library(${PROJECT_NAME}_sbas src/sbas.c)
+add_library(${PROJECT_NAME}_nvs src/rcv/nvs.c)
+add_library(${PROJECT_NAME}_ublox src/rcv/ublox.c src/rcvraw.c)
+target_link_libraries(${PROJECT_NAME}_ublox
+    ${PROJECT_NAME}_ss2
+    ${PROJECT_NAME}_crescent
+    ${PROJECT_NAME}_gw10
+    ${PROJECT_NAME}_javad
+    ${PROJECT_NAME}_skytraq
+    ${PROJECT_NAME}_crescent
+    ${PROJECT_NAME}_sbas
+    ${PROJECT_NAME}_novatel
+    ${PROJECT_NAME}_rtkcmn
+    ${PROJECT_NAME}_rinex
+    ${PROJECT_NAME}_rtcm
+    ${PROJECT_NAME}_nvs)
+add_library(${PROJECT_NAME}_novatel src/rcv/novatel.c)
+add_library(${PROJECT_NAME}_streamsvr src/streamsvr.c)
 
-add_executable(str2str app/str2str/str2str.c)
-target_link_libraries(str2str stream rtkcmn solution geoid ublox skytraq streamsvr pthread)
+add_executable(${PROJECT_NAME}_str2str app/str2str/str2str.c)
+target_link_libraries(${PROJECT_NAME}_str2str
+    ${PROJECT_NAME}_stream 
+    ${PROJECT_NAME}_rtkcmn 
+    ${PROJECT_NAME}_solution 
+    ${PROJECT_NAME}_geoid 
+    ${PROJECT_NAME}_ublox 
+    ${PROJECT_NAME}_skytraq 
+    ${PROJECT_NAME}_streamsvr 
+    pthread)
+set_target_properties(${PROJECT_NAME}_str2str
+    PROPERTIES OUTPUT_NAME str2str
+    PREFIX "")
 
 #rnx2rtkp
-add_library(rinex  src/rinex.c)
-add_library(rtkpos  src/rtkpos.c)
-target_link_libraries(rtkpos rtkpos_gsi)
-add_library(ephemeris  src/ephemeris.c)
-add_library(stec  src/stec.c)
-add_library(rtkpos_gsi src/rtkpos_gsi.c)
-target_link_libraries(rtkpos lambda ppp pntpos ephemeris)
-add_library(postpos  src/postpos.c)
-target_link_libraries(postpos sbas rtkpos rtcm rinex)
+add_library(${PROJECT_NAME}_rinex  src/rinex.c)
+add_library(${PROJECT_NAME}_rtkpos  src/rtkpos.c)
+target_link_libraries(${PROJECT_NAME}_rtkpos ${PROJECT_NAME}_rtkpos_gsi)
+add_library(${PROJECT_NAME}_ephemeris  src/ephemeris.c)
+add_library(${PROJECT_NAME}_stec  src/stec.c)
+add_library(${PROJECT_NAME}_rtkpos_gsi src/rtkpos_gsi.c)
+target_link_libraries(${PROJECT_NAME}_rtkpos ${PROJECT_NAME}_lambda ${PROJECT_NAME}_ppp ${PROJECT_NAME}_pntpos ${PROJECT_NAME}_ephemeris)
+add_library(${PROJECT_NAME}_postpos  src/postpos.c)
+target_link_libraries(${PROJECT_NAME}_postpos ${PROJECT_NAME}_sbas ${PROJECT_NAME}_rtkpos ${PROJECT_NAME}_rtcm ${PROJECT_NAME}_rinex)
 
 
 
-add_library(lambda  src/lambda.c)
-add_library(ionex src/ionex.c)
-add_library(ppp_ar src/ppp_ar.c)
-add_library(pntpos  src/pntpos.c)
-target_link_libraries(pntpos ionex)
-add_library(options src/options.c)
-add_library(ppp  src/ppp.c)
-target_link_libraries(ppp pntpos ppp_ar stec)
+add_library(${PROJECT_NAME}_lambda  src/lambda.c)
+add_library(${PROJECT_NAME}_ionex src/ionex.c)
+add_library(${PROJECT_NAME}_ppp_ar src/ppp_ar.c)
+add_library(${PROJECT_NAME}_pntpos  src/pntpos.c)
+target_link_libraries(${PROJECT_NAME}_pntpos ${PROJECT_NAME}_ionex)
+add_library(${PROJECT_NAME}_options src/options.c)
+add_library(${PROJECT_NAME}_ppp  src/ppp.c)
+target_link_libraries(${PROJECT_NAME}_ppp ${PROJECT_NAME}_pntpos ${PROJECT_NAME}_ppp_ar ${PROJECT_NAME}_stec)
 
-add_library(rtcm3  src/rtcm3.c)
-add_library(rtcm3e  src/rtcm3e.c)
-add_library(rtcm2  src/rtcm2.c)
-add_library(rtcm  src/rtcm.c)
-target_link_libraries(rtcm rtcm3 rtcm3e rtcm2)
+add_library(${PROJECT_NAME}_rtcm3  src/rtcm3.c)
+add_library(${PROJECT_NAME}_rtcm3e  src/rtcm3e.c)
+add_library(${PROJECT_NAME}_rtcm2  src/rtcm2.c)
+add_library(${PROJECT_NAME}_rtcm  src/rtcm.c)
+target_link_libraries(${PROJECT_NAME}_rtcm ${PROJECT_NAME}_rtcm3 ${PROJECT_NAME}_rtcm3e ${PROJECT_NAME}_rtcm2)
 
-add_executable(rnx2rtkp app/rnx2rtkp/rnx2rtkp.c)
-target_link_libraries(rnx2rtkp rtkcmn rinex rtkpos  postpos solution
-lambda geoid sbas preceph pntpos ephemeris options ppp rtcm ionex stec)
+add_executable(${PROJECT_NAME}_rnx2rtkp app/rnx2rtkp/rnx2rtkp.c)
+target_link_libraries(${PROJECT_NAME}_rnx2rtkp ${PROJECT_NAME}_rtkcmn ${PROJECT_NAME}_rinex ${PROJECT_NAME}_rtkpos  ${PROJECT_NAME}_postpos ${PROJECT_NAME}_solution
+${PROJECT_NAME}_lambda ${PROJECT_NAME}_geoid ${PROJECT_NAME}_sbas ${PROJECT_NAME}_preceph ${PROJECT_NAME}_pntpos ${PROJECT_NAME}_ephemeris ${PROJECT_NAME}_options ${PROJECT_NAME}_ppp ${PROJECT_NAME}_rtcm ${PROJECT_NAME}_ionex ${PROJECT_NAME}_stec)
+set_target_properties(${PROJECT_NAME}_rnx2rtkp
+    PROPERTIES OUTPUT_NAME rnx2rtkp
+    PREFIX "")
+
 
 #convbin
-add_library(convrnx src/convrnx.c)
-target_link_libraries(convrnx rtkcmn sbas rtkpos rtcm rinex)
+add_library(${PROJECT_NAME}_convrnx src/convrnx.c)
+target_link_libraries(${PROJECT_NAME}_convrnx ${PROJECT_NAME}_rtkcmn ${PROJECT_NAME}_sbas ${PROJECT_NAME}_rtkpos ${PROJECT_NAME}_rtcm ${PROJECT_NAME}_rinex)
 
-add_executable(convbin app/convbin/convbin.c src/rcvraw.c)
-target_link_libraries(convbin ublox rtkcmn rinex sbas convrnx rtcm skytraq 
-rtkcmn rtksvr rtkpos geoid solution lambda
-sbas stream rtcm preceph options pntpos ppp ublox
- ephemeris rinex ionex novatel)
+add_executable(${PROJECT_NAME}_convbin app/convbin/convbin.c src/rcvraw.c)
+target_link_libraries(${PROJECT_NAME}_convbin ${PROJECT_NAME}_ublox ${PROJECT_NAME}_rtkcmn ${PROJECT_NAME}_rinex ${PROJECT_NAME}_sbas ${PROJECT_NAME}_convrnx ${PROJECT_NAME}_rtcm ${PROJECT_NAME}_skytraq 
+${PROJECT_NAME}_rtkcmn ${PROJECT_NAME}_rtksvr ${PROJECT_NAME}_rtkpos ${PROJECT_NAME}_geoid ${PROJECT_NAME}_solution ${PROJECT_NAME}_lambda
+${PROJECT_NAME}_sbas ${PROJECT_NAME}_stream ${PROJECT_NAME}_rtcm ${PROJECT_NAME}_preceph ${PROJECT_NAME}_options ${PROJECT_NAME}_pntpos ${PROJECT_NAME}_ppp ${PROJECT_NAME}_ublox
+ ${PROJECT_NAME}_ephemeris ${PROJECT_NAME}_rinex ${PROJECT_NAME}_ionex ${PROJECT_NAME}_novatel)
+set_target_properties(${PROJECT_NAME}_convbin
+    PROPERTIES OUTPUT_NAME convbin
+    PREFIX "")
 	
 #rtkrcv
-add_library(rtksvr src/rtksvr.cc)
-add_executable(rtkrcv app/rtkrcv/rtkrcvros.cc)
-add_dependencies(rtkrcv rtklibros_generate_messages_cpp)
-target_link_libraries(rtkrcv rtkcmn rtksvr rtkpos geoid solution lambda
-sbas stream rtcm preceph options pntpos ppp ublox 
- ephemeris rinex ionex nvs ${catkin_LIBRARIES})
+add_library(${PROJECT_NAME}_rtksvr src/rtksvr.cc)
+add_executable(${PROJECT_NAME}_rtkrcv app/rtkrcv/rtkrcvros.cc)
+add_dependencies(${PROJECT_NAME}_rtkrcv ${PROJECT_NAME}_generate_messages_cpp)
+target_link_libraries(${PROJECT_NAME}_rtkrcv ${PROJECT_NAME}_rtkcmn ${PROJECT_NAME}_rtksvr ${PROJECT_NAME}_rtkpos ${PROJECT_NAME}_geoid ${PROJECT_NAME}_solution ${PROJECT_NAME}_lambda
+${PROJECT_NAME}_sbas ${PROJECT_NAME}_stream ${PROJECT_NAME}_rtcm ${PROJECT_NAME}_preceph ${PROJECT_NAME}_options ${PROJECT_NAME}_pntpos ${PROJECT_NAME}_ppp ${PROJECT_NAME}_ublox 
+ ${PROJECT_NAME}_ephemeris ${PROJECT_NAME}_rinex ${PROJECT_NAME}_ionex ${PROJECT_NAME}_nvs ${catkin_LIBRARIES})
+set_target_properties(${PROJECT_NAME}_rtkrcv
+    PROPERTIES OUTPUT_NAME rtkrcv
+    PREFIX "")
 
 
 
