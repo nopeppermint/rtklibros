@@ -46,18 +46,21 @@ void __fastcall TSpanDialog::FormShow(TObject *Sender)
 //---------------------------------------------------------------------------
 void __fastcall TSpanDialog::BtnOkClick(TObject *Sender)
 {
+	AnsiString TimeY1_Text=TimeY1->Text,TimeH1_Text=TimeH1->Text;
+	AnsiString TimeY2_Text=TimeY2->Text,TimeH2_Text=TimeH2->Text;
+	AnsiString EditTimeInt_Text=EditTimeInt->Text;
 	double eps[]={2000,1,1,0,0,0},epe[]={2000,1,1,0,0,0};
 	
 	TimeEna[0]=TimeStartF->Checked;
 	TimeEna[1]=TimeEndF  ->Checked;
 	TimeEna[2]=TimeIntF  ->Checked;
-	sscanf(TimeY1->Text.c_str(),"%lf/%lf/%lf",eps,eps+1,eps+2);
-	sscanf(TimeH1->Text.c_str(),"%lf:%lf:%lf",eps+3,eps+4,eps+5);
-	sscanf(TimeY2->Text.c_str(),"%lf/%lf/%lf",epe,epe+1,epe+2);
-	sscanf(TimeH2->Text.c_str(),"%lf:%lf:%lf",epe+3,epe+4,epe+5);
+	sscanf(TimeY1_Text.c_str(),"%lf/%lf/%lf",eps,eps+1,eps+2);
+	sscanf(TimeH1_Text.c_str(),"%lf:%lf:%lf",eps+3,eps+4,eps+5);
+	sscanf(TimeY2_Text.c_str(),"%lf/%lf/%lf",epe,epe+1,epe+2);
+	sscanf(TimeH2_Text.c_str(),"%lf:%lf:%lf",epe+3,epe+4,epe+5);
 	TimeStart=epoch2time(eps);
 	TimeEnd=epoch2time(epe);
-	TimeInt=str2dbl(EditTimeInt->Text);
+	TimeInt=str2dbl(EditTimeInt_Text);
 }
 //---------------------------------------------------------------------------
 void __fastcall TSpanDialog::TimeStartFClick(TObject *Sender)
@@ -78,10 +81,10 @@ void __fastcall TSpanDialog::TimeIntFClick(TObject *Sender)
 void __fastcall TSpanDialog::TimeY1UDChangingEx(TObject *Sender,
       bool &AllowChange, short NewValue, TUpDownDirection Direction)
 {
-	AnsiString s;
+	AnsiString TimeY1_Text=TimeY1->Text,s;
 	double ep[]={2000,1,1,0,0,0};
 	int p=TimeY1->SelStart,ud=Direction==updUp?1:-1;
-	sscanf(TimeY1->Text.c_str(),"%lf/%lf/%lf",ep,ep+1,ep+2);
+	sscanf(TimeY1_Text.c_str(),"%lf/%lf/%lf",ep,ep+1,ep+2);
 	if (4<p&&p<8) {
 	    ep[1]+=ud;
 	    if (ep[1]<=0) {ep[0]--; ep[1]+=12;}
@@ -96,9 +99,9 @@ void __fastcall TSpanDialog::TimeY1UDChangingEx(TObject *Sender,
 void __fastcall TSpanDialog::TimeH1UDChangingEx(TObject *Sender,
       bool &AllowChange, short NewValue, TUpDownDirection Direction)
 {
-	AnsiString s;
+	AnsiString TimeH1_Text=TimeH1->Text,s;
 	int hms[3]={0},sec,p=TimeH1->SelStart,ud=Direction==updUp?1:-1;
-	sscanf(TimeH1->Text.c_str(),"%d:%d:%d",hms,hms+1,hms+2);
+	sscanf(TimeH1_Text.c_str(),"%d:%d:%d",hms,hms+1,hms+2);
 	if (p>5||p==0) hms[2]+=ud; else if (p>2) hms[1]+=ud; else hms[0]+=ud;
 	sec=hms[0]*3600+hms[1]*60+hms[2];
 	if (sec<0) sec+=86400; else if (sec>=86400) sec-=86400;
@@ -109,10 +112,10 @@ void __fastcall TSpanDialog::TimeH1UDChangingEx(TObject *Sender,
 void __fastcall TSpanDialog::TimeY2UDChangingEx(TObject *Sender,
       bool &AllowChange, short NewValue, TUpDownDirection Direction)
 {
-	AnsiString s;
+	AnsiString TimeY2_Text=TimeY2->Text,s;
 	double ep[]={2000,1,1,0,0,0};
 	int p=TimeY2->SelStart,ud=Direction==updUp?1:-1;
-	sscanf(TimeY2->Text.c_str(),"%lf/%lf/%lf",ep,ep+1,ep+2);
+	sscanf(TimeY2_Text.c_str(),"%lf/%lf/%lf",ep,ep+1,ep+2);
 	if (4<p&&p<8) {
 	    ep[1]+=ud;
 	    if (ep[1]<=0) {ep[0]--; ep[1]+=12;}
@@ -127,9 +130,9 @@ void __fastcall TSpanDialog::TimeY2UDChangingEx(TObject *Sender,
 void __fastcall TSpanDialog::TimeH2UDChangingEx(TObject *Sender,
       bool &AllowChange, short NewValue, TUpDownDirection Direction)
 {
-	AnsiString s;
+	AnsiString TimeH2_Text=TimeH2->Text,s;
 	int hms[3]={0},sec,p=TimeH2->SelStart,ud=Direction==updUp?1:-1;
-	sscanf(TimeH2->Text.c_str(),"%d:%d:%d",hms,hms+1,hms+2);
+	sscanf(TimeH2_Text.c_str(),"%d:%d:%d",hms,hms+1,hms+2);
 	if (p>5||p==0) hms[2]+=ud; else if (p>2) hms[1]+=ud; else hms[0]+=ud;
 	sec=hms[0]*3600+hms[1]*60+hms[2];
 	if (sec<0) sec+=86400; else if (sec>=86400) sec-=86400;
@@ -150,25 +153,27 @@ void __fastcall TSpanDialog::UpdateEnable(void)
 	EditTimeInt->Enabled=TimeIntF  ->Checked&&TimeVal[2];
 	BtnTime1->Enabled   =TimeStartF->Checked&&TimeVal[0];
 	BtnTime2->Enabled   =TimeEndF  ->Checked&&TimeVal[1];
-	TimeStartF->Enabled =TimeVal[0];
-	TimeEndF  ->Enabled =TimeVal[1];
-	TimeIntF  ->Enabled =TimeVal[2];
+	TimeStartF->Enabled =TimeVal[0]==1;
+	TimeEndF  ->Enabled =TimeVal[1]==1;
+	TimeIntF  ->Enabled =TimeVal[2]==1;
 }
 //---------------------------------------------------------------------------
 void __fastcall TSpanDialog::BtnTime1Click(TObject *Sender)
 {
+	AnsiString TimeY1_Text=TimeY1->Text,TimeH1_Text=TimeH1->Text;
 	double ep[]={2000,1,1,0,0,0};
-	sscanf(TimeY1->Text.c_str(),"%lf/%lf/%lf",ep,ep+1,ep+2);
-	sscanf(TimeH1->Text.c_str(),"%lf:%lf:%lf",ep+3,ep+4,ep+5);
+	sscanf(TimeY1_Text.c_str(),"%lf/%lf/%lf",ep,ep+1,ep+2);
+	sscanf(TimeH1_Text.c_str(),"%lf:%lf:%lf",ep+3,ep+4,ep+5);
 	TimeDialog->Time=epoch2time(ep);
 	TimeDialog->ShowModal();
 }
 //---------------------------------------------------------------------------
 void __fastcall TSpanDialog::BtnTime2Click(TObject *Sender)
 {
+	AnsiString TimeY2_Text=TimeY2->Text,TimeH2_Text=TimeH2->Text;
 	double ep[]={2000,1,1,0,0,0};
-	sscanf(TimeY2->Text.c_str(),"%lf/%lf/%lf",ep,ep+1,ep+2);
-	sscanf(TimeH2->Text.c_str(),"%lf:%lf:%lf",ep+3,ep+4,ep+5);
+	sscanf(TimeY2_Text.c_str(),"%lf/%lf/%lf",ep,ep+1,ep+2);
+	sscanf(TimeH2_Text.c_str(),"%lf:%lf:%lf",ep+3,ep+4,ep+5);
 	TimeDialog->Time=epoch2time(ep);
 	TimeDialog->ShowModal();
 }

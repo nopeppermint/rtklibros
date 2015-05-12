@@ -93,7 +93,6 @@ object LogStrDialog: TLogStrDialog
     Width = 103
     Height = 21
     Style = csDropDownList
-    ItemHeight = 13
     ItemIndex = 0
     TabOrder = 3
     Text = 'Serial'
@@ -111,7 +110,6 @@ object LogStrDialog: TLogStrDialog
     Width = 103
     Height = 21
     Style = csDropDownList
-    ItemHeight = 13
     ItemIndex = 0
     TabOrder = 6
     Text = 'Serial'
@@ -127,7 +125,7 @@ object LogStrDialog: TLogStrDialog
     Left = 241
     Top = 18
     Width = 19
-    Height = 19
+    Height = 20
     Caption = '...'
     Font.Charset = DEFAULT_CHARSET
     Font.Color = clWindowText
@@ -142,7 +140,7 @@ object LogStrDialog: TLogStrDialog
     Left = 241
     Top = 40
     Width = 19
-    Height = 19
+    Height = 20
     Caption = '...'
     Font.Charset = DEFAULT_CHARSET
     Font.Color = clWindowText
@@ -169,9 +167,9 @@ object LogStrDialog: TLogStrDialog
   end
   object BtnFile1: TButton
     Left = 364
-    Top = 98
+    Top = 99
     Width = 17
-    Height = 19
+    Height = 20
     Caption = '...'
     Font.Charset = DEFAULT_CHARSET
     Font.Color = clWindowText
@@ -186,7 +184,7 @@ object LogStrDialog: TLogStrDialog
     Left = 364
     Top = 121
     Width = 17
-    Height = 19
+    Height = 20
     Caption = '...'
     Font.Charset = DEFAULT_CHARSET
     Font.Color = clWindowText
@@ -230,7 +228,7 @@ object LogStrDialog: TLogStrDialog
     Height = 17
     Caption = '(8) Correction'
     TabOrder = 13
-    OnClick = Stream2CClick
+    OnClick = Stream3CClick
   end
   object Stream3: TComboBox
     Left = 138
@@ -238,11 +236,10 @@ object LogStrDialog: TLogStrDialog
     Width = 103
     Height = 21
     Style = csDropDownList
-    ItemHeight = 13
     ItemIndex = 0
     TabOrder = 14
     Text = 'Serial'
-    OnChange = Stream2Change
+    OnChange = Stream3Change
     Items.Strings = (
       'Serial'
       'TCP Client'
@@ -254,7 +251,7 @@ object LogStrDialog: TLogStrDialog
     Left = 241
     Top = 62
     Width = 19
-    Height = 19
+    Height = 20
     Caption = '...'
     Font.Charset = DEFAULT_CHARSET
     Font.Color = clWindowText
@@ -274,9 +271,9 @@ object LogStrDialog: TLogStrDialog
   end
   object BtnFile3: TButton
     Left = 364
-    Top = 145
+    Top = 143
     Width = 17
-    Height = 19
+    Height = 20
     Caption = '...'
     Font.Charset = DEFAULT_CHARSET
     Font.Color = clWindowText
@@ -285,14 +282,13 @@ object LogStrDialog: TLogStrDialog
     Font.Style = []
     ParentFont = False
     TabOrder = 17
-    OnClick = BtnFile2Click
+    OnClick = BtnFile3Click
   end
   object SwapIntv: TComboBox
     Left = 130
     Top = 168
     Width = 45
     Height = 21
-    ItemHeight = 13
     TabOrder = 18
     Items.Strings = (
       ''
@@ -309,7 +305,6 @@ object LogStrDialog: TLogStrDialog
       'All File (*.*)|*.*|Log File (*.log)|*.log|RTCM2 File (*.rtcm2)|*' +
       '.rtcm2|RTCM3 File (*.rtcm3)|*.rtcm3'
     Options = [ofHideReadOnly, ofNoChangeDir, ofEnableSizing]
-    OptionsEx = [ofExNoPlacesBar]
     Title = 'Output File Path'
     Left = 330
     Top = 28

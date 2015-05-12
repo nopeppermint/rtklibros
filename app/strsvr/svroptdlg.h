@@ -24,11 +24,11 @@ __published:
 	TEdit *AvePeriodRate;
 	TLabel *Label7;
 	TComboBox *TraceLevelS;
-	TEdit *NmeaPos2;
-	TEdit *NmeaPos1;
+	TEdit *AntPos2;
+	TEdit *AntPos1;
 	TEdit *NmeaCycle;
 	TLabel *Label8;
-	TEdit *NmeaPos3;
+	TEdit *AntPos3;
 	TButton *BtnPos;
 	TCheckBox *NmeaReqT;
 	TEdit *LocalDir;
@@ -39,17 +39,29 @@ __published:
 	TLabel *Label5;
 	TLabel *Label10;
 	TEdit *ProxyAddr;
+	TEdit *AntInfo;
+	TEdit *RcvInfo;
+	TLabel *Label11;
+	TEdit *AntOff1;
+	TEdit *AntOff2;
+	TEdit *AntOff3;
+	TLabel *Label12;
+	TLabel *Label13;
+	TEdit *StationId;
+	TCheckBox *StaInfoSel;
 	void __fastcall BtnOkClick(TObject *Sender);
 	void __fastcall FormShow(TObject *Sender);
 	void __fastcall BtnPosClick(TObject *Sender);
 	void __fastcall NmeaReqTClick(TObject *Sender);
 	void __fastcall BtnLocalDirClick(TObject *Sender);
+	void __fastcall StaInfoSelClick(TObject *Sender);
 private:
 	void __fastcall UpdateEnable(void);
 public:
 	AnsiString StaPosFile,ExeDirectory,LocalDirectory,ProxyAddress;
-	int SvrOpt[6],TraceLevel,NmeaReq,FileSwapMargin;
-	double NmeaPos[3];
+	AnsiString AntType,RcvType;
+	int SvrOpt[6],TraceLevel,NmeaReq,FileSwapMargin,StaId,StaSel;
+	double AntPos[3],AntOff[3];
 	__fastcall TSvrOptDialog(TComponent* Owner);
 };
 //---------------------------------------------------------------------------

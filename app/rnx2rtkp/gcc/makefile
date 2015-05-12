@@ -6,25 +6,25 @@ SRC     = ../../../src
 OPTS    = -DTRACE -DENAGLO -DENAQZS -DENAGAL -DNFREQ=3
 
 # for no lapack
-#CFLAGS  = -Wall -O3 -ansi -pedantic -I$(SRC) $(OPTS)
-#LDLIBS  = -lm
+CFLAGS  = -Wall -O3 -ansi -pedantic -Wno-unused-but-set-variable -I$(SRC) $(OPTS) -g
+LDLIBS  = -lm -lrt
 
-CFLAGS  = -Wall -O3 -ansi -pedantic -I$(SRC) -DLAPACK $(OPTS)
-LDLIBS  = -lm -llapack -lblas
+#CFLAGS  = -Wall -O3 -ansi -pedantic -Wno-unused-but-set-variable -I$(SRC) -DLAPACK $(OPTS)
+#LDLIBS  = -lm -lrt -llapack -lblas
 
 # for gprof
-#CFLAGS  = -Wall -O3 -ansi -pedantic -I$(SRC) -DLAPACK $(OPTS) -pg
-#LDLIBS  = -lm -llapack -lblas -pg
+#CFLAGS  = -Wall -O3 -ansi -pedantic -Wno-unused-but-set-variable -I$(SRC) -DLAPACK $(OPTS) -pg
+#LDLIBS  = -lm -lrt -llapack -lblas -pg
 
 # for mkl
-#MKLDIR  = /opt/intel
-#CFLAGS  = -O3 -ansi -pedantic -I$(SRC) $(OPTS) -DMKL -I$(MKLDIR)/include
-#LDLIBS  = -L$(MKLDIR)/lib/32 -lm -lmkl_core -lmkl_intel -lmkl_gnu_thread -liomp5 -lpthread
+#MKLDIR  = /opt/intel/mkl
+#CFLAGS  = -O3 -ansi -pedantic -Wno-unused-but-set-variable -I$(SRC) $(OPTS) -DMKL
+#LDLIBS  = -L$(MKLDIR)/lib/intel64 -lm -lrt -lmkl_core -lmkl_intel_lp64 -lmkl_gnu_thread -liomp5 -lpthread
 
 all        : rnx2rtkp
 rnx2rtkp   : rnx2rtkp.o rtkcmn.o rinex.o rtkpos.o postpos.o solution.o
 rnx2rtkp   : lambda.o geoid.o sbas.o preceph.o pntpos.o ephemeris.o options.o
-rnx2rtkp   : ppp.o rtcm.o ionex.o
+rnx2rtkp   : ppp.o ppp_ar.o rtcm.o rtcm2.o rtcm3.o rtcm3e.o ionex.o qzslex.o
 
 rnx2rtkp.o : ../rnx2rtkp.c
 	$(CC) -c $(CFLAGS) ../rnx2rtkp.c
@@ -54,10 +54,20 @@ options.o  : $(SRC)/options.c
 	$(CC) -c $(CFLAGS) $(SRC)/options.c
 ppp.o      : $(SRC)/ppp.c
 	$(CC) -c $(CFLAGS) $(SRC)/ppp.c
+ppp_ar.o   : $(SRC)/ppp_ar.c
+	$(CC) -c $(CFLAGS) $(SRC)/ppp_ar.c
 rtcm.o     : $(SRC)/rtcm.c
 	$(CC) -c $(CFLAGS) $(SRC)/rtcm.c
+rtcm2.o    : $(SRC)/rtcm2.c
+	$(CC) -c $(CFLAGS) $(SRC)/rtcm2.c
+rtcm3.o    : $(SRC)/rtcm3.c
+	$(CC) -c $(CFLAGS) $(SRC)/rtcm3.c
+rtcm3e.o   : $(SRC)/rtcm3e.c
+	$(CC) -c $(CFLAGS) $(SRC)/rtcm3e.c
 ionex.o    : $(SRC)/ionex.c
 	$(CC) -c $(CFLAGS) $(SRC)/ionex.c
+qzslex.o   : $(SRC)/qzslex.c
+	$(CC) -c $(CFLAGS) $(SRC)/qzslex.c
 
 rnx2rtkp.o : $(SRC)/rtklib.h
 rtkcmn.o   : $(SRC)/rtklib.h
@@ -73,6 +83,13 @@ pntpos.o   : $(SRC)/rtklib.h
 ephemeris.o: $(SRC)/rtklib.h
 options.o  : $(SRC)/rtklib.h
 ppp.o      : $(SRC)/rtklib.h
+ppp_ar.o   : $(SRC)/rtklib.h
+rtcm.o     : $(SRC)/rtklib.h
+rtcm2.o    : $(SRC)/rtklib.h
+rtcm3.o    : $(SRC)/rtklib.h
+rtcm3e.o   : $(SRC)/rtklib.h
+ionex.o    : $(SRC)/rtklib.h
+qzslex.o   : $(SRC)/rtklib.h
 
 CMD1    = ./rnx2rtkp
 INPUT11 = ../../../test/data/rinex/07590920.05o ../../../test/data/rinex/30400920.05n
@@ -131,6 +148,8 @@ test23 :
 	$(CMD1) -k opts2.conf $(INPUT11) $(INPUT12) > test23.pos
 test24 :
 	$(CMD1) -k opts3.conf $(INPUT11) $(INPUT12) -y 2 -o test24.pos
+test25 :
+	$(CMD1) -k opts4.conf $(INPUT11) $(INPUT12) -y 2 -o test25.pos
 
 clean :
 	rm -f rnx2rtkp rnx2rtkp.exe *.o *.pos *.trace

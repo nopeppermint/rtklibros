@@ -214,7 +214,15 @@
 				>
 			</File>
 			<File
+				RelativePath="..\..\..\src\ppp_ar.c"
+				>
+			</File>
+			<File
 				RelativePath="..\..\..\src\preceph.c"
+				>
+			</File>
+			<File
+				RelativePath="..\..\..\src\qzslex.c"
 				>
 			</File>
 			<File
@@ -227,6 +235,18 @@
 			</File>
 			<File
 				RelativePath="..\..\..\src\rtcm.c"
+				>
+			</File>
+			<File
+				RelativePath="..\..\..\src\rtcm2.c"
+				>
+			</File>
+			<File
+				RelativePath="..\..\..\src\rtcm3.c"
+				>
+			</File>
+			<File
+				RelativePath="..\..\..\src\rtcm3e.c"
 				>
 			</File>
 			<File

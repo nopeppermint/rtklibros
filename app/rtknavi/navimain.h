@@ -25,46 +25,11 @@ class TMainForm : public TForm
 __published:
 	TPanel *Panel1;
 	TPanel *Panel2;
-	TPanel *Panel21;
-	TPanel *Panel211;
-	TPanel *Panel22;
 	TPanel *Panel3;
-	TPanel *Panel4;
-	TPanel *Panel5;
-	TPanel *Panel6;
-	TPanel *Panel7;
-	
-	TPanel *IndSol;
-	TPanel *Svr;
-	TPanel *Str1;
-	TPanel *Str2;
-	TPanel *Str4;
-	TPanel *Str3;
-	TPanel *Str5;
-	TPanel *Str7;
-	TPanel *Str8;
-	TPanel *Str6;
+	TPanel *Panel11;
 	
 	TLabel *LabelTime;
-	TLabel *Solution;
-	TLabel *Pos1;
-	TLabel *Pos2;
-	TLabel *Pos3;
-	TLabel *LabelNSat;
-	TLabel *LabelStd;
 	TLabel *Message;
-	TLabel *Plabel0;
-	TLabel *Plabel1;
-	TLabel *Plabel2;
-	TLabel *Plabel3;
-	TLabel *PlabelA;
-	
-	TButton *BtnPlot;
-	TButton *BtnStart;
-	TButton *BtnStop;
-	TButton *BtnOpt;
-	TButton *BtnSave;
-	TButton *BtnExit;
 	
 	TPopupMenu *PopupMenu;
 	TMenuItem *MenuMonitor;
@@ -77,32 +42,84 @@ __published:
 	TMenuItem *MenuStop;
 	
 	TSpeedButton *BtnTimeSys;
-	TSpeedButton *BtnMonitor;
-	TSpeedButton *BtnAbout;
-	TSpeedButton *BtnInputStr;
-	TSpeedButton *BtnOutputStr;
-	TSpeedButton *BtnLogStr;
-	
-	TSpeedButton *BtnTaskTray;
-	
-	TScrollBar *ScbSol;
 	
 	TTrayIcon *TrayIcon;
 	
 	TSaveDialog *SaveDialog;
 	
 	TImageList *ImageList;
-	TImage *Image1;
-	TImage *Image2;
 	
 	TTimer *Timer;
-	TPanel *IndQ;
-	TSpeedButton *BtnPlotType;
-	TSpeedButton *BtnFreqType;
+	TPanel *Panel4;
+	TButton *BtnExit;
+	TButton *BtnOpt;
+	TButton *BtnPlot;
+	TButton *BtnStart;
+	TButton *BtnStop;
+	TPanel *Panel33;
+	TSpeedButton *BtnTaskTray;
+	TSpeedButton *BtnAbout;
+	TPanel *Panel31;
+	TSpeedButton *BtnMonitor;
+	TPanel *Panel32;
+	TPanel *Panel12;
+	TImage *Image1;
+	TImage *Image2;
+	TPanel *Str1;
+	TPanel *Str2;
+	TPanel *Str3;
+	TPanel *Str4;
+	TPanel *Str5;
+	TPanel *Str6;
+	TPanel *Str7;
+	TPanel *Str8;
+	TPanel *Svr;
+	TPanel *Panel13;
+	TPanel *Panel131;
+	TSpeedButton *BtnOutputStr;
+	TPanel *Panel132;
+	TSpeedButton *BtnLogStr;
+	TPanel *Panel121;
+	TSpeedButton *BtnInputStr;
+	TPanel *Panel21;
+	TPanel *Panel211;
+	TLabel *LabelNSat;
+	TLabel *LabelStd;
+	TLabel *Plabel1;
+	TLabel *Plabel2;
+	TLabel *Plabel3;
+	TLabel *PlabelA;
+	TLabel *Pos1;
+	TLabel *Pos2;
+	TLabel *Pos3;
+	TLabel *Solution;
+	TPanel *IndSol;
+	TPanel *Panel213;
+	TScrollBar *ScbSol;
+	TButton *BtnSave;
+	TPanel *Panel212;
+	TLabel *Plabel0;
+	TSplitter *Splitter1;
+	TPanel *Panel221;
+	TImage *Plot1;
+	TSpeedButton *BtnFreqType1;
+	TSplitter *Splitter2;
+	TPanel *Panel222;
+	TImage *Disp2;
+	TImage *Plot2;
+	TSpeedButton *BtnFreqType2;
+	TImage *Disp1;
 	TSpeedButton *BtnSolType;
+	TSpeedButton *BtnPlotType1;
+	TSpeedButton *BtnPlotType2;
+	TSpeedButton *BtnPanel;
+	TPanel *Pane6;
+	TPanel *Panel22;
+	TPanel *Panel5;
+	TPanel *IndQ;
+	TLabel *SolS;
+	TLabel *SolQ;
 	TSpeedButton *BtnSolType2;
-	TImage *Plot;
-	TImage *Disp;
 	
 	void __fastcall FormCreate        (TObject *Sender);
 	void __fastcall FormShow          (TObject *Sender);
@@ -121,7 +138,7 @@ __published:
 	void __fastcall BtnOutputStrClick (TObject *Sender);
 	void __fastcall BtnLogStrClick    (TObject *Sender);
 	void __fastcall BtnSolTypeClick   (TObject *Sender);
-	void __fastcall BtnPlotTypeClick  (TObject *Sender);
+	void __fastcall BtnPlotType1Click  (TObject *Sender);
 	
 	void __fastcall BtnMonitorClick   (TObject *Sender);
 	void __fastcall BtnSaveClick      (TObject *Sender);
@@ -138,32 +155,40 @@ __published:
 	void __fastcall ScbSolChange      (TObject *Sender);
 	
 	void __fastcall TrayIconDblClick  (TObject *Sender);
-	void __fastcall TrayIconMouseDown (TObject *Sender, TMouseButton Button,
-							           TShiftState Shift, int X, int Y);
-	void __fastcall BtnFreqTypeClick(TObject *Sender);
-	void __fastcall Panel22Resize(TObject *Sender);
+	void __fastcall BtnFreqType1Click(TObject *Sender);
+	void __fastcall Panel221Resize(TObject *Sender);
+	void __fastcall Panel4Resize(TObject *Sender);
+	void __fastcall Panel21Resize(TObject *Sender);
+	void __fastcall Panel222Resize(TObject *Sender);
+	void __fastcall BtnPanelClick(TObject *Sender);
+	void __fastcall BtnPlotType2Click(TObject *Sender);
+	void __fastcall BtnFreqType2Click(TObject *Sender);
+	void __fastcall Panel211Resize(TObject *Sender);
+	void __fastcall Panel5Resize(TObject *Sender);
 private:
-	int PlotWidth,PlotHeight;
+	tle_t TLEData;
 
 	void __fastcall UpdateLog    (int stat, gtime_t time, double *rr, float *qr,
 								  double *rb, int ns, double age, double ratio);
 	void __fastcall SvrStart     (void);
 	void __fastcall SvrStop      (void);
+	void __fastcall UpdatePanel  (void);
 	void __fastcall UpdateTimeSys(void);
 	void __fastcall UpdateSolType(void);
 	void __fastcall UpdateFont   (void);
 	void __fastcall UpdateTime   (void);
 	void __fastcall UpdatePos    (void);
 	void __fastcall UpdateStr    (void);
+	void __fastcall DrawPlot     (TImage *plot, int type, int freq);
 	void __fastcall UpdatePlot   (void);
 	void __fastcall ChangePlot   (void);
 	int  __fastcall ConfOverwrite(const char *path);
 	
-	void __fastcall DrawSnr      (TCanvas *c, int w, int h, int top, int index);
-	void __fastcall DrawSat      (TCanvas *c, int w, int h, int index);
+	void __fastcall DrawSnr      (TCanvas *c, int w, int h, int top, int index, int freq);
+	void __fastcall DrawSat      (TCanvas *c, int w, int h, int x0, int y0, int index, int freq);
 	void __fastcall DrawBL       (TCanvas *c, int w, int h);
-	void __fastcall DrawSky      (TCanvas *c, int w, int h);
-	void __fastcall DrawText     (TCanvas *c, int x, int y, AnsiString s,
+	void __fastcall DrawSky      (TCanvas *c, int w, int h, int x0, int y0);
+	void __fastcall DrawText     (TCanvas *c, int x, int y, UnicodeString s,
 								  TColor color, int align);
 	void __fastcall DrawArrow    (TCanvas *c, int x, int y, int siz,
 								  int ang, TColor color);
@@ -176,14 +201,18 @@ private:
 	void __fastcall SaveOpt      (void);
 	void __fastcall SetTrayIcon  (int index);
 	int  __fastcall ExecCmd      (AnsiString cmd, int show);
+	TColor __fastcall SnrColor   (int snr);
 public:
 	AnsiString IniFile;
 	
+	int PanelStack,PanelMode;
 	int SvrCycle,SvrBuffSize,Scale,SolBuffSize,NavSelect,SavedSol;
 	int NmeaReq,NmeaCycle,InTimeTag,OutTimeTag,OutAppend,LogTimeTag,LogAppend;
 	int TimeoutTime,ReconTime,SbasCorr,DgpsCorr,TideCorr,FileSwapMargin;
 	int Stream[MAXSTRRTK],StreamC[MAXSTRRTK],Format[MAXSTRRTK];
-	int CmdEna[2][2],TimeSys,SolType,PlotType,FreqType,MoniPort,OpenPort;
+	int CmdEna[3][2],CmdEnaTcp[3][2];
+	int TimeSys,SolType,PlotType1,FreqType1,PlotType2,FreqType2;
+	int MoniPort,OpenPort;
 	
 	int PSol,PSolS,PSolE,Nsat[2],SolCurrentStat;
 	int Sat[2][MAXSAT],Snr[2][MAXSAT][NFREQ],Vsat[2][MAXSAT];
@@ -191,7 +220,8 @@ public:
 	gtime_t *Time;
 	int *SolStat,*Nvsat;
 	double *SolRov,*SolRef,*Qr,*VelRov,*Age,*Ratio;
-	AnsiString Paths[MAXSTRRTK][4],Cmds[3][2],InTimeStart,InTimeSpeed,ExSats;
+	AnsiString Paths[MAXSTRRTK][4],Cmds[3][2],CmdsTcp[3][2];
+	AnsiString InTimeStart,InTimeSpeed,ExSats;
 	AnsiString RcvOpt[3],ProxyAddr;
 	AnsiString OutSwapInterval,LogSwapInterval;
 	prcopt_t PrcOpt;
@@ -204,8 +234,8 @@ public:
 	double Baseline[2];
 	AnsiString History[10],MntpHist[10];
 	
-	AnsiString GeoidDataFileF,StaPosFileF,DCBFileF,LocalDirectory;
-	AnsiString PntName[MAXMAPPNT];
+	AnsiString GeoidDataFileF,StaPosFileF,DCBFileF,EOPFileF,TLEFileF;
+	AnsiString TLESatFileF,LocalDirectory,PntName[MAXMAPPNT];
 	double PntPos[MAXMAPPNT][3];
 	int NMapPnt;
 	

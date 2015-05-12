@@ -12,6 +12,7 @@
 *                           add option -h, -a, -l, -x
 *           2010/01/28  1.5 add option -k
 *           2010/08/12  1.6 add option -y implementation (2.4.0_p1)
+*           2014/01/27  1.7 fix bug on default output time format
 *-----------------------------------------------------------------------------*/
 #include <stdarg.h>
 #include "rtklib.h"
@@ -32,7 +33,7 @@ static const char *help[]={
 " relative mode, the second RINEX OBS file shall contain reference",
 " (base station) receiver observations. At least one RINEX NAV/GNAV/HNAV",
 " file shall be included in input files. To use SP3 precise ephemeris, specify",
-" the path in the files. The extention of the SP3 file shall be .sp3 or .eph.",
+" the path in the files. The extension of the SP3 file shall be .sp3 or .eph.",
 " All of the input file paths can include wild-cards (*). To avoid command",
 " line deployment of wild-cards, use \"...\" for paths with wild-cards.",
 " Command line options are as follows ([]:default). With -k option, the",
@@ -82,7 +83,7 @@ extern void settime(gtime_t time) {}
 static void printhelp(void)
 {
     int i;
-    for (i=0;i<sizeof(help)/sizeof(*help);i++) fprintf(stderr,"%s\n",help[i]);
+    for (i=0;i<(int)(sizeof(help)/sizeof(*help));i++) fprintf(stderr,"%s\n",help[i]);
     exit(0);
 }
 /* rnx2rtkp main -------------------------------------------------------------*/
@@ -100,6 +101,7 @@ int main(int argc, char **argv)
     prcopt.navsys=SYS_GPS|SYS_GLO;
     prcopt.refpos=1;
     prcopt.glomodear=1;
+    solopt.timef=0;
     sprintf(solopt.prog ,"%s ver.%s",PROGNAME,VER_RTKLIB);
     sprintf(filopt.trace,"%s.trace",PROGNAME);
     
@@ -128,7 +130,7 @@ int main(int argc, char **argv)
         else if (!strcmp(argv[i],"-p")&&i+1<argc) prcopt.mode=atoi(argv[++i]);
         else if (!strcmp(argv[i],"-f")&&i+1<argc) prcopt.nf=atoi(argv[++i]);
         else if (!strcmp(argv[i],"-m")&&i+1<argc) prcopt.elmin=atof(argv[++i])*D2R;
-        else if (!strcmp(argv[i],"-v")&&i+1<argc) prcopt.thresar=atof(argv[++i]);
+        else if (!strcmp(argv[i],"-v")&&i+1<argc) prcopt.thresar[0]=atof(argv[++i]);
         else if (!strcmp(argv[i],"-s")&&i+1<argc) strcpy(solopt.sep,argv[++i]);
         else if (!strcmp(argv[i],"-d")&&i+1<argc) solopt.timeu=atoi(argv[++i]);
         else if (!strcmp(argv[i],"-b")) prcopt.soltype=1;

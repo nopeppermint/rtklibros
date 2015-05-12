@@ -9,6 +9,7 @@
 #include <ExtCtrls.hpp>
 #include <Dialogs.hpp>
 #include <ComCtrls.hpp>
+#include <FileCtrl.hpp>
 #include <Buttons.hpp>
 //---------------------------------------------------------------------------
 class TOptDialog : public TForm
@@ -27,7 +28,6 @@ __published:
 	TLabel *Label8;
 	TLabel *LabelPosMode;
 	TLabel *LabelFreq;
-	TLabel *LabelSolution;
 	TLabel *LabelElMask;
 	TLabel *Label32;
 	TLabel *Label35;
@@ -133,7 +133,6 @@ __published:
 	TButton *BtnSatPcvFile;
 	TTabSheet *TabSheet8;
 	TLabel *Label19;
-	TLabel *Label39;
 	TEdit *SvrCycleE;
 	TEdit *SvrBuffSizeE;
 	TLabel *Label40;
@@ -144,7 +143,6 @@ __published:
 	TEdit *SolBuffSizeE;
 	TLabel *Label42;
 	TComboBox *NavSelectS;
-	TLabel *Label43;
 	TEdit *SbasSatE;
 	TLabel *Label5;
 	TEdit *SavedSolE;
@@ -158,7 +156,6 @@ __published:
 	TEdit *TimeoutTimeE;
 	TEdit *ReconTimeE;
 	TCheckBox *NavSys5;
-	TLabel *Label15;
 	TComboBox *GloAmbRes;
 	TCheckBox *BaselineConst;
 	TEdit *BaselineLen;
@@ -202,11 +199,29 @@ __published:
 	TLabel *Label45;
 	TEdit *ProxyAddrE;
 	TLabel *Label23;
-	TEdit *IonoFile;
-	TButton *BtnIonoFile;
-	TSpeedButton *BtnIonoView;
+	TEdit *EOPFile;
+	TButton *BtnEOPFile;
+	TSpeedButton *BtnEOPView;
 	TComboBox *ElMask;
-	TComboBox *SnrMask;
+	TEdit *ThresAR2;
+	TEdit *ThresAR3;
+	TLabel *Label12;
+	TCheckBox *PosOpt1;
+	TCheckBox *PosOpt2;
+	TCheckBox *PosOpt3;
+	TCheckBox *PosOpt4;
+	TEdit *TLEFile;
+	TLabel *Label15;
+	TButton *BtnTLEFile;
+	TLabel *Label39;
+	TEdit *TLESatFile;
+	TButton *BtnTLESatFile;
+	TCheckBox *PosOpt5;
+	TButton *BtnSnrMask;
+	TComboBox *SyncSol;
+	TLabel *Label43;
+	TComboBox *PanelStackE;
+	TComboBox *BdsAmbRes;
 	void __fastcall BtnOkClick(TObject *Sender);
 	void __fastcall RovAntPcvClick(TObject *Sender);
 	void __fastcall FormShow(TObject *Sender);
@@ -241,6 +256,12 @@ __published:
 	void __fastcall BtnSatPcvViewClick(TObject *Sender);
 	void __fastcall BtnSatPcvFileClick(TObject *Sender);
 	void __fastcall BtnLocalDirClick(TObject *Sender);
+	void __fastcall BtnEOPFileClick(TObject *Sender);
+	void __fastcall BtnEOPViewClick(TObject *Sender);
+	void __fastcall BtnTLESatFileClick(TObject *Sender);
+	void __fastcall BtnTLEFileClick(TObject *Sender);
+	void __fastcall BtnSnrMaskClick(TObject *Sender);
+	void __fastcall NavSys6Click(TObject *Sender);
 private:
 	void __fastcall GetOpt(void);
 	void __fastcall SetOpt(void);
@@ -256,10 +277,10 @@ public:
 	int NmeaReq,NmeaCycle,TimeoutTime,ReconTime,DgpsCorr,SbasCorr;
 	int DebugTraceF,DebugStatusF;
 	int RovPosTypeF,RefPosTypeF,RovAntPcvF,RefAntPcvF,BaselineC;
-	int MoniPort,FileSwapMargin;
+	int MoniPort,FileSwapMargin,PanelStack;
 	AnsiString ExSats,LocalDirectory;
 	AnsiString RovAntF,RefAntF,SatPcvFileF,AntPcvFileF,StaPosFileF;
-	AnsiString GeoidDataFileF,DCBFileF;
+	AnsiString GeoidDataFileF,DCBFileF,EOPFileF,TLEFileF,TLESatFileF;
 	AnsiString ProxyAddr;
 	double RovAntDel[3],RefAntDel[3],RovPos[3],RefPos[3];
 	double Baseline[2],NmeaIntv[2];

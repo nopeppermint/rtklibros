@@ -240,6 +240,48 @@ object KeyDialog: TKeyDialog
     Height = 13
     Caption = ': Base Station ID'
   end
+  object Label33: TLabel
+    Left = 156
+    Top = 68
+    Width = 16
+    Height = 13
+    Caption = '%s'
+  end
+  object Label34: TLabel
+    Left = 180
+    Top = 68
+    Width = 117
+    Height = 13
+    Caption = ': Station ID (lower case)'
+  end
+  object Label35: TLabel
+    Left = 156
+    Top = 82
+    Width = 17
+    Height = 13
+    Caption = '%S'
+  end
+  object Label36: TLabel
+    Left = 180
+    Top = 82
+    Width = 123
+    Height = 13
+    Caption = ': Station ID (UPPER case)'
+  end
+  object Label37: TLabel
+    Left = 156
+    Top = 40
+    Width = 18
+    Height = 13
+    Caption = '%N'
+  end
+  object Label38: TLabel
+    Left = 180
+    Top = 40
+    Width = 94
+    Height = 13
+    Caption = ': Sequence Number'
+  end
   object BtnOk: TButton
     Left = 280
     Top = 110

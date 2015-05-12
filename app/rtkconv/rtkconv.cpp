@@ -2,15 +2,31 @@
 #include <vcl.h>
 #pragma hdrstop
 //---------------------------------------------------------------------------
-USEFORM("convmain.cpp", MainWindow);
-USEFORM("convopt.cpp", ConvOptDialog);
-USEFORM("..\appcmn\viewer.cpp", TextViewer);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+USEFORM("codeopt.cpp", CodeOptDialog);
 USEFORM("..\appcmn\vieweropt.cpp", ViewerOptDialog);
+USEFORM("convopt.cpp", ConvOptDialog);
+USEFORM("convmain.cpp", MainWindow);
+USEFORM("..\appcmn\viewer.cpp", TextViewer);
+USEFORM("..\appcmn\confdlg.cpp", ConfDialog);
 USEFORM("..\appcmn\aboutdlg.cpp", AboutDialog);
 USEFORM("..\appcmn\timedlg.cpp", TimeDialog);
-USEFORM("..\appcmn\confdlg.cpp", ConfDialog);
-USEFORM("startdlg.cpp", StartDialog);
 USEFORM("..\appcmn\keydlg.cpp", KeyDialog);
+USEFORM("startdlg.cpp", StartDialog);
 //---------------------------------------------------------------------------
 WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 {
@@ -27,6 +43,7 @@ WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		Application->CreateForm(__classid(TConfDialog), &ConfDialog);
 		Application->CreateForm(__classid(TStartDialog), &StartDialog);
 		Application->CreateForm(__classid(TKeyDialog), &KeyDialog);
+		Application->CreateForm(__classid(TCodeOptDialog), &CodeOptDialog);
 		Application->Run();
 	}
 	catch (Exception &exception)

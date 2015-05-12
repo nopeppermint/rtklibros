@@ -37,7 +37,7 @@ __published:
 	void __fastcall FindStrKeyPress(TObject *Sender, char &Key);
 private:
 	AnsiString File;
-	char *TextStr;
+	wchar_t *TextStr;
 	
 	void __fastcall ReadText(AnsiString file);
 	void __fastcall UpdateText(void);

@@ -35,12 +35,14 @@ void __fastcall TCmdOptDialog::BtnOkClick(TObject *Sender)
 //---------------------------------------------------------------------------
 void __fastcall TCmdOptDialog::BtnLoadClick(TObject *Sender)
 {
+	AnsiString OpenDialog_FileName;
 	TMemo *cmd[]={OpenCmd,CloseCmd};
 	FILE *fp;
 	char buff[1024];
 	int n=0;
 	if (!OpenDialog->Execute()) return;
-	if (!(fp=fopen(OpenDialog->FileName.c_str(),"r"))) return;
+	OpenDialog_FileName=OpenDialog->FileName;
+	if (!(fp=fopen(OpenDialog_FileName.c_str(),"r"))) return;
 	cmd[0]->Text="";
 	cmd[1]->Text="";
 	while (fgets(buff,sizeof(buff),fp)) {
@@ -53,12 +55,15 @@ void __fastcall TCmdOptDialog::BtnLoadClick(TObject *Sender)
 //---------------------------------------------------------------------------
 void __fastcall TCmdOptDialog::BtnSaveClick(TObject *Sender)
 {
+	AnsiString SaveDialog_FileName;
+	AnsiString OpenCmd_Text=OpenCmd->Text,CloseCmd_Text=CloseCmd->Text;
 	FILE *fp;
 	if (!SaveDialog->Execute()) return;
-	if (!(fp=fopen(SaveDialog->FileName.c_str(),"w"))) return;
-	fprintf(fp,"%s",OpenCmd->Text.c_str());
+	SaveDialog_FileName=SaveDialog->FileName;
+	if (!(fp=fopen(SaveDialog_FileName.c_str(),"w"))) return;
+	fprintf(fp,"%s",OpenCmd_Text.c_str());
 	fprintf(fp,"\n@\n");
-	fprintf(fp,"%s",CloseCmd->Text.c_str());
+	fprintf(fp,"%s",CloseCmd_Text.c_str());
 	fclose(fp);
 }
 //---------------------------------------------------------------------------

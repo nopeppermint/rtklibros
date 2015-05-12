@@ -77,6 +77,7 @@ object ViewerOptDialog: TViewerOptDialog
     Font.Height = -11
     Font.Name = 'Tahoma'
     Font.Style = []
+    ParentBackground = False
     ParentFont = False
     TabOrder = 2
   end
@@ -103,6 +104,7 @@ object ViewerOptDialog: TViewerOptDialog
     BevelInner = bvRaised
     BevelOuter = bvLowered
     Color = clWindow
+    ParentBackground = False
     TabOrder = 4
   end
   object BtnColor2: TButton

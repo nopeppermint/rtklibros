@@ -1,6 +1,5 @@
 //---------------------------------------------------------------------------
 #include <vcl.h>
-#include <FileCtrl.hpp>
 #pragma hdrstop
 
 #include "rtklib.h"
@@ -8,6 +7,7 @@
 #include "viewer.h"
 #include "refdlg.h"
 #include "navimain.h"
+#include "maskoptdlg.h"
 //---------------------------------------------------------------------------
 #pragma package(smart_init)
 #pragma resource "*.dfm"
@@ -46,7 +46,7 @@ static char proxyaddr[MAXSTR]="";       /* proxy address */
 #define FLGOPT  "0:off,1:std+2:age/ratio/ns"
 #define ISTOPT  "0:off,1:serial,2:file,3:tcpsvr,4:tcpcli,7:ntripcli,8:ftp,9:http"
 #define OSTOPT  "0:off,1:serial,2:file,3:tcpsvr,4:tcpcli,6:ntripsvr"
-#define FMTOPT  "0:rtcm2,1:rtcm3,2:oem4,3:oem3,4:ubx,5:ss2,6:hemis,7:skytraq,8:gw10,9:javad,15:sp3"
+#define FMTOPT  "0:rtcm2,1:rtcm3,2:oem4,3:oem3,4:ubx,5:ss2,6:hemis,7:skytraq,8:gw10,9:javad,10:nvs,11:binex,12:rt17,15:sp3"
 #define NMEOPT  "0:off,1:latlon,2:single"
 #define SOLOPT  "0:llh,1:xyz,2:enu,3:nmea"
 #define MSGOPT  "0:all,1:rover,2:base,3:corr"
@@ -109,10 +109,6 @@ __fastcall TOptDialog::TOptDialog(TComponent* Owner)
 	if (ngal<=0) NavSys3->Enabled=false;
 	if (nqzs<=0) NavSys4->Enabled=false;
 	if (ncmp<=0) NavSys6->Enabled=false;
-#ifdef EXTLEX
-    IonoOpt ->Items->Add("QZSS LEX");
-    SatEphem->Items->Add("QZSS LEX");
-#endif
 	UpdateEnable();
 }
 //---------------------------------------------------------------------------
@@ -136,10 +132,13 @@ void __fastcall TOptDialog::BtnLoadClick(TObject *Sender)
 //---------------------------------------------------------------------------
 void __fastcall TOptDialog::BtnSaveClick(TObject *Sender)
 {
+	AnsiString file;
 	SaveDialog->Title="Save Options";
 	SaveDialog->FilterIndex=2;
 	if (!SaveDialog->Execute()) return;
-	SaveOpt(SaveDialog->FileName);
+	file=SaveDialog->FileName;
+	if (!strrchr(file.c_str(),'.')) file=file+".conf";
+	SaveOpt(file);
 }
 //---------------------------------------------------------------------------
 void __fastcall TOptDialog::BtnStaPosViewClick(TObject *Sender)
@@ -156,6 +155,13 @@ void __fastcall TOptDialog::BtnStaPosFileClick(TObject *Sender)
 	OpenDialog->FilterIndex=3;
 	if (!OpenDialog->Execute()) return;
 	StaPosFile->Text=OpenDialog->FileName;
+}
+//---------------------------------------------------------------------------
+void __fastcall TOptDialog::BtnSnrMaskClick(TObject *Sender)
+{
+	MaskOptDialog->Mask=PrcOpt.snrmask;
+	if (MaskOptDialog->ShowModal()!=mrOk) return;
+	PrcOpt.snrmask=MaskOptDialog->Mask;
 }
 //---------------------------------------------------------------------------
 void __fastcall TOptDialog::RovPosTypePChange(TObject *Sender)
@@ -266,11 +272,34 @@ void __fastcall TOptDialog::BtnDCBFileClick(TObject *Sender)
 	DCBFile->Text=OpenDialog->FileName;
 }
 //---------------------------------------------------------------------------
+void __fastcall TOptDialog::BtnEOPFileClick(TObject *Sender)
+{
+	OpenDialog->Title="EOP Data File";
+	OpenDialog->FilterIndex=1;
+	if (!OpenDialog->Execute()) return;
+	EOPFile->Text=OpenDialog->FileName;
+}
+//---------------------------------------------------------------------------
+void __fastcall TOptDialog::BtnEOPViewClick(TObject *Sender)
+{
+	if (EOPFile->Text=="") return;
+	TTextViewer *viewer=new TTextViewer(Application);
+	viewer->Show();
+	viewer->Read(EOPFile->Text);
+}
+//---------------------------------------------------------------------------
 void __fastcall TOptDialog::BtnLocalDirClick(TObject *Sender)
 {
+#ifdef TCPP
 	AnsiString dir=LocalDir->Text;
 	if (!SelectDirectory("FTP/HTTP Local Directory","",dir)) return;
 	LocalDir->Text=dir;
+#else
+    UnicodeString dir=LocalDir->Text;
+    TSelectDirExtOpts opt=TSelectDirExtOpts()<<sdNewUI<<sdNewFolder;
+    if (!SelectDirectory(L"FTP/HTTP Local Directory",L"",dir,opt)) return;
+    LocalDir->Text=dir;
+#endif
 }
 //---------------------------------------------------------------------------
 void __fastcall TOptDialog::BtnFontClick(TObject *Sender)
@@ -280,6 +309,22 @@ void __fastcall TOptDialog::BtnFontClick(TObject *Sender)
 	if (!FontDialog->Execute()) return;
 	FontLabel->Font=FontDialog->Font;
 	FontLabel->Caption=FontLabel->Font->Name+s.sprintf(" %dpt",FontLabel->Font->Size);
+}
+//---------------------------------------------------------------------------
+void __fastcall TOptDialog::BtnTLESatFileClick(TObject *Sender)
+{
+	OpenDialog->Title="TLE Satellite Number File";
+	OpenDialog->FilterIndex=1;
+	if (!OpenDialog->Execute()) return;
+	TLESatFile->Text=OpenDialog->FileName;
+}
+//---------------------------------------------------------------------------
+void __fastcall TOptDialog::BtnTLEFileClick(TObject *Sender)
+{
+	OpenDialog->Title="TLE Data File";
+	OpenDialog->FilterIndex=1;
+	if (!OpenDialog->Execute()) return;
+	TLEFile->Text=OpenDialog->FileName;
 }
 //---------------------------------------------------------------------------
 void __fastcall TOptDialog::FreqChange(TObject *Sender)
@@ -361,7 +406,6 @@ void __fastcall TOptDialog::GetOpt(void)
 	PosMode		 ->ItemIndex=PrcOpt.mode;
 	Freq		 ->ItemIndex=PrcOpt.nf-1>NFREQ-1?NFREQ-1:PrcOpt.nf-1;
 	ElMask		 ->Text     =s.sprintf("%.0f",PrcOpt.elmin*R2D);
-	SnrMask		 ->Text     =s.sprintf("%.0f",PrcOpt.snrmin);
 	DynamicModel ->ItemIndex=PrcOpt.dynamics;
 	TideCorr	 ->ItemIndex=PrcOpt.tidecorr;
 	IonoOpt		 ->ItemIndex=PrcOpt.ionoopt;
@@ -369,7 +413,8 @@ void __fastcall TOptDialog::GetOpt(void)
 	SatEphem	 ->ItemIndex=PrcOpt.sateph;
 	AmbRes		 ->ItemIndex=PrcOpt.modear;
 	GloAmbRes	 ->ItemIndex=PrcOpt.glomodear;
-	ValidThresAR ->Text     =s.sprintf("%.1f",PrcOpt.thresar);
+	BdsAmbRes	 ->ItemIndex=PrcOpt.bdsmodear;
+	ValidThresAR ->Text     =s.sprintf("%.1f",PrcOpt.thresar[0]);
 	OutCntResetAmb->Text    =s.sprintf("%d",  PrcOpt.maxout);
 	LockCntFixAmb->Text     =s.sprintf("%d",  PrcOpt.minlock);
 	FixCntHoldAmb->Text     =s.sprintf("%d",  PrcOpt.minfix);
@@ -380,6 +425,7 @@ void __fastcall TOptDialog::GetOpt(void)
 	RejectThres  ->Text     =s.sprintf("%.1f",PrcOpt.maxinno);
 	SlipThres	 ->Text     =s.sprintf("%.3f",PrcOpt.thresslip);
 	NumIter		 ->Text     =s.sprintf("%d",  PrcOpt.niter);
+	SyncSol		 ->ItemIndex=PrcOpt.syncsol;
 	ExSatsE		 ->Text     =ExSats;
 	NavSys1		 ->Checked  =PrcOpt.navsys&SYS_GPS;
 	NavSys2		 ->Checked  =PrcOpt.navsys&SYS_GLO;
@@ -387,6 +433,11 @@ void __fastcall TOptDialog::GetOpt(void)
 	NavSys4		 ->Checked  =PrcOpt.navsys&SYS_QZS;
 	NavSys5		 ->Checked  =PrcOpt.navsys&SYS_SBS;
 	NavSys6		 ->Checked  =PrcOpt.navsys&SYS_CMP;
+	PosOpt1		 ->Checked  =PrcOpt.posopt[0];
+	PosOpt2		 ->Checked  =PrcOpt.posopt[1];
+	PosOpt3		 ->Checked  =PrcOpt.posopt[2];
+	PosOpt4		 ->Checked  =PrcOpt.posopt[3];
+	PosOpt5		 ->Checked  =PrcOpt.posopt[4];
 	
 	SolFormat	 ->ItemIndex=SolOpt.posf;
 	TimeFormat	 ->ItemIndex=SolOpt.timef==0?0:SolOpt.times+1;
@@ -440,6 +491,9 @@ void __fastcall TOptDialog::GetOpt(void)
 	StaPosFile	 ->Text     =StaPosFileF;
 	GeoidDataFile->Text     =GeoidDataFileF;
 	DCBFile      ->Text     =DCBFileF;
+	EOPFile      ->Text     =EOPFileF;
+	TLEFile      ->Text     =TLEFileF;
+	TLESatFile   ->Text     =TLESatFileF;
 	LocalDir	 ->Text     =LocalDirectory;
 	ReadAntList();
 	
@@ -456,6 +510,7 @@ void __fastcall TOptDialog::GetOpt(void)
 	ProxyAddrE   ->Text     =ProxyAddr;
 	MoniPortE    ->Text     =s.sprintf("%d",MoniPort);
 	SolBuffSizeE ->Text     =s.sprintf("%d",SolBuffSize);
+	PanelStackE  ->ItemIndex=PanelStack;
 	
 	FontLabel->Font->Assign(PosFont);
 	FontLabel->Caption=FontLabel->Font->Name+s.sprintf(" %dpt",FontLabel->Font->Size);
@@ -464,13 +519,13 @@ void __fastcall TOptDialog::GetOpt(void)
 //---------------------------------------------------------------------------
 void __fastcall TOptDialog::SetOpt(void)
 {
+	AnsiString FieldSep_Text=FieldSep->Text;
 	TEdit *editu[]={RovPos1,RovPos2,RovPos3};
 	TEdit *editr[]={RefPos1,RefPos2,RefPos3};
 	
 	PrcOpt.mode      =PosMode     ->ItemIndex;
 	PrcOpt.nf        =Freq        ->ItemIndex+1;
 	PrcOpt.elmin     =str2dbl(ElMask ->Text)*D2R;
-	PrcOpt.snrmin    =str2dbl(SnrMask->Text);
 	PrcOpt.dynamics  =DynamicModel->ItemIndex;
 	PrcOpt.tidecorr  =TideCorr    ->ItemIndex;
 	PrcOpt.ionoopt   =IonoOpt     ->ItemIndex;
@@ -478,7 +533,8 @@ void __fastcall TOptDialog::SetOpt(void)
 	PrcOpt.sateph    =SatEphem    ->ItemIndex;
 	PrcOpt.modear    =AmbRes      ->ItemIndex;
 	PrcOpt.glomodear =GloAmbRes   ->ItemIndex;
-	PrcOpt.thresar   =str2dbl(ValidThresAR->Text);
+	PrcOpt.bdsmodear =BdsAmbRes   ->ItemIndex;
+	PrcOpt.thresar[0]=str2dbl(ValidThresAR->Text);
 	PrcOpt.maxout    =OutCntResetAmb->Text.ToInt();
 	PrcOpt.minlock   =LockCntFixAmb->Text.ToInt();
 	PrcOpt.minfix    =FixCntHoldAmb->Text.ToInt();
@@ -489,6 +545,7 @@ void __fastcall TOptDialog::SetOpt(void)
 	PrcOpt.maxinno   =str2dbl(RejectThres->Text);
 	PrcOpt.thresslip =str2dbl(SlipThres  ->Text);
 	PrcOpt.niter     =NumIter     ->Text.ToInt();
+	PrcOpt.syncsol   =SyncSol     ->ItemIndex;
 	ExSats			 =ExSatsE	  ->Text;
 	PrcOpt.navsys    =0;
 	if (NavSys1->Checked) PrcOpt.navsys|=SYS_GPS;
@@ -497,13 +554,18 @@ void __fastcall TOptDialog::SetOpt(void)
 	if (NavSys4->Checked) PrcOpt.navsys|=SYS_QZS;
 	if (NavSys5->Checked) PrcOpt.navsys|=SYS_SBS;
 	if (NavSys6->Checked) PrcOpt.navsys|=SYS_CMP;
+	PrcOpt.posopt[0] =PosOpt1   ->Checked;
+	PrcOpt.posopt[1] =PosOpt2   ->Checked;
+	PrcOpt.posopt[2] =PosOpt3   ->Checked;
+	PrcOpt.posopt[3] =PosOpt4   ->Checked;
+	PrcOpt.posopt[4] =PosOpt5   ->Checked;
 	
 	SolOpt.posf      =SolFormat   ->ItemIndex;
 	SolOpt.timef     =TimeFormat->ItemIndex==0?0:1;
 	SolOpt.times     =TimeFormat->ItemIndex==0?0:TimeFormat->ItemIndex-1;
 	SolOpt.timeu     =(int)str2dbl(TimeDecimal->Text);
 	SolOpt.degf      =LatLonFormat->ItemIndex;
-	strcpy(SolOpt.sep,FieldSep->Text.c_str());
+	strcpy(SolOpt.sep,FieldSep_Text.c_str());
 	SolOpt.outhead   =OutputHead  ->ItemIndex;
 	SolOpt.outopt    =OutputOpt   ->ItemIndex;
 	SolOpt.datum     =OutputDatum ->ItemIndex;
@@ -551,6 +613,9 @@ void __fastcall TOptDialog::SetOpt(void)
 	StaPosFileF      =StaPosFile  ->Text;
 	GeoidDataFileF   =GeoidDataFile->Text;
 	DCBFileF         =DCBFile     ->Text;
+	EOPFileF         =EOPFile     ->Text;
+	TLEFileF         =TLEFile     ->Text;
+	TLESatFileF      =TLESatFile  ->Text;
 	LocalDirectory   =LocalDir    ->Text;
 	
 	SvrCycle	     =SvrCycleE   ->Text.ToInt();
@@ -565,6 +630,7 @@ void __fastcall TOptDialog::SetOpt(void)
 	PrcOpt.sbassatsel=SbasSatE    ->Text.ToInt();
 	ProxyAddr        =ProxyAddrE  ->Text;
 	MoniPort         =MoniPortE   ->Text.ToInt();
+	PanelStack       =PanelStackE ->ItemIndex;
 	PosFont->Assign(FontLabel->Font);
 	UpdateEnable();
 }
@@ -620,7 +686,6 @@ void __fastcall TOptDialog::LoadOpt(AnsiString file)
 	Freq		 ->ItemIndex	=prcopt.nf>NFREQ-1?NFREQ-1:prcopt.nf-1;
 	Solution	 ->ItemIndex	=prcopt.soltype;
 	ElMask		 ->Text			=s.sprintf("%.0f",prcopt.elmin*R2D);
-	SnrMask		 ->Text			=s.sprintf("%.0f",prcopt.snrmin);
 	DynamicModel ->ItemIndex	=prcopt.dynamics;
 	TideCorr	 ->ItemIndex	=prcopt.tidecorr;
 	IonoOpt		 ->ItemIndex	=prcopt.ionoopt;
@@ -639,10 +704,16 @@ void __fastcall TOptDialog::LoadOpt(AnsiString file)
 	NavSys4	     ->Checked		=prcopt.navsys&SYS_QZS;
 	NavSys5	     ->Checked		=prcopt.navsys&SYS_SBS;
 	NavSys6	     ->Checked		=prcopt.navsys&SYS_CMP;
+	PosOpt1		 ->Checked		=prcopt.posopt[0];
+	PosOpt2		 ->Checked		=prcopt.posopt[1];
+	PosOpt3		 ->Checked		=prcopt.posopt[2];
+	PosOpt4		 ->Checked		=prcopt.posopt[3];
+	PosOpt5		 ->Checked		=prcopt.posopt[4];
 	
 	AmbRes		 ->ItemIndex	=prcopt.modear;
 	GloAmbRes	 ->ItemIndex	=prcopt.glomodear;
-	ValidThresAR ->Text			=s.sprintf("%.1f",prcopt.thresar  );
+	BdsAmbRes	 ->ItemIndex	=prcopt.bdsmodear;
+	ValidThresAR ->Text			=s.sprintf("%.1f",prcopt.thresar[0]);
 	OutCntResetAmb->Text		=s.sprintf("%d"  ,prcopt.maxout   );
 	FixCntHoldAmb->Text			=s.sprintf("%d"  ,prcopt.minfix   );
 	LockCntFixAmb->Text			=s.sprintf("%d"  ,prcopt.minlock  );
@@ -653,6 +724,7 @@ void __fastcall TOptDialog::LoadOpt(AnsiString file)
 	RejectThres  ->Text			=s.sprintf("%.1f",prcopt.maxinno  );
 	SlipThres	 ->Text			=s.sprintf("%.3f",prcopt.thresslip);
 	NumIter		 ->Text			=s.sprintf("%d",  prcopt.niter    );
+	SyncSol		 ->ItemIndex	=prcopt.syncsol;
 	BaselineLen	 ->Text			=s.sprintf("%.3f",prcopt.baseline[0]);
 	BaselineSig	 ->Text			=s.sprintf("%.3f",prcopt.baseline[1]);
 	BaselineConst->Checked		=prcopt.baseline[0]>0.0;
@@ -717,6 +789,16 @@ void __fastcall TOptDialog::LoadOpt(AnsiString file)
 //---------------------------------------------------------------------------
 void __fastcall TOptDialog::SaveOpt(AnsiString file)
 {
+	AnsiString ProxyAddrE_Text=ProxyAddrE->Text;
+	AnsiString ExSatsE_Text=ExSatsE->Text;
+	AnsiString FieldSep_Text=FieldSep->Text;
+	AnsiString RovAnt_Text=RovAnt->Text,RefAnt_Text=RefAnt->Text;
+	AnsiString SatPcvFile_Text=SatPcvFile->Text;
+	AnsiString AntPcvFile_Text=AntPcvFile->Text;
+	AnsiString StaPosFile_Text=StaPosFile->Text;
+	AnsiString GeoidDataFile_Text=GeoidDataFile->Text;
+	AnsiString DCBFile_Text=DCBFile->Text;
+	AnsiString LocalDir_Text=LocalDir->Text;
     int itype[]={STR_SERIAL,STR_TCPCLI,STR_TCPSVR,STR_NTRIPCLI,STR_FILE,STR_FTP,STR_HTTP};
     int otype[]={STR_SERIAL,STR_TCPCLI,STR_TCPSVR,STR_NTRIPSVR,STR_FILE};
 	TEdit *editu[]={RovPos1,RovPos2,RovPos3};
@@ -758,7 +840,7 @@ void __fastcall TOptDialog::SaveOpt(AnsiString file)
 	nmeacycle   =NmeaCycleE  ->Text.ToInt();
 	buffsize    =SvrBuffSizeE->Text.ToInt();
 	navmsgsel   =NavSelectS  ->ItemIndex;
-	strcpy(proxyaddr,ProxyAddrE->Text.c_str());
+	strcpy(proxyaddr,ProxyAddrE_Text.c_str());
 	fswapmargin =FileSwapMarginE->Text.ToInt();
 	prcopt.sbassatsel=SbasSatE->Text.ToInt();
 
@@ -766,14 +848,13 @@ void __fastcall TOptDialog::SaveOpt(AnsiString file)
 	prcopt.nf		=Freq		 ->ItemIndex+1;
 	prcopt.soltype	=Solution	 ->ItemIndex;
 	prcopt.elmin	=str2dbl(ElMask	->Text)*D2R;
-	prcopt.snrmin	=str2dbl(SnrMask->Text);
 	prcopt.dynamics	=DynamicModel->ItemIndex;
 	prcopt.tidecorr	=TideCorr	 ->ItemIndex;
 	prcopt.ionoopt	=IonoOpt	 ->ItemIndex;
 	prcopt.tropopt	=TropOpt	 ->ItemIndex;
 	prcopt.sateph	=SatEphem	 ->ItemIndex;
 	if (ExSatsE->Text!="") {
-		strcpy(buff,ExSatsE->Text.c_str());
+		strcpy(buff,ExSatsE_Text.c_str());
 		for (p=strtok(buff," ");p;p=strtok(NULL," ")) {
 			if (*p=='+') {ex=2; p++;} else ex=1;
 			if (!(sat=satid2no(p))) continue;
@@ -786,9 +867,16 @@ void __fastcall TOptDialog::SaveOpt(AnsiString file)
 					  (NavSys4->Checked?SYS_QZS:0)|
 					  (NavSys5->Checked?SYS_SBS:0)|
 					  (NavSys6->Checked?SYS_CMP:0);
+	prcopt.posopt[0]=PosOpt1->Checked;
+	prcopt.posopt[1]=PosOpt2->Checked;
+	prcopt.posopt[2]=PosOpt3->Checked;
+	prcopt.posopt[3]=PosOpt4->Checked;
+	prcopt.posopt[4]=PosOpt5->Checked;
+	
 	prcopt.modear	=AmbRes		->ItemIndex;
 	prcopt.glomodear=GloAmbRes	->ItemIndex;
-	prcopt.thresar	=str2dbl(ValidThresAR->Text);
+	prcopt.bdsmodear=BdsAmbRes	->ItemIndex;
+	prcopt.thresar[0]=str2dbl(ValidThresAR->Text);
 	prcopt.maxout	=str2dbl(OutCntResetAmb->Text);
 	prcopt.minfix	=str2dbl(FixCntHoldAmb->Text);
 	prcopt.minlock	=str2dbl(LockCntFixAmb->Text);
@@ -799,6 +887,7 @@ void __fastcall TOptDialog::SaveOpt(AnsiString file)
 	prcopt.maxinno	=str2dbl(RejectThres->Text);
 	prcopt.thresslip=str2dbl(SlipThres	->Text);
 	prcopt.niter	=str2dbl(NumIter	->Text);
+	prcopt.syncsol	=SyncSol->ItemIndex;
 	if (prcopt.mode==PMODE_MOVEB&&BaselineConst->Checked) {
 		prcopt.baseline[0]=str2dbl(BaselineLen->Text);
 		prcopt.baseline[1]=str2dbl(BaselineSig->Text);
@@ -808,7 +897,7 @@ void __fastcall TOptDialog::SaveOpt(AnsiString file)
 	solopt.times	=TimeFormat	->ItemIndex==0?0:TimeFormat->ItemIndex-1;
 	solopt.timeu	=str2dbl(TimeDecimal ->Text);
 	solopt.degf		=LatLonFormat->ItemIndex;
-	strcpy(solopt.sep,FieldSep->Text.c_str());
+	strcpy(solopt.sep,FieldSep_Text.c_str());
 	solopt.outhead	=OutputHead	 ->ItemIndex;
 	solopt.outopt	=OutputOpt	 ->ItemIndex;
 	solopt.datum	=OutputDatum ->ItemIndex;
@@ -832,8 +921,8 @@ void __fastcall TOptDialog::SaveOpt(AnsiString file)
 	prcopt.prn[3]	=str2dbl(PrNoise4->Text);
 	prcopt.prn[4]	=str2dbl(PrNoise5->Text);
 	
-	if (RovAntPcv->Checked) strcpy(prcopt.anttype[0],RovAnt->Text.c_str());
-	if (RefAntPcv->Checked) strcpy(prcopt.anttype[1],RefAnt->Text.c_str());
+	if (RovAntPcv->Checked) strcpy(prcopt.anttype[0],RovAnt_Text.c_str());
+	if (RefAntPcv->Checked) strcpy(prcopt.anttype[1],RefAnt_Text.c_str());
 	prcopt.antdel[0][0]=str2dbl(RovAntE->Text);
 	prcopt.antdel[0][1]=str2dbl(RovAntN->Text);
 	prcopt.antdel[0][2]=str2dbl(RovAntU->Text);
@@ -847,12 +936,12 @@ void __fastcall TOptDialog::SaveOpt(AnsiString file)
 	if (prcopt.rovpos==0) GetPos(RovPosTypeP->ItemIndex,editu,prcopt.ru);
 	if (prcopt.refpos==0) GetPos(RefPosTypeP->ItemIndex,editr,prcopt.rb);
 	
-	strcpy(filopt.satantp,SatPcvFile->Text.c_str());
-	strcpy(filopt.rcvantp,AntPcvFile->Text.c_str());
-	strcpy(filopt.stapos, StaPosFile->Text.c_str());
-	strcpy(filopt.geoid,  GeoidDataFile->Text.c_str());
-	strcpy(filopt.dcb,    DCBFile->Text.c_str());
-	strcpy(filopt.tempdir,LocalDir->Text.c_str());
+	strcpy(filopt.satantp,SatPcvFile_Text.c_str());
+	strcpy(filopt.rcvantp,AntPcvFile_Text.c_str());
+	strcpy(filopt.stapos, StaPosFile_Text.c_str());
+	strcpy(filopt.geoid,  GeoidDataFile_Text.c_str());
+	strcpy(filopt.dcb,    DCBFile_Text.c_str());
+	strcpy(filopt.tempdir,LocalDir_Text.c_str());
 	
 	time2str(utc2gpst(timeget()),s,0);
 	sprintf(comment,"RTKNAVI options (%s, v.%s)",s,VER_RTKLIB);
@@ -866,28 +955,33 @@ void __fastcall TOptDialog::UpdateEnable(void)
 	int rel=PMODE_DGPS<=PosMode->ItemIndex&&PosMode->ItemIndex<=PMODE_FIXED;
 	int rtk=PMODE_KINEMA<=PosMode->ItemIndex&&PosMode->ItemIndex<=PMODE_FIXED;
 	int ppp=PosMode->ItemIndex>=PMODE_PPP_KINEMA;
+	int ar=rtk||ppp;
 	
 	Freq           ->Enabled=rel;
 	Solution       ->Enabled=false;
 	DynamicModel   ->Enabled=rel;
 	TideCorr       ->Enabled=rel||ppp;
-//	IonoOpt        ->Enabled=!ppp;
-//	TropOpt        ->Enabled=PosMode->ItemIndex>=1;
-//	SatEphem       ->Enabled=PosMode->ItemIndex>=1;
+	PosOpt1        ->Enabled=ppp;
+	PosOpt2        ->Enabled=ppp;
+	PosOpt3        ->Enabled=ppp;
+	PosOpt4        ->Enabled=ppp;
 	
-	AmbRes         ->Enabled=rtk;
-	GloAmbRes      ->Enabled=rtk&&AmbRes->ItemIndex>=1&&NavSys2->Checked;
-	ValidThresAR   ->Enabled=rtk&&AmbRes->ItemIndex>=1;
-	LockCntFixAmb  ->Enabled=rtk&&AmbRes->ItemIndex>=1;
-	ElMaskAR       ->Enabled=rtk&&AmbRes->ItemIndex>=1;
-	FixCntHoldAmb  ->Enabled=rtk&&AmbRes->ItemIndex==3;
-	ElMaskHold     ->Enabled=rtk&&AmbRes->ItemIndex==3;
-	LabelHold      ->Enabled=rtk&&AmbRes->ItemIndex==3;
-	OutCntResetAmb ->Enabled=rtk||ppp;
-	SlipThres      ->Enabled=rtk||ppp;
+	AmbRes         ->Enabled=ar;
+	GloAmbRes      ->Enabled=ar&&AmbRes->ItemIndex>0&&NavSys2->Checked;
+	BdsAmbRes      ->Enabled=ar&&AmbRes->ItemIndex>0&&NavSys6->Checked;
+	ValidThresAR   ->Enabled=ar&&AmbRes->ItemIndex>=1&&AmbRes->ItemIndex<4;
+	ThresAR2       ->Enabled=ar&&AmbRes->ItemIndex>=4;
+	ThresAR3       ->Enabled=ar&&AmbRes->ItemIndex>=4;
+	LockCntFixAmb  ->Enabled=ar&&AmbRes->ItemIndex>=1;
+	ElMaskAR       ->Enabled=ar&&AmbRes->ItemIndex>=1;
+	OutCntResetAmb ->Enabled=ar||ppp;
+	FixCntHoldAmb  ->Enabled=ar&&AmbRes->ItemIndex==3;
+	ElMaskHold     ->Enabled=ar&&AmbRes->ItemIndex==3;
+	SlipThres      ->Enabled=ar||ppp;
 	MaxAgeDiff     ->Enabled=rel;
 	RejectThres    ->Enabled=rel||ppp;
 	NumIter        ->Enabled=rel||ppp;
+	SyncSol        ->Enabled=rel||ppp;
 	BaselineConst  ->Enabled=PosMode->ItemIndex==PMODE_MOVEB;
 	BaselineLen    ->Enabled=BaselineConst->Checked&&PosMode->ItemIndex==PMODE_MOVEB;
 	BaselineSig    ->Enabled=BaselineConst->Checked&&PosMode->ItemIndex==PMODE_MOVEB;
@@ -932,13 +1026,15 @@ void __fastcall TOptDialog::UpdateEnable(void)
 //---------------------------------------------------------------------------
 void __fastcall TOptDialog::GetPos(int type, TEdit **edit, double *pos)
 {
+	AnsiString edit0_Text=edit[0]->Text;
+	AnsiString edit1_Text=edit[1]->Text;
 	double p[3]={0},dms1[3]={0},dms2[3]={0};
 	
 	if (type==1) { /* lat/lon/height dms/m */
-		sscanf(edit[0]->Text.c_str(),"%lf %lf %lf",dms1,dms1+1,dms1+2);
-		sscanf(edit[1]->Text.c_str(),"%lf %lf %lf",dms2,dms2+1,dms2+2);
+		sscanf(edit0_Text.c_str(),"%lf %lf %lf",dms1,dms1+1,dms1+2);
+		sscanf(edit1_Text.c_str(),"%lf %lf %lf",dms2,dms2+1,dms2+2);
 		p[0]=(dms1[0]<0?-1:1)*(fabs(dms1[0])+dms1[1]/60+dms1[2]/3600)*D2R;
-		p[1]=(dms1[0]<0?-1:1)*(fabs(dms2[0])+dms2[1]/60+dms2[2]/3600)*D2R;
+		p[1]=(dms2[0]<0?-1:1)*(fabs(dms2[0])+dms2[1]/60+dms2[2]/3600)*D2R;
 		p[2]=str2dbl(edit[2]->Text);
 		pos2ecef(p,pos);
 	}
@@ -986,11 +1082,12 @@ void __fastcall TOptDialog::SetPos(int type, TEdit **edit, double *pos)
 //---------------------------------------------------------------------------
 void __fastcall TOptDialog::ReadAntList(void)
 {
+	AnsiString AntPcvFile_Text=AntPcvFile->Text;
 	TStringList *list;
 	pcvs_t pcvs={0};
 	char *p;
 	
-	if (!readpcv(AntPcvFile->Text.c_str(),&pcvs)) return;
+	if (!readpcv(AntPcvFile_Text.c_str(),&pcvs)) return;
 	
 	list=new TStringList;
 	list->Add("");
@@ -1009,4 +1106,9 @@ void __fastcall TOptDialog::ReadAntList(void)
 }
 //---------------------------------------------------------------------------
 
+void __fastcall TOptDialog::NavSys6Click(TObject *Sender)
+{
+	UpdateEnable();
+}
+//---------------------------------------------------------------------------
 

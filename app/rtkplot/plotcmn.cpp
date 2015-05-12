@@ -10,16 +10,13 @@ int showmsg(char *format,...) {return 0;}
 }
 //---------------------------------------------------------------------------
 const char *PTypes[]={
-    "Gnd Trk","Position","Velocity","Accel","NSat/Age/Ratio","Raw Obs",
-    "Skyplot","Sats/DOP",
-    "L1 Residuals","L2 Residuals","L5 Residuals","L6 Residuals","L7 Residuals","L8 Residuals",
-    "L1 SNR","L2 SNR","L5 SNR","L6 SNR","L7 SNR","L8 SNR",
-    ""
+    "Gnd Trk","Position","Velocity","Accel","NSat","Residuals",
+    "Sat Vis","Skyplot","DOP/NSat","SNR/MP/EL","SNR/MP-EL","MP-Skyplot",""
 };
 // show message in status-bar -----------------------------------------------
 void __fastcall TPlot::ShowMsg(AnsiString msg)
 {
-    Message1->Caption=msg;
+    Message1->Caption=A2U(msg);
     Panel21->Repaint();
 }
 // execute command ----------------------------------------------------------
@@ -78,7 +75,7 @@ void __fastcall TPlot::ShowLegend(AnsiString *msgs)
             ql[i]->Caption=" "; ql[i]->Width=1;
         }
         else {
-            ql[i]->Caption=msgs[i];
+            ql[i]->Caption=A2U(msgs[i]);
             ql[i]->Font->Color=MColor[sel][i+1];
         }
     }
@@ -271,38 +268,113 @@ void __fastcall TPlot::CalcStats(const double *x, int n,
     std=n>1?SQRT((sumsq-2.0*sum*ave+ave*ave*n)/(n-1)):0.0;
     rms=SQRT((sumsq-2.0*sum*ref+ref*ref*n)/n);
 }
-// get observation data color -----------------------------------------------
-int __fastcall TPlot::ObsColor(const obsd_t *obs, double az, double el)
+// get system color ---------------------------------------------------------
+TColor __fastcall TPlot::SysColor(int sat)
 {
-    double snr,sns[]={45.0,40.0,35.0,30.0,25.0};
-    int color=1,type=ObsType->ItemIndex,freq;
+    switch (satsys(sat,NULL)) {
+        case SYS_GPS: return MColor[0][1];
+        case SYS_GLO: return MColor[0][2];
+        case SYS_GAL: return MColor[0][3];
+        case SYS_QZS: return MColor[0][4];
+        case SYS_CMP: return MColor[0][5];
+        case SYS_SBS: return MColor[0][6];
+    }
+    return MColor[0][0];
+}
+// get observation data color -----------------------------------------------
+TColor __fastcall TPlot::ObsColor(const obsd_t *obs, double az, double el)
+{
+    TColor color=clBlack;
+    AnsiString ObsType_Text;
+    char *code="";
+    int i;
     
     trace(4,"ObsColor\n");
     
-    if (HideLowSat) {
-        if (el<ElMask*D2R) return -1;
-        if (ElMaskP&&el<ElMaskData[(int)(az*R2D+0.5)]) return -1;
+    if (!SatSel[obs->sat-1]) return clBlack;
+    
+    if (PlotType==PLOT_SNR||PlotType==PLOT_SNRE) {
+        ObsType_Text=ObsType2->Text;
+        code=ObsType_Text.c_str()+1;
     }
-    if (type==0) {
-        if      (obs->L[0]!=0.0&&obs->L[1]!=0.0) color=1;
-        else if (obs->L[0]!=0.0) color=2;
-        else if (obs->L[1]!=0.0) color=3;
-        else if (obs->P[0]!=0.0&&obs->P[1]) color=4;
-        else if (obs->P[0]!=0.0) color=5;
-        else if (obs->P[1]!=0.0) color=7;
+    else if (ObsType->ItemIndex) {
+        ObsType_Text=ObsType->Text;
+        code=ObsType_Text.c_str()+1;
+    }
+    if (SimObs) {
+        color=SysColor(obs->sat);
+    }
+    else if (*code) {
+        for (i=0;i<NFREQ+NEXOBS;i++) {
+            if (!strstr(code2obs(obs->code[i],NULL),code)) continue;
+            color=SnrColor(obs->SNR[i]*0.25);
+            break;
+        }
+        if (i>=NFREQ+NEXOBS) return clBlack;
     }
     else {
-        freq=(type-1)%NFREQ;
-        if (type-1< NFREQ&&obs->L[freq]==0.0) return -1;
-        if (type-1>=NFREQ&&obs->P[freq]==0.0) return -1;
-        snr=obs->SNR[freq]*0.25;
-        for (color=1;color<6;color++) if (snr>sns[color-1]) break;
-        if (color==6) color=7;
+        if      (obs->L[0]!=0.0&&obs->L[1]!=0.0&&obs->L[2]) color=MColor[0][4];
+        else if (obs->L[0]!=0.0&&obs->L[1]!=0.0) color=MColor[0][1];
+        else if (obs->L[0]!=0.0&&obs->L[2]!=0.0) color=MColor[0][5];
+        else if (obs->L[0]!=0.0) color=MColor[0][2];
+        else if (obs->P[1]!=0.0) color=MColor[0][3];
+        else if (obs->P[2]!=0.0) color=MColor[0][6];
+        else return clBlack;
     }
-    if (el<ElMask*D2R) return 0;
-    if (ElMaskP&&el<ElMaskData[(int)(az*R2D+0.5)]) return 0;
-    
+    if (el<ElMask*D2R||(ElMaskP&&el<ElMaskData[(int)(az*R2D+0.5)])) {
+        return HideLowSat?clBlack:MColor[0][0];
+    }
     return color;
+}
+// get observation data color -----------------------------------------------
+TColor __fastcall TPlot::SnrColor(double snr)
+{
+    unsigned int c1,c2,r1,r2,g1,g2,b1,b2;
+    double a;
+    int i;
+    
+    if (snr<25.0) return MColor[0][7];
+    if (snr<27.5) return MColor[0][5];
+    if (snr>47.5) return MColor[0][1];
+    a=(snr-27.5)/5.0;
+    i=(int)a; a-=i;
+    c1=(unsigned int)MColor[0][4-i];
+    c2=(unsigned int)MColor[0][5-i];
+    r1=c1&0xFF; g1=(c1>>8)&0xFF; b1=(c1>>16)&0xFF;
+    r2=c2&0xFF; g2=(c2>>8)&0xFF; b2=(c2>>16)&0xFF;
+    r1=(unsigned int)(a*r1+(1.0-a)*r2)&0xFF;
+    g1=(unsigned int)(a*g1+(1.0-a)*g2)&0xFF;
+    b1=(unsigned int)(a*b1+(1.0-a)*b2)&0xFF;
+    
+    return (TColor)((b1<<16)+(g1<<8)+r1);
+}
+// get mp color -------------------------------------------------------------
+TColor __fastcall TPlot::MpColor(double mp)
+{
+    TColor colors[5];
+    unsigned int c1,c2,r1,r2,g1,g2,b1,b2;
+    double a;
+    int i;
+    
+    colors[4]=MColor[0][5]; /*      mp> 0.6 */
+    colors[3]=MColor[0][4]; /*  0.6>mp> 0.2 */
+    colors[2]=MColor[0][3]; /*  0.2>mp>-0.2 */
+    colors[1]=MColor[0][2]; /* -0.2>mp>-0.6 */
+    colors[0]=MColor[0][1]; /* -0.6>mp      */
+     
+    if (mp>= 0.6) return colors[4];
+    if (mp<=-0.6) return colors[0];
+    a=mp/0.4+0.6;
+    i=(int)a; a-=i;
+    c1=(unsigned int)colors[i  ];
+    c2=(unsigned int)colors[i+1];
+    r1=c1&0xFF; g1=(c1>>8)&0xFF; b1=(c1>>16)&0xFF;
+    r2=c2&0xFF; g2=(c2>>8)&0xFF; b2=(c2>>16)&0xFF;
+    r1=(unsigned int)(a*r1+(1.0-a)*r2)&0xFF;
+    g1=(unsigned int)(a*g1+(1.0-a)*g2)&0xFF;
+    b1=(unsigned int)(a*b1+(1.0-a)*b2)&0xFF;
+    
+    return (TColor)((b1<<16)+(g1<<8)+r1);
 }
 // search solution by xy-position in plot -----------------------------------
 int __fastcall TPlot::SearchPos(int x, int y)
@@ -332,6 +404,7 @@ int __fastcall TPlot::SearchPos(int x, int y)
 // generate time-string -----------------------------------------------------
 void __fastcall TPlot::TimeStr(gtime_t time, int n, int tsys, char *str)
 {
+    struct tm *t;
     char tstr[64],*label="";
     double tow;
     int week;
@@ -348,13 +421,49 @@ void __fastcall TPlot::TimeStr(gtime_t time, int n, int tsys, char *str)
         time2str(gpst2utc(time),tstr,n);
         label=" UTC";
     }
-    else { // jst
-        time2str(timeadd(gpst2utc(time),9*3600.0),tstr,n);
-        label=" JST";
+    else { // lt
+        time=gpst2utc(time);
+        if (!(t=localtime(&time.time))) strcpy(tstr,"2000/01/01 00:00:00.0");
+        else sprintf(tstr,"%04d/%02d/%02d %02d:%02d:%02d.%0*d",t->tm_year+1900,
+                     t->tm_mon+1,t->tm_mday,t->tm_hour,t->tm_min,t->tm_sec,
+                     n,(int)(time.sec*pow(10.0,n)));
+        label=" LT";
     }
     sprintf(str,"%s%s",tstr,label);
 }
-
+// latitude/longitude/height string -----------------------------------------
+AnsiString __fastcall TPlot::LatLonStr(const double *pos, int ndec)
+{
+    AnsiString s;
+    double dms1[3],dms2[3];
+    
+    if (LatLonFmt==0) {
+        s.sprintf("%*.*f" CHARDEG " %*.*f" CHARDEG,ndec+4,ndec,pos[0]*R2D,
+                  ndec+5,ndec,pos[1]*R2D);
+    }
+    else {
+        deg2dms(pos[0]*R2D,dms1);
+        deg2dms(pos[1]*R2D,dms2);
+        s.sprintf("%3.0f" CHARDEG "%02.0f'%0*.*f\" %4.0f" CHARDEG "%02.0f'%0*.*f\"",
+                  dms1[0],dms1[1],ndec-2,ndec-5,dms1[2],dms2[0],dms2[1],
+                  ndec-2,ndec-5,dms2[2]);
+    }
+    return s;
+}
+// convert unicode to ansistring --------------------------------------------
+AnsiString __fastcall TPlot::U2A(UnicodeString str)
+{
+    AnsiString a_str(str);
+    return a_str;
+}
+// convert ansi to unicodestring --------------------------------------------
+UnicodeString __fastcall TPlot::A2U(AnsiString str)
+{
+    wchar_t buff[256]={0};
+    ::MultiByteToWideChar(CP_UTF8,0,str.c_str(),-1,buff,512);
+    UnicodeString u_str(buff);
+    return u_str;
+}
 //---------------------------------------------------------------------------
 // time-taged xyz-position class implementation
 //---------------------------------------------------------------------------

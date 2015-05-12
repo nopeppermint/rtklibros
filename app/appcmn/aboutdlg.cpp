@@ -16,11 +16,11 @@ __fastcall TAboutDialog::TAboutDialog(TComponent* Owner)
 //---------------------------------------------------------------------------
 void __fastcall TAboutDialog::FormShow(TObject *Sender)
 {
-	TImage *icon[]={Icon1,Icon2,Icon3,Icon4,Icon5,Icon6,Icon7};
+	TImage *icon[]={Icon1,Icon2,Icon3,Icon4,Icon5,Icon6,Icon7,Icon8};
 	AnsiString s;
 	if (IconIndex>0) icon[IconIndex-1]->Visible=true;
 	LabelAbout->Caption=About;
-	LabelVer->Caption=s.sprintf("with RTKLIB ver.%s",VER_RTKLIB);
+	LabelVer->Caption=s.sprintf("with RTKLIB ver.%s %s",VER_RTKLIB,PATCH_LEVEL);
 	LabelCopyright->Caption=COPYRIGHT_RTKLIB;
 }
 //---------------------------------------------------------------------------

@@ -22,8 +22,6 @@ __published:
 	TComboBox *Type;
 	TPaintBox *Console;
 	TTimer *Timer2;
-	TSpeedButton *BtnAsc;
-	TSpeedButton *BtnHex;
 	TScrollBar *Scroll;
 	TSpeedButton *BtnPause;
 	TSpeedButton *BtnDown;
@@ -32,19 +30,26 @@ __published:
 	TComboBox *SelStr;
 	TComboBox *SelSat;
 	TComboBox *SelIon;
+	TComboBox *SelObs;
+	TComboBox *SelFmt;
 	void __fastcall FormShow(TObject *Sender);
-	void __fastcall Timer1Timer(TObject *Sender);
-	void __fastcall BtnCloseClick(TObject *Sender);
-	void __fastcall TypeChange(TObject *Sender);
-	void __fastcall Timer2Timer(TObject *Sender);
-	void __fastcall ConsolePaint(TObject *Sender);
 	void __fastcall FormClose(TObject *Sender, TCloseAction &Action);
-	void __fastcall ScrollChange(TObject *Sender);
+	void __fastcall ConsolePaint(TObject *Sender);
+	void __fastcall BtnCloseClick(TObject *Sender);
 	void __fastcall BtnDownClick(TObject *Sender);
 	void __fastcall BtnClearClick(TObject *Sender);
+	void __fastcall TypeChange(TObject *Sender);
+	void __fastcall Timer1Timer(TObject *Sender);
+	void __fastcall Timer2Timer(TObject *Sender);
+	void __fastcall ScrollChange(TObject *Sender);
+	void __fastcall SelObsChange(TObject *Sender);
+	void __fastcall SelFmtChange(TObject *Sender);
 private:
-	int TypeF,ScrollPos,FontScale;
+	int TypeF,ConFmt,ScrollPos,FontScale,ObsMode;
 	TStringList *ConBuff;
+	rtcm_t rtcm;
+	raw_t raw;
+	
 	void __fastcall ClearTable(void);
 	void __fastcall SetRtk(void);
 	void __fastcall SetSat(void);
@@ -68,11 +73,11 @@ private:
 	void __fastcall SetLexIon(void);
 	void __fastcall SetIonCorr(void);
 	void __fastcall ShowRtk(void);
-	void __fastcall ShowSat(void);
+	void __fastcall ShowSat(int sys);
 	void __fastcall ShowEst(void);
 	void __fastcall ShowCov(void);
 	void __fastcall ShowObs(void);
-	void __fastcall ShowNav(void);
+	void __fastcall ShowNav(int sys);
 	void __fastcall ShowGnav(void);
 	void __fastcall ShowSbsMsg(void);
 	void __fastcall ShowIonUtc(void);

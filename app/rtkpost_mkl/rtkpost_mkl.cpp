@@ -3,16 +3,31 @@
 #include <vcl.h>
 #pragma hdrstop
 //---------------------------------------------------------------------------
+
+
+
+
+
+
+
+
+
+
+
+
+
 USEFORM("..\appcmn\viewer.cpp", TextViewer);
+USEFORM("..\appcmn\timedlg.cpp", TimeDialog);
+USEFORM("..\rtkpost\extopt.cpp", ExtOptDialog);
 USEFORM("..\appcmn\vieweropt.cpp", ViewerOptDialog);
 USEFORM("..\appcmn\refdlg.cpp", RefDialog);
-USEFORM("..\appcmn\timedlg.cpp", TimeDialog);
 USEFORM("..\appcmn\confdlg.cpp", ConfDialog);
 USEFORM("..\appcmn\aboutdlg.cpp", AboutDialog);
-USEFORM("..\rtkpost\kmzconv.cpp", ConvDialog);
-USEFORM("..\rtkpost\postmain.cpp", MainForm);
-USEFORM("..\rtkpost\postopt.cpp", OptDialog);
+USEFORM("..\appcmn\maskoptdlg.cpp", MaskOptDialog);
 USEFORM("..\appcmn\keydlg.cpp", KeyDialog);
+USEFORM("..\rtkpost\kmzconv.cpp", ConvDialog);
+USEFORM("..\rtkpost\postopt.cpp", OptDialog);
+USEFORM("..\rtkpost\postmain.cpp", MainForm);
 //---------------------------------------------------------------------------
 WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 {
@@ -30,6 +45,8 @@ WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		Application->CreateForm(__classid(TConvDialog), &ConvDialog);
 		Application->CreateForm(__classid(TOptDialog), &OptDialog);
 		Application->CreateForm(__classid(TKeyDialog), &KeyDialog);
+		Application->CreateForm(__classid(TExtOptDialog), &ExtOptDialog);
+		Application->CreateForm(__classid(TMaskOptDialog), &MaskOptDialog);
 		Application->Run();
 	}
 	catch (Exception &exception)

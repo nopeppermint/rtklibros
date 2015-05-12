@@ -5,6 +5,7 @@
 #include "plotmain.h"
 #include "plotopt.h"
 #include "refdlg.h"
+#include "viewer.h"
 #include "rtklib.h"
 //---------------------------------------------------------------------------
 #pragma package(smart_init)
@@ -31,6 +32,7 @@ void __fastcall TPlotOptDialog::FormShow(TObject *Sender)
     int i,marks[]={1,2,3,4,5,10,15,20};
     
     TimeLabel  ->ItemIndex=Plot->TimeLabel;
+    LatLonFmt  ->ItemIndex=Plot->LatLonFmt;
     AutoScale  ->ItemIndex=Plot->AutoScale;
     ShowStats  ->ItemIndex=Plot->ShowStats;
     ShowArrow  ->ItemIndex=Plot->ShowArrow;
@@ -68,6 +70,7 @@ void __fastcall TPlotOptDialog::FormShow(TObject *Sender)
     
     ElMask ->Text=s.sprintf("%g",Plot->ElMask);
     MaxDop ->Text=s.sprintf("%g",Plot->MaxDop);
+    MaxMP  ->Text=s.sprintf("%g",Plot->MaxMP );
     YRange ->Text=s.sprintf("%g",Plot->YRange);
     Origin ->ItemIndex=Plot->Origin;
     RcvPos ->ItemIndex=Plot->RcvPos;
@@ -87,6 +90,9 @@ void __fastcall TPlotOptDialog::FormShow(TObject *Sender)
     ExSats->Text=Plot->ExSats;
     BuffSize->Text=s.sprintf("%d",Plot->RtBuffSize);
     QcCmd  ->Text=Plot->QcCmd;
+    RnxOpts->Text=Plot->RnxOpts;
+    TLEFile->Text=Plot->TLEFile;
+    TLESatFile->Text=Plot->TLESatFile;
     
     UpdateEnable();
 }
@@ -96,6 +102,7 @@ void __fastcall TPlotOptDialog::BtnOKClick(TObject *Sender)
     int marks[]={1,2,3,4,5,10,15,20};
     
     Plot->TimeLabel  =TimeLabel  ->ItemIndex;
+    Plot->LatLonFmt  =LatLonFmt  ->ItemIndex;
     Plot->AutoScale  =AutoScale  ->ItemIndex;
     Plot->ShowStats  =ShowStats  ->ItemIndex;
     Plot->ShowArrow  =ShowArrow  ->ItemIndex;
@@ -130,6 +137,7 @@ void __fastcall TPlotOptDialog::BtnOKClick(TObject *Sender)
     
     Plot->ElMask=str2dbl(ElMask->Text);
     Plot->MaxDop=str2dbl(MaxDop->Text);
+    Plot->MaxMP =str2dbl(MaxMP ->Text);
     Plot->YRange=str2dbl(YRange->Text);
     Plot->Origin=Origin->ItemIndex;
     Plot->RcvPos=RcvPos->ItemIndex;
@@ -149,6 +157,9 @@ void __fastcall TPlotOptDialog::BtnOKClick(TObject *Sender)
     Plot->RtBuffSize=(int)str2dbl(BuffSize->Text);
     Plot->ExSats=ExSats->Text;
     Plot->QcCmd =QcCmd->Text;
+    Plot->RnxOpts=RnxOpts->Text;
+    Plot->TLEFile=TLEFile->Text;
+    Plot->TLESatFile=TLESatFile->Text;
 }
 //---------------------------------------------------------------------------
 void __fastcall TPlotOptDialog::MColorClick(TObject *Sender)
@@ -202,6 +213,20 @@ void __fastcall TPlotOptDialog::BtnQcCmdClick(TObject *Sender)
     QcCmd->Text=OpenDialog->FileName;
 }
 //---------------------------------------------------------------------------
+void __fastcall TPlotOptDialog::BtnTLEFileClick(TObject *Sender)
+{
+    OpenDialog->FileName=TLEFile->Text;
+    if (!OpenDialog->Execute()) return;
+    TLEFile->Text=OpenDialog->FileName;
+}
+//---------------------------------------------------------------------------
+void __fastcall TPlotOptDialog::BtnTLESatFileClick(TObject *Sender)
+{
+    OpenDialog->FileName=TLESatFile->Text;
+    if (!OpenDialog->Execute()) return;
+    TLESatFile->Text=OpenDialog->FileName;
+}
+//---------------------------------------------------------------------------
 void __fastcall TPlotOptDialog::BtnRefPosClick(TObject *Sender)
 {
     AnsiString s;
@@ -248,3 +273,28 @@ void __fastcall TPlotOptDialog::RcvPosChange(TObject *Sender)
     UpdateEnable();
 }
 //---------------------------------------------------------------------------
+void __fastcall TPlotOptDialog::BtnTLEViewClick(TObject *Sender)
+{
+    TTextViewer *viewer;
+    AnsiString file=TLEFile->Text;
+    
+    if (file=="") return;
+    viewer=new TTextViewer(Application);
+    viewer->Caption=file;
+    viewer->Show();
+    viewer->Read(file);
+}
+//---------------------------------------------------------------------------
+void __fastcall TPlotOptDialog::BtnTLESatViewClick(TObject *Sender)
+{
+    TTextViewer *viewer;
+    AnsiString file=TLESatFile->Text;
+    
+    if (file=="") return;
+    viewer=new TTextViewer(Application);
+    viewer->Caption=file;
+    viewer->Show();
+    viewer->Read(file);
+}
+//---------------------------------------------------------------------------
+

@@ -184,8 +184,10 @@ void __fastcall TRefDialog::SortList(int col)
 	for (int i=1;i<StaList->RowCount;i++) {
 		int j=i;
 		for (int k=i+1;k<StaList->RowCount;k++) {
-			char *s1=StaList->Cells[col][j].c_str();
-			char *s2=StaList->Cells[col][k].c_str();
+			AnsiString StaList_Cells1=StaList->Cells[col][j];
+			AnsiString StaList_Cells2=StaList->Cells[col][k];
+			char *s1=StaList_Cells1.c_str();
+			char *s2=StaList_Cells2.c_str();
 			if (strcmp(s1,s2)>0) j=k;
 		}
 		if (j==i) continue;

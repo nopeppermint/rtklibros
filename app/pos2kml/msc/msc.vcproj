@@ -189,6 +189,10 @@
 				>
 			</File>
 			<File
+				RelativePath="..\..\..\src\preceph.c"
+				>
+			</File>
+			<File
 				RelativePath="..\..\..\src\rtkcmn.c"
 				>
 			</File>

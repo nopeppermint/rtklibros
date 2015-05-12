@@ -7,50 +7,31 @@
 #include <StdCtrls.hpp>
 #include <Forms.hpp>
 #include <ExtCtrls.hpp>
+#include <Vcl.Graphics.hpp>
 //---------------------------------------------------------------------------
 class TConvDialog : public TForm
 {
 __published:
-	TPanel *Panel1;
-	TLabel *Label1;
-	TLabel *Label7;
-	TLabel *Label8;
-	TLabel *Label9;
-	TGroupBox *GroupBox1;
-	TCheckBox *SatSys1;
-	TCheckBox *SatSys2;
-	TCheckBox *SatSys3;
-	TCheckBox *SatSys4;
-	TCheckBox *SatSys5;
-	TCheckBox *SatSys6;
-	TEdit *StationId;
-	TEdit *AntPos1;
-	TEdit *AntPos2;
-	TEdit *AntPos3;
-	TEdit *AntOff1;
-	TEdit *AntOff2;
-	TEdit *AntOff3;
-	TEdit *AntType;
-	TGroupBox *GroupBox2;
-	TLabel *Label4;
-	TLabel *Label5;
-	TLabel *Label6;
-	TComboBox *IntevalObs;
-	TComboBox *IntervalEph;
-	TComboBox *IntervalAnt;
 	TButton *BtnOk;
 	TButton *BtnCancel;
 	TCheckBox *Conversion;
 	TComboBox *InFormat;
-	TLabel *LabelConv;
 	TComboBox *OutFormat;
-	TButton *BtnPos;
+	TLabel *Label2;
+	TLabel *Label10;
+	TEdit *Options;
+	TLabel *Label4;
+	TEdit *OutMsgs;
 	void __fastcall BtnOkClick(TObject *Sender);
 	void __fastcall ConversionClick(TObject *Sender);
 	void __fastcall FormShow(TObject *Sender);
 private:
 	void __fastcall UpdateEnable(void);
 public:
+	AnsiString ConvMsg,ConvOpt,AntType,RcvType;
+	int ConvEna,ConvInp,ConvOut,StaId;
+	double AntPos[3],AntOff[3];
+	
 	__fastcall TConvDialog(TComponent* Owner);
 };
 //---------------------------------------------------------------------------

@@ -71,12 +71,23 @@ __published:
 	TCheckBox *RnxFile;
 	TLabel *Label12;
 	TEdit *RnxCode;
+	TCheckBox *ScanObs;
+	TCheckBox *OutIono;
+	TCheckBox *OutTime;
+	TCheckBox *OutLeaps;
+	TCheckBox *AutoPos;
+	TButton *BtnMask;
 	void __fastcall FormShow(TObject *Sender);
 	void __fastcall BtnOkClick(TObject *Sender);
 	void __fastcall RnxFileClick(TObject *Sender);
+	void __fastcall BtnMaskClick(TObject *Sender);
+	void __fastcall RnxVerChange(TObject *Sender);
+	void __fastcall AutoPosClick(TObject *Sender);
 private:
 	void __fastcall UpdateEnable(void);
 public:
+	AnsiString CodeMask[6];
+	
 	__fastcall TConvOptDialog(TComponent* Owner);
 };
 //---------------------------------------------------------------------------

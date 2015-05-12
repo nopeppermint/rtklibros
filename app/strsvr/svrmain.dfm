@@ -5,7 +5,7 @@ object MainForm: TMainForm
   BorderStyle = bsSingle
   Caption = 'STRSVR'
   ClientHeight = 212
-  ClientWidth = 371
+  ClientWidth = 384
   Color = clBtnFace
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
@@ -21,8 +21,8 @@ object MainForm: TMainForm
   object Panel3: TPanel
     Left = 0
     Top = 0
-    Width = 371
-    Height = 187
+    Width = 384
+    Height = 189
     Align = alTop
     BevelOuter = bvNone
     BorderWidth = 1
@@ -30,14 +30,14 @@ object MainForm: TMainForm
     object Panel1: TPanel
       Left = 1
       Top = 27
-      Width = 369
+      Width = 382
       Height = 128
       Align = alTop
       BevelInner = bvRaised
       BevelOuter = bvLowered
       TabOrder = 0
       object Output3Bps: TLabel
-        Left = 300
+        Left = 308
         Top = 104
         Width = 57
         Height = 13
@@ -52,7 +52,7 @@ object MainForm: TMainForm
         ParentFont = False
       end
       object Output2Bps: TLabel
-        Left = 300
+        Left = 308
         Top = 81
         Width = 57
         Height = 13
@@ -67,7 +67,7 @@ object MainForm: TMainForm
         ParentFont = False
       end
       object Output1Bps: TLabel
-        Left = 300
+        Left = 308
         Top = 58
         Width = 57
         Height = 13
@@ -82,7 +82,7 @@ object MainForm: TMainForm
         ParentFont = False
       end
       object InputBps: TLabel
-        Left = 300
+        Left = 308
         Top = 24
         Width = 57
         Height = 13
@@ -96,105 +96,8 @@ object MainForm: TMainForm
         Font.Style = []
         ParentFont = False
       end
-      object Image1: TImage
-        Left = 4
-        Top = 30
-        Width = 17
-        Height = 85
-        Picture.Data = {
-          07544269746D6170EE0A0000424DEE0A00000000000036040000280000001100
-          0000560000000100080000000000B80600000000000000000000000100000000
-          000000000000000080000080000000808000800000008000800080800000C0C0
-          C000C0DCC000F0CAA6000020400000206000002080000020A0000020C0000020
-          E00000400000004020000040400000406000004080000040A0000040C0000040
-          E00000600000006020000060400000606000006080000060A0000060C0000060
-          E00000800000008020000080400000806000008080000080A0000080C0000080
-          E00000A0000000A0200000A0400000A0600000A0800000A0A00000A0C00000A0
-          E00000C0000000C0200000C0400000C0600000C0800000C0A00000C0C00000C0
-          E00000E0000000E0200000E0400000E0600000E0800000E0A00000E0C00000E0
-          E00040000000400020004000400040006000400080004000A0004000C0004000
-          E00040200000402020004020400040206000402080004020A0004020C0004020
-          E00040400000404020004040400040406000404080004040A0004040C0004040
-          E00040600000406020004060400040606000406080004060A0004060C0004060
-          E00040800000408020004080400040806000408080004080A0004080C0004080
-          E00040A0000040A0200040A0400040A0600040A0800040A0A00040A0C00040A0
-          E00040C0000040C0200040C0400040C0600040C0800040C0A00040C0C00040C0
-          E00040E0000040E0200040E0400040E0600040E0800040E0A00040E0C00040E0
-          E00080000000800020008000400080006000800080008000A0008000C0008000
-          E00080200000802020008020400080206000802080008020A0008020C0008020
-          E00080400000804020008040400080406000804080008040A0008040C0008040
-          E00080600000806020008060400080606000806080008060A0008060C0008060
-          E00080800000808020008080400080806000808080008080A0008080C0008080
-          E00080A0000080A0200080A0400080A0600080A0800080A0A00080A0C00080A0
-          E00080C0000080C0200080C0400080C0600080C0800080C0A00080C0C00080C0
-          E00080E0000080E0200080E0400080E0600080E0800080E0A00080E0C00080E0
-          E000C0000000C0002000C0004000C0006000C0008000C000A000C000C000C000
-          E000C0200000C0202000C0204000C0206000C0208000C020A000C020C000C020
-          E000C0400000C0402000C0404000C0406000C0408000C040A000C040C000C040
-          E000C0600000C0602000C0604000C0606000C0608000C060A000C060C000C060
-          E000C0800000C0802000C0804000C0806000C0808000C080A000C080C000C080
-          E000C0A00000C0A02000C0A04000C0A06000C0A08000C0A0A000C0A0C000C0A0
-          E000C0C00000C0C02000C0C04000C0C06000C0C08000C0C0A000F0FBFF00A4A0
-          A000808080000000FF0000FF000000FFFF00FF000000FF00FF00FFFF0000FFFF
-          FF00FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF000000FFFFFFFFFFFFFFFFFFFF
-          FFFFFFFFFFFFFF000000FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF000000FFFF
-          FFFFFFFFFFFFFFFFFFFFFFFFFFFFFF000000FFFFFFFFFFFFFFFFFF00A4FFFFFF
-          FFFFFF000000FFFFFFFFFFFFFFFFFF00000000FFFFFFFF000000FFFF00000000
-          000000000000000000FFFF000000FFFF00FFFFFFFFFFFF00000000FFFFFFFF00
-          0000FFFF00FFFFFFFFFFFF00A4FFFFFFFFFFFF000000FFFF00FFFFFFFFFFFFFF
-          FFFFFFFFFFFFFF000000FFFF00FFFFFFFFFFFFFFFFFFFFFFFFFFFF000000FFFF
-          00FFFFFFFFFFFFFFFFFFFFFFFFFFFF000000FFFF00FFFFFFFFFFFFFFFFFFFFFF
-          FFFFFF000000FFFF00FFFFFFFFFFFFFFFFFFFFFFFFFFFF000000FFFF00FFFFFF
-          FFFFFFFFFFFFFFFFFFFFFF000000FFFF00FFFFFFFFFFFFFFFFFFFFFFFFFFFF00
-          0000FFFF00FFFFFFFFFFFFFFFFFFFFFFFFFFFF000000FFFF00FFFFFFFFFFFFFF
-          FFFFFFFFFFFFFF000000FFFF00FFFFFFFFFFFFFFFFFFFFFFFFFFFF000000FFFF
-          00FFFFFFFFFFFFFFFFFFFFFFFFFFFF000000FFFF00FFFFFFFFFFFFFFFFFFFFFF
-          FFFFFF000000FFFF00FFFFFFFFFFFFFFFFFFFFFFFFFFFF000000FFFF00FFFFFF
-          FFFFFFFFFFFFFFFFFFFFFF000000FFFF00FFFFFFFFFFFFFFFFFFFFFFFFFFFF00
-          0000FFFF00FFFFFFFFFFFFFFFFFFFFFFFFFFFF000000FFFF00FFFFFFFFFFFFFF
-          FFFFFFFFFFFFFF000000FFFF00FFFFFFFFFFFFFFFFFFFFFFFFFFFF000000FFFF
-          00FFFFFFFFFFFF00A4FFFFFFFFFFFF000000FFFF00FFFFFFFFFFFF00000000FF
-          FFFFFF000000FFFF00000000000000000000000000FFFF000000FFFF00FFFFFF
-          FFFFFF00000000FFFFFFFF000000FFFF00FFFFFFFFFFFF00A4FFFFFFFFFFFF00
-          0000FFFF00FFFFFFFFFFFFFFFFFFFFFFFFFFFF000000FFFF00FFFFFFFFFFFFFF
-          FFFFFFFFFFFFFF000000FFFF00FFFFFFFFFFFFFFFFFFFFFFFFFFFF000000FFFF
-          00FFFFFFFFFFFFFFFFFFFFFFFFFFFF000000FFFF00FFFFFFFFFFFFFFFFFFFFFF
-          FFFFFF000000FFFF00FFFFFFFFFFFFFFFFFFFFFFFFFFFF000000FFFF00FFFFFF
-          FFFFFFFFFFFFFFFFFFFFFF000000FFFF00FFFFFFFFFFFFFFFFFFFFFFFFFFFF00
-          0000FFFF00FFFFFFFFFFFFFFFFFFFFFFFFFFFF000000FFFF00FFFFFFFFFFFFFF
-          FFFFFFFFFFFFFF000000FFFF00FFFFFFFFFFFFFFFFFFFFFFFFFFFF000000FFFF
-          00FFFFFFFFFFFFFFFFFFFFFFFFFFFF000000FFFF00FFFFFFFFFFFFFFFFFFFFFF
-          FFFFFF000000FFFF00FFFFFFFFFFFFFFFFFFFFFFFFFFFF000000FFFF00FFFFFF
-          FFFFFFFFFFFFFFFFFFFFFF000000FFFF00FFFFFFFFFFFFFFFFFFFFFFFFFFFF00
-          0000FFFF00FFFFFFFFFFFFFFFFFFFFFFFFFFFF000000FFFF00FFFFFFFFFFFFFF
-          FFFFFFFFFFFFFF000000FFFF00FFFFFFFFFFFF00A4FFFFFFFFFFFF000000FFFF
-          00FFFFFFFFFFFF00000000FFFFFFFF000000FFFF000000000000000000000000
-          00FFFF000000FFFF00FFFFFFFFFFFF00000000FFFFFFFF000000FFFF00FFFFFF
-          FFFFFF00A4FFFFFFFFFFFF000000FFFF00FFFFFFFFFFFFFFFFFFFFFFFFFFFF00
-          0000FFFF00FFFFFFFFFFFFFFFFFFFFFFFFFFFF000000FFFF00FFFFFFFFFFFFFF
-          FFFFFFFFFFFFFF000000FFFF00FFFFFFFFFFFFFFFFFFFFFFFFFFFF000000FFFF
-          00FFFFFFFFFFFFFFFFFFFFFFFFFFFF000000FFFF00FFFFFFFFFFFFFFFFFFFFFF
-          FFFFFF000000FFFF00FFFFFFFFFFFFFFFFFFFFFFFFFFFF000000FFFF00FFFFFF
-          FFFFFFFFFFFFFFFFFFFFFF000000FFFF00FFFFFFFFFFFFFFFFFFFFFFFFFFFF00
-          0000FFFF00FFFFFFFFFFFFFFFFFFFFFFFFFFFF000000FFFF00FFFFFFFFFFFFFF
-          FFFFFFFFFFFFFF000000FFFF00FFFFFFFFFFFFFFFFFFFFFFFFFFFF000000FFFF
-          00FFFFFFFFFFFFFFFFFFFFFFFFFFFF000000FFFF00FFFFFFFFFFFFFFFFFFFFFF
-          FFFFFF000000FFFF00FFFFFFFFFFFFFFFFFFFFFFFFFFFF000000FFFF00FFFFFF
-          FFFFFFFFFFFFFFFFFFFFFF000000FFFF00FFFFFFFFFFFFFFFFFFFFFFFFFFFF00
-          0000FFFF00FFFFFFFFFFFFFFFFFFFFFFFFFFFF000000FFFF00FFFFFFFFFFFFFF
-          FFFFFFFFFFFFFF000000FFFF00FFFFFFFFFFFFFFFFFFFFFFFFFFFF000000FFFF
-          00FFFFFFFFFFFFFFFFFFFFFFFFFFFF000000FFFF00FFFFFFFFFFFFFFFFFFFFFF
-          FFFFFF000000FFFF00FFFFFFFFFFFFFFFFFFFFFFFFFFFF000000FFFF00FFFFFF
-          FFFFFFFFFFFFFFFFFFFFFF000000FFFF00FFFFFFFFFFFFFFFFFFFFFFFFFFFF00
-          0000FFFF00FFFFFFFFFFFFFFFFFFFFFFFFFFFF000000FFFF00FFFFFFFFFFFFFF
-          FFFFFFFFFFFFFF000000FFFF00FFFFFFFFFFFFFFFFFFFFFFFFFFFF000000FFFF
-          000000000000000000000000FFFFFF000000FFFFFFFFFFFFFFFFFFFFFFFFFFFF
-          FFFFFF000000FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF000000}
-        Proportional = True
-        Transparent = True
-      end
       object LabelInput: TLabel
-        Left = 34
+        Left = 30
         Top = 24
         Width = 43
         Height = 13
@@ -207,7 +110,7 @@ object MainForm: TMainForm
         ParentFont = False
       end
       object LabelOutput1: TLabel
-        Left = 34
+        Left = 30
         Top = 58
         Width = 51
         Height = 13
@@ -220,21 +123,21 @@ object MainForm: TMainForm
         ParentFont = False
       end
       object Label3: TLabel
-        Left = 116
+        Left = 122
         Top = 4
         Width = 24
         Height = 13
         Caption = 'Type'
       end
       object Label4: TLabel
-        Left = 176
+        Left = 182
         Top = 4
         Width = 18
         Height = 13
         Caption = 'Opt'
       end
       object InputByte: TLabel
-        Left = 220
+        Left = 228
         Top = 24
         Width = 77
         Height = 13
@@ -249,21 +152,21 @@ object MainForm: TMainForm
         ParentFont = False
       end
       object Label6: TLabel
-        Left = 270
+        Left = 278
         Top = 4
         Width = 27
         Height = 13
         Caption = 'bytes'
       end
       object Label7: TLabel
-        Left = 340
+        Left = 348
         Top = 4
         Width = 17
         Height = 13
         Caption = 'bps'
       end
       object LabelOutput2: TLabel
-        Left = 34
+        Left = 30
         Top = 81
         Width = 51
         Height = 13
@@ -276,7 +179,7 @@ object MainForm: TMainForm
         ParentFont = False
       end
       object Output1Byte: TLabel
-        Left = 220
+        Left = 228
         Top = 58
         Width = 77
         Height = 13
@@ -291,7 +194,7 @@ object MainForm: TMainForm
         ParentFont = False
       end
       object Output2Byte: TLabel
-        Left = 220
+        Left = 228
         Top = 81
         Width = 77
         Height = 13
@@ -313,7 +216,7 @@ object MainForm: TMainForm
         Caption = 'Stream'
       end
       object LabelOutput3: TLabel
-        Left = 34
+        Left = 30
         Top = 104
         Width = 51
         Height = 13
@@ -326,7 +229,7 @@ object MainForm: TMainForm
         ParentFont = False
       end
       object Output3Byte: TLabel
-        Left = 220
+        Left = 228
         Top = 104
         Width = 77
         Height = 13
@@ -341,27 +244,25 @@ object MainForm: TMainForm
         ParentFont = False
       end
       object Label1: TLabel
-        Left = 198
+        Left = 202
         Top = 4
         Width = 21
         Height = 13
         Caption = 'Cmd'
       end
       object Label2: TLabel
-        Left = 196
-        Top = 40
+        Left = 200
+        Top = 41
         Width = 25
         Height = 13
         Caption = 'Conv'
-        Enabled = False
       end
       object Input: TComboBox
-        Left = 92
+        Left = 91
         Top = 20
-        Width = 87
+        Width = 89
         Height = 21
         Style = csDropDownList
-        ItemHeight = 13
         ItemIndex = 0
         TabOrder = 1
         Text = 'Serial'
@@ -376,12 +277,11 @@ object MainForm: TMainForm
           'HTTP')
       end
       object Output1: TComboBox
-        Left = 92
+        Left = 91
         Top = 54
-        Width = 87
+        Width = 89
         Height = 21
         Style = csDropDownList
-        ItemHeight = 13
         ItemIndex = 0
         TabOrder = 5
         OnChange = Output1Change
@@ -394,10 +294,10 @@ object MainForm: TMainForm
           'File')
       end
       object BtnInput: TButton
-        Left = 178
+        Left = 182
         Top = 20
         Width = 19
-        Height = 19
+        Height = 21
         Caption = '...'
         Font.Charset = DEFAULT_CHARSET
         Font.Color = clWindowText
@@ -409,10 +309,10 @@ object MainForm: TMainForm
         OnClick = BtnInputClick
       end
       object BtnOutput1: TButton
-        Left = 178
+        Left = 182
         Top = 54
         Width = 19
-        Height = 19
+        Height = 21
         Caption = '...'
         Font.Charset = DEFAULT_CHARSET
         Font.Color = clWindowText
@@ -424,10 +324,10 @@ object MainForm: TMainForm
         OnClick = BtnOutput1Click
       end
       object BtnOutput2: TButton
-        Left = 178
+        Left = 182
         Top = 77
         Width = 19
-        Height = 19
+        Height = 21
         Caption = '...'
         Font.Charset = DEFAULT_CHARSET
         Font.Color = clWindowText
@@ -439,21 +339,21 @@ object MainForm: TMainForm
         OnClick = BtnOutput2Click
       end
       object IndInput: TPanel
-        Left = 20
+        Left = 10
         Top = 25
         Width = 12
         Height = 12
         BevelInner = bvRaised
         BevelOuter = bvLowered
+        ParentBackground = False
         TabOrder = 0
       end
       object Output2: TComboBox
-        Left = 92
+        Left = 91
         Top = 77
-        Width = 87
+        Width = 89
         Height = 21
         Style = csDropDownList
-        ItemHeight = 13
         ItemIndex = 0
         TabOrder = 8
         OnChange = Output2Change
@@ -466,30 +366,31 @@ object MainForm: TMainForm
           'File')
       end
       object IndOutput1: TPanel
-        Left = 20
+        Left = 10
         Top = 59
         Width = 12
         Height = 12
         BevelInner = bvRaised
         BevelOuter = bvLowered
+        ParentBackground = False
         TabOrder = 4
       end
       object IndOutput2: TPanel
-        Left = 20
+        Left = 10
         Top = 82
         Width = 12
         Height = 12
         BevelInner = bvRaised
         BevelOuter = bvLowered
+        ParentBackground = False
         TabOrder = 7
       end
       object Output3: TComboBox
-        Left = 92
+        Left = 91
         Top = 100
-        Width = 87
+        Width = 89
         Height = 21
         Style = csDropDownList
-        ItemHeight = 13
         ItemIndex = 0
         TabOrder = 11
         OnChange = Output3Change
@@ -502,10 +403,10 @@ object MainForm: TMainForm
           'File')
       end
       object BtnOutput3: TButton
-        Left = 178
+        Left = 182
         Top = 100
         Width = 19
-        Height = 19
+        Height = 21
         Caption = '...'
         Font.Charset = DEFAULT_CHARSET
         Font.Color = clWindowText
@@ -517,19 +418,20 @@ object MainForm: TMainForm
         OnClick = BtnOutput3Click
       end
       object IndOutput3: TPanel
-        Left = 20
+        Left = 10
         Top = 105
         Width = 12
         Height = 12
         BevelInner = bvRaised
         BevelOuter = bvLowered
+        ParentBackground = False
         TabOrder = 10
       end
       object BtnCmd: TButton
-        Left = 198
+        Left = 202
         Top = 20
         Width = 19
-        Height = 19
+        Height = 21
         Caption = '...'
         Font.Charset = DEFAULT_CHARSET
         Font.Color = clWindowText
@@ -541,10 +443,10 @@ object MainForm: TMainForm
         OnClick = BtnCmdClick
       end
       object BtnConv1: TButton
-        Left = 198
+        Left = 202
         Top = 54
         Width = 19
-        Height = 19
+        Height = 21
         Caption = '...'
         Enabled = False
         Font.Charset = DEFAULT_CHARSET
@@ -557,10 +459,10 @@ object MainForm: TMainForm
         OnClick = BtnConv1Click
       end
       object BtnConv2: TButton
-        Left = 198
+        Left = 202
         Top = 77
         Width = 19
-        Height = 19
+        Height = 21
         Caption = '...'
         Enabled = False
         Font.Charset = DEFAULT_CHARSET
@@ -573,10 +475,10 @@ object MainForm: TMainForm
         OnClick = BtnConv2Click
       end
       object BtnConv3: TButton
-        Left = 198
+        Left = 202
         Top = 100
         Width = 19
-        Height = 19
+        Height = 21
         Caption = '...'
         Enabled = False
         Font.Charset = DEFAULT_CHARSET
@@ -592,8 +494,8 @@ object MainForm: TMainForm
     object Panel4: TPanel
       Left = 1
       Top = 162
-      Width = 369
-      Height = 24
+      Width = 382
+      Height = 26
       Align = alClient
       BevelInner = bvRaised
       BevelOuter = bvLowered
@@ -601,7 +503,7 @@ object MainForm: TMainForm
       object Message: TLabel
         Left = 4
         Top = 5
-        Width = 355
+        Width = 372
         Height = 13
         Alignment = taCenter
         AutoSize = False
@@ -616,8 +518,8 @@ object MainForm: TMainForm
         ParentFont = False
       end
       object BtnAbout: TSpeedButton
-        Left = 354
-        Top = 4
+        Left = 365
+        Top = 5
         Width = 11
         Height = 17
         Caption = '?'
@@ -662,8 +564,8 @@ object MainForm: TMainForm
         OnClick = BtnStrMonClick
       end
       object BtnTaskIcon: TSpeedButton
-        Left = 336
-        Top = 4
+        Left = 347
+        Top = 5
         Width = 17
         Height = 17
         Hint = 'Task Tray Icon'
@@ -702,7 +604,7 @@ object MainForm: TMainForm
     object Progress: TProgressBar
       Left = 1
       Top = 155
-      Width = 369
+      Width = 382
       Height = 7
       Align = alTop
       Smooth = True
@@ -712,14 +614,14 @@ object MainForm: TMainForm
     object Panel2: TPanel
       Left = 1
       Top = 1
-      Width = 369
+      Width = 382
       Height = 26
       Align = alTop
       BevelInner = bvRaised
       BevelOuter = bvLowered
       TabOrder = 3
       object Label8: TLabel
-        Left = 188
+        Left = 197
         Top = 5
         Width = 81
         Height = 14
@@ -732,7 +634,7 @@ object MainForm: TMainForm
         ParentFont = False
       end
       object ConTime: TLabel
-        Left = 289
+        Left = 298
         Top = 5
         Width = 68
         Height = 14
@@ -761,18 +663,18 @@ object MainForm: TMainForm
     end
   end
   object BtnStart: TButton
-    Left = 2
+    Left = 1
     Top = 188
-    Width = 87
+    Width = 91
     Height = 23
     Caption = '&Start'
     TabOrder = 0
     OnClick = BtnStartClick
   end
   object BtnStop: TButton
-    Left = 90
+    Left = 92
     Top = 188
-    Width = 87
+    Width = 91
     Height = 23
     Caption = 'S&top'
     Enabled = False
@@ -780,18 +682,18 @@ object MainForm: TMainForm
     OnClick = BtnStopClick
   end
   object BtnOpt: TButton
-    Left = 194
+    Left = 201
     Top = 188
-    Width = 87
+    Width = 91
     Height = 23
     Caption = '&Options...'
     TabOrder = 2
     OnClick = BtnOptClick
   end
   object BtnExit: TButton
-    Left = 282
+    Left = 292
     Top = 188
-    Width = 87
+    Width = 91
     Height = 23
     Caption = 'E&xit'
     TabOrder = 3
@@ -800,18 +702,18 @@ object MainForm: TMainForm
   object Timer1: TTimer
     Interval = 50
     OnTimer = Timer1Timer
-    Left = 38
-    Top = 170
+    Left = 198
+    Top = 152
   end
   object Timer2: TTimer
     Interval = 100
     OnTimer = Timer2Timer
-    Left = 68
-    Top = 170
+    Left = 228
+    Top = 152
   end
   object PopupMenu: TPopupMenu
-    Left = 156
-    Top = 170
+    Left = 316
+    Top = 152
     object MenuExpand: TMenuItem
       Caption = 'E&xpand'
       OnClick = MenuExpandClick
@@ -883,16 +785,16 @@ object MainForm: TMainForm
       0707070707070707070707070707000000000000000000000000000000000000
       0000000000000000000000000000000000000000000000000000000000000000
       0000000000000000000000000000000000000000000000000000FFFF0000}
+    PopupMenu = PopupMenu
     OnDblClick = TrayIconDblClick
-    OnMouseDown = TrayIconMouseDown
-    Left = 128
-    Top = 170
+    Left = 288
+    Top = 152
   end
   object ImageList: TImageList
-    Left = 98
-    Top = 170
+    Left = 258
+    Top = 152
     Bitmap = {
-      494C010103000400040010001000FFFFFFFFFF10FFFFFFFFFFFFFFFF424D3600
+      494C010103000400300010001000FFFFFFFFFF10FFFFFFFFFFFFFFFF424D3600
       0000000000003600000028000000400000001000000001002000000000000010
       000000000000000000000000000000000000C0C0C000C0C0C000C0C0C000C0C0
       C000C0C0C000C0C0C000C0C0C000C0C0C000C0C0C000C0C0C000C0C0C000C0C0

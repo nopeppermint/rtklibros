@@ -56,8 +56,8 @@ void __fastcall TSerialOptDialog::BtnCmdClick(TObject *Sender)
 void __fastcall TSerialOptDialog::BtnOkClick(TObject *Sender)
 {
    	char *parity[]={"n","e","o"},*fctr[]={"off","rts"};
-	AnsiString s;
-	Path=s.sprintf("%s:%s:%d:%s:%d:%s",Port->Text.c_str(),BitRate->Text.c_str(),
+	AnsiString s,Port_Text=Port->Text,BitRate_Text=BitRate->Text;
+	Path=s.sprintf("%s:%s:%d:%s:%d:%s",Port_Text.c_str(),BitRate_Text.c_str(),
 			ByteSize->ItemIndex?8:7,parity[Parity->ItemIndex],
 			StopBits->ItemIndex?2:1,fctr[FlowCtr->ItemIndex]);
 }

@@ -18,38 +18,6 @@ TTcpOptDialog *TcpOptDialog;
 
 static char buff[MAXSRCTBL];
 
-/* get source table -------------------------------------------------------*/
-static char *getsrctbl(const char *path)
-{
-	static int lock=0;
-	AnsiString s;
-	stream_t str;
-	char *p=buff,msg[MAXSTRMSG];
-	int ns,stat,len=strlen(ENDSRCTBL);
-	unsigned int tick=tickget();
-	
-	if (lock) return NULL; else lock=1;
-	
-	strinit(&str);
-	if (!stropen(&str,STR_NTRIPCLI,STR_MODE_R,path)) {
-		lock=0; 
-		return NULL;
-	}
-	while(p<buff+MAXSRCTBL-1) {
-		ns=strread(&str,p,buff+MAXSRCTBL-p-1); *(p+ns)='\0';
-		if (p-len-3>buff&&strstr(p-len-3,ENDSRCTBL)) break;
-		p+=ns;
-		Sleep(NTRIP_CYCLE);
-		stat=strstat(&str,msg);
-		if (stat<0) break;
-		if ((int)(tickget()-tick)>NTRIP_TIMEOUT) {
-			break;
-		}
-	}
-	strclose(&str);
-	lock=0;
-	return buff;
-}
 //---------------------------------------------------------------------------
 __fastcall TTcpOptDialog::TTcpOptDialog(TComponent* Owner)
 	: TForm(Owner)
@@ -59,35 +27,39 @@ __fastcall TTcpOptDialog::TTcpOptDialog(TComponent* Owner)
 void __fastcall TTcpOptDialog::FormShow(TObject *Sender)
 {
 	char buff[2048],*p,*q;
-	char *addr,*port="",*mntpnt="",*user="",*passwd="",*str="";
+	char *port="",*mntpnt="",*user="",*passwd="",*str="";
 	char *ti[]={"TCP Server Options ","TCP Client Options",
 			    "NTRIP Server Options","NTRIP Client Options"};
-	
 	strcpy(buff,Path.c_str());
-	if ((p=strchr(buff,'/'))) {
+	
+	if (!(p=strchr(buff,'@'))) p=buff;
+	
+	if ((p=strchr(p,'/'))) {
 		if ((q=strchr(p+1,':'))) {
 			*q='\0'; str=q+1;
 		}
 		*p='\0'; mntpnt=p+1;
 	}
-	if ((p=strchr(buff,'@'))) {
+	if ((p=strrchr(buff,'@'))) {
 		*p++='\0';
 		if ((q=strchr(buff,':'))) {
 			*q='\0'; passwd=q+1;
 		}
-		*q='\0'; user=buff;
+		user=buff;
 	}
 	else p=buff;
+	
 	if ((q=strchr(p,':'))) {
 		*q='\0'; port=q+1;
 	}
-	addr=p;
-	Addr->Text=addr;
-	Port->Text=port;
-	MntPnt->Text=mntpnt;
-	User->Text=user;
-	Passwd->Text=passwd;
-	Str->Text=str;
+	AnsiString Addr_Text=p,Port_Text=port,MntPnt_Text=mntpnt;
+	AnsiString User_Text=user,Passwd_Text=passwd,Str_Text=str;
+	Addr->Text=Addr_Text;
+	Port->Text=Port_Text;
+	MntPnt->Text=MntPnt_Text;
+	User->Text=User_Text;
+	Passwd->Text=Passwd_Text;
+	Str->Text=Str_Text;
 	Addr->Enabled=Opt>=1;
 	MntPnt->Enabled=Opt>=2;
 	User->Enabled=Opt==3;
@@ -109,38 +81,20 @@ void __fastcall TTcpOptDialog::FormShow(TObject *Sender)
 	for (int i=0;i<MAXHIST;i++) {
 		if (MntpHist[i]!="") MntPnt->Items->Add(MntpHist[i]);
 	}
+	BtnNtrip->Visible=Opt>=2;
 }
 //---------------------------------------------------------------------------
 void __fastcall TTcpOptDialog::BtnOkClick(TObject *Sender)
 {
-	AnsiString s;
-	Path=s.sprintf("%s:%s@%s:%s/%s:%s",User->Text.c_str(),Passwd->Text.c_str(),
-			Addr->Text.c_str(),Port->Text.c_str(),MntPnt->Text.c_str(),
-			Str->Text.c_str());
+	AnsiString User_Text=User->Text,Passwd_Text=Passwd->Text;
+	AnsiString Addr_Text=Addr->Text,Port_Text=Port->Text;
+	AnsiString MntPnt_Text=MntPnt->Text,Str_Text=Str->Text,s;
+	
+	Path=s.sprintf("%s:%s@%s:%s/%s:%s",User_Text.c_str(),Passwd_Text.c_str(),
+			Addr_Text.c_str(),Port_Text.c_str(),MntPnt_Text.c_str(),
+			Str_Text.c_str());
 	AddHist(Addr,History);
 	AddHist(MntPnt,MntpHist);
-}
-//---------------------------------------------------------------------------
-void __fastcall TTcpOptDialog::BtnGetListClick(TObject *Sender)
-{
-	AnsiString addr,text,item[3];
-	char buff[MAXLINE],*p,*q,*r,*srctbl;
-	int i,n;
-	
-	if (Addr->Text!="") return;
-	addr=Addr->Text+":"+Port->Text;
-	
-	if (!(srctbl=getsrctbl(addr.c_str()))) return;
-	
-	text=MntPnt->Text; MntPnt->Clear(); MntPnt->Text=text;
-	for (p=srctbl;*p;p=q+1) {
-		if (!(q=strchr(p,'\n'))) break;
-		n=q-p<MAXLINE-1?q-p:MAXLINE-1;
-		strncpy(buff,p,n); buff[n]='\0';
-		if (strncmp(buff,"STR",3)) continue;
-		for (i=0,r=strtok(buff,";");i<3&&p;i++,r=strtok(NULL,";")) item[i]=r;
-		MntPnt->AddItem(item[1],NULL);
-	}
 }
 //---------------------------------------------------------------------------
 void __fastcall TTcpOptDialog::AddHist(TComboBox *list, AnsiString *hist)
@@ -159,4 +113,24 @@ void __fastcall TTcpOptDialog::AddHist(TComboBox *list, AnsiString *hist)
 	}
 }
 //---------------------------------------------------------------------------
-
+void __fastcall TTcpOptDialog::BtnNtripClick(TObject *Sender)
+{
+    AnsiString Addr_Text=Addr->Text;
+    AnsiString Port_Text=Port->Text;
+    ExecCmd("srctblbrows "+Addr_Text+":"+Port_Text,1);
+}
+//---------------------------------------------------------------------------
+int __fastcall TTcpOptDialog::ExecCmd(AnsiString cmd, int show)
+{
+    PROCESS_INFORMATION info;
+    STARTUPINFO si={0};
+    si.cb=sizeof(si);
+    char *p=cmd.c_str();
+    
+    if (!CreateProcess(NULL,p,NULL,NULL,false,show?0:CREATE_NO_WINDOW,NULL,
+                       NULL,&si,&info)) return 0;
+    CloseHandle(info.hProcess);
+    CloseHandle(info.hThread);
+    return 1;
+}
+//---------------------------------------------------------------------------

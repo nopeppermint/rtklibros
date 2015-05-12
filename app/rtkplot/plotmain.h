@@ -15,6 +15,9 @@
 #include "graph.h"
 #include "console.h"
 #include "rtklib.h"
+#include <ExtDlgs.hpp>
+#include "SHDocVw_OCX.h"
+#include <Vcl.OleCtrls.hpp>
 
 #define MAXNFILE    256                 // max number of solution files
 #define MAXSTRBUFF  1024                // max length of stream buffer
@@ -23,8 +26,8 @@
 
 #define PRGNAME     "RTKPLOT"           // program name
 
-#define CHARDEG     "\260"              // character code of degree
-#define CHARUP2     "\262"              // character code of ^2
+#define CHARDEG     "\302\260"          // character code of degree (UTF-8)
+#define CHARUP2     "\302\262"          // character code of ^2     (UTF-8)
 
 #define DEFTSPAN    600.0               // default time span (s)
 #define INTARROW    60.0                // direction arrow interval (s)
@@ -36,27 +39,20 @@
 #define SIZE_COMP   45                  // compass size (pixels)
 #define SIZE_VELC   45                  // velocity circle size (pixels)
 #define CLORANGE    (TColor)0x00AAFF
+#define MIN_RANGE_GE 10.0               // min range for GE view
 
 #define PLOT_TRK    0                   // plot-type: track-plot
 #define PLOT_SOLP   1                   // plot-type: position-plot
 #define PLOT_SOLV   2                   // plot-type: velocity-plot
 #define PLOT_SOLA   3                   // plot-type: accel-plot
 #define PLOT_NSAT   4                   // plot-type: number-of-satellite-plot
-#define PLOT_OBS    5                   // plot-type: observation-data-plot
-#define PLOT_SKY    6                   // plot-type: sky-plot
-#define PLOT_DOP    7                   // plot-type: dop-plot
-#define PLOT_RES1   8                   // plot-type: residual-1-plot
-#define PLOT_RES2   9                   // plot-type: residual-2-plot
-#define PLOT_RES3   10                  // plot-type: residual-3-plot
-#define PLOT_RES4   11                  // plot-type: residual-4-plot
-#define PLOT_RES5   12                  // plot-type: residual-5-plot
-#define PLOT_RES6   13                  // plot-type: residual-6-plot
-#define PLOT_SNR1   14                  // plot-type: snr-1-plot
-#define PLOT_SNR2   15                  // plot-type: snr-2-plot
-#define PLOT_SNR3   16                  // plot-type: snr-3-plot
-#define PLOT_SNR4   17                  // plot-type: snr-4-plot
-#define PLOT_SNR5   18                  // plot-type: snr-5-plot
-#define PLOT_SNR6   19                  // plot-type: snr-6-plot
+#define PLOT_RES    5                   // plot-type: residual-plot
+#define PLOT_OBS    6                   // plot-type: observation-data-plot
+#define PLOT_SKY    7                   // plot-type: sky-plot
+#define PLOT_DOP    8                   // plot-type: dop-plot
+#define PLOT_SNR    9                   // plot-type: snr/mp-plot
+#define PLOT_SNRE   10                  // plot-type: snr/mp-el-plot
+#define PLOT_MPS    11                  // plot-type: mp-skyplot
 
 #define ORG_STARTPOS 0                  // plot-origin: start position
 #define ORG_ENDPOS  1                   // plot-origin: end position
@@ -98,224 +94,264 @@ public:
 class TPlot : public TForm
 {
 __published:
-    TPanel *Panel1;
-    TPanel *Panel2;
-    TPanel *Panel11;
-    TPanel *Panel21;
-    TPanel *Panel22;
-    TPanel *Panel10;
-    TPanel *Panel12;
-    TPanel *StrStatus1;
-    TPanel *StrStatus2;
-    
-    TComboBox *PlotTypeS;
-    TComboBox *QFlag;
-    TComboBox *ObsType;
-    TComboBox *DopType;
-    TComboBox *SatList1;
-    TComboBox *SatList2;
-    TComboBox *SatList3;
-    TListBox *RangeList;
-    TSpeedButton *BtnConnect;
-    TSpeedButton *BtnSol1;
-    TSpeedButton *BtnSol2;
-    TSpeedButton *BtnSol12;
-    TSpeedButton *BtnOn1;
-    TSpeedButton *BtnOn2;
-    TSpeedButton *BtnOn3;
-    TSpeedButton *BtnRangeList;
-    TSpeedButton *BtnFitHoriz;
-    TSpeedButton *BtnFitVert;
-    TSpeedButton *BtnCenterOri;
-    TSpeedButton *BtnFixHoriz;
-    TSpeedButton *BtnFixVert;
-    TSpeedButton *BtnShowTrack;
-    TSpeedButton *BtnShowMap;
-    TSpeedButton *BtnShowPoint;
-    TSpeedButton *BtnAnimate;
-    TSpeedButton *BtnClear;
-    TSpeedButton *BtnReload;
-    TScrollBar *TimeScroll;
-    
-    TPaintBox *Disp;
-    
-    TLabel *ConnectMsg;
-    TLabel *Message1;
-    TLabel *Message2;
-    TLabel *QL1;
-    TLabel *QL2;
-    TLabel *QL3;
-    TLabel *QL4;
-    TLabel *QL5;
-    TLabel *QL6;
-    TLabel *QL7;
-    
-    TMainMenu *MainMenu;
-    
-    TMenuItem *MenuFile;
-    TMenuItem *MenuOpenSol1;
-    TMenuItem *MenuOpenSol2;
-    TMenuItem *MenuOpenMapImage;
-    TMenuItem *MenuOpenMapPath;
-    TMenuItem *MenuOpenObs;
-    TMenuItem *MenuOpenNav;
-    TMenuItem *MenuOpenElevMask;
-    TMenuItem *MenuConnect;
-    TMenuItem *MenuDisconnect;
-    TMenuItem *MenuPort;
-    TMenuItem *MenuReload;
-    TMenuItem *MenuClear;
-    TMenuItem *MenuQuit;
-    
-    TMenuItem *MenuEdit;
-    TMenuItem *MenuTime;
-    TMenuItem *MenuMapImg;
-    TMenuItem *MenuWaypnt;
-    TMenuItem *MenuSrcSol;
-    TMenuItem *MenuSrcObs;
-    TMenuItem *MenuQcObs;
-    TMenuItem *MenyCopy;
-    TMenuItem *MenuOptions;
-    
-    TMenuItem *MenuView;
-    TMenuItem *MenuToolBar;
-    TMenuItem *MenuStatusBar;
-    TMenuItem *MenuMonitor1;
-    TMenuItem *MenuMonitor2;
-    TMenuItem *MenuCenterOri;
-    TMenuItem *MenuFitHoriz;
-    TMenuItem *MenuFitVert;
-    TMenuItem *MenuShowTrack;
-    TMenuItem *MenuFixHoriz;
-    TMenuItem *MenuFixVert;
-    TMenuItem *MenuShowMap;
-    TMenuItem *MenuShowPoint;
-    TMenuItem *MenuAnimStart;
-    TMenuItem *MenuAnimStop;
-    
-    TMenuItem *MenuHelp;
-    TMenuItem *MenuAbout;
-    
-    TMenuItem *N1;
-    TMenuItem *N2;
-    TMenuItem *N3;
-    TMenuItem *N5;
-    TMenuItem *N6;
-    TMenuItem *N7;
-    TMenuItem *N8;
-    TMenuItem *N9;
-    TMenuItem *N10;
-    TMenuItem *N11;
-    TMenuItem *N12;
-    TMenuItem *N13;
-    
-    TTimer *Timer;
-    
-    TOpenDialog *OpenSolDialog;
-    TOpenDialog *OpenObsDialog;
-    TOpenDialog *OpenElMaskDialog;
-    TOpenDialog *OpenMapPathDialog;
-    TOpenDialog *OpenMapDialog;
-    
-    void __fastcall FormCreate          (TObject *Sender);
-    void __fastcall FormShow            (TObject *Sender);
-    void __fastcall FormResize          (TObject *Sender);
-    void __fastcall FormActivate        (TObject *Sender);
-    void __fastcall FormKeyDown         (TObject *Sender, WORD &Key, TShiftState Shift);
-    
-    void __fastcall MenuOpenSol1Click   (TObject *Sender);
-    void __fastcall MenuOpenSol2Click   (TObject *Sender);
-    void __fastcall MenuOpenMapImageClick(TObject *Sender);
-    void __fastcall MenuOpenMapPathClick (TObject *Sender);
-    void __fastcall MenuOpenObsClick    (TObject *Sender);
-    void __fastcall MenuOpenNavClick    (TObject *Sender);
-    void __fastcall MenuOpenElevMaskClick(TObject *Sender);
-    void __fastcall MenuConnectClick    (TObject *Sender);
-    void __fastcall MenuDisconnectClick (TObject *Sender);
-    void __fastcall MenuPortClick       (TObject *Sender);
-    void __fastcall MenuReloadClick     (TObject *Sender);
-    void __fastcall MenuClearClick      (TObject *Sender);
-    void __fastcall MenuQuitClick       (TObject *Sender);
-    
-    void __fastcall MenuTimeClick       (TObject *Sender);
-    void __fastcall MenuMapImgClick     (TObject *Sender);
-    void __fastcall MenuWaypointClick   (TObject *Sender);
-    void __fastcall MenuSrcSolClick     (TObject *Sender);
-    void __fastcall MenuSrcObsClick     (TObject *Sender);
-    void __fastcall MenuQcObsClick      (TObject *Sender);
-    void __fastcall MenyCopyClick       (TObject *Sender);
-    void __fastcall MenuOptionsClick    (TObject *Sender);
-    
-    void __fastcall MenuToolBarClick    (TObject *Sender);
-    void __fastcall MenuStatusBarClick  (TObject *Sender);
-    void __fastcall MenuMonitor1Click   (TObject *Sender);
-    void __fastcall MenuMonitor2Click   (TObject *Sender);
-    void __fastcall MenuCenterOriClick  (TObject *Sender);
-    void __fastcall MenuFitHorizClick   (TObject *Sender);
-    void __fastcall MenuFitVertClick    (TObject *Sender);
-    void __fastcall MenuShowTrackClick  (TObject *Sender);
-    void __fastcall MenuFixHorizClick   (TObject *Sender);
-    void __fastcall MenuFixVertClick    (TObject *Sender);
-    void __fastcall MenuShowMapClick    (TObject *Sender);
-    void __fastcall MenuShowPointClick  (TObject *Sender);
-    void __fastcall MenuAnimStartClick  (TObject *Sender);
-    void __fastcall MenuAnimStopClick   (TObject *Sender);
-    void __fastcall MenuAboutClick      (TObject *Sender);
-    
-    void __fastcall BtnConnectClick     (TObject *Sender);
-    void __fastcall BtnSol1Click        (TObject *Sender);
-    void __fastcall BtnSol2Click        (TObject *Sender);
-    void __fastcall BtnSol12Click       (TObject *Sender);
-    void __fastcall BtnSol1DblClick     (TObject *Sender);
-    void __fastcall BtnSol2DblClick     (TObject *Sender);
-    void __fastcall BtnShowMapClick     (TObject *Sender);
-    void __fastcall BtnOn1Click         (TObject *Sender);
-    void __fastcall BtnOn2Click         (TObject *Sender);
-    void __fastcall BtnOn3Click         (TObject *Sender);
-    void __fastcall BtnRangeListClick   (TObject *Sender);
-    void __fastcall RangeListClick      (TObject *Sender);
-    void __fastcall BtnCenterOriClick   (TObject *Sender);
-    void __fastcall BtnFitHorizClick    (TObject *Sender);
-    void __fastcall BtnFitVertClick     (TObject *Sender);
-    void __fastcall BtnShowTrackClick   (TObject *Sender);
-    void __fastcall BtnFixHorizClick    (TObject *Sender);
-    void __fastcall BtnFixVertClick     (TObject *Sender);
-    void __fastcall BtnShowPointClick   (TObject *Sender);
-    void __fastcall BtnAnimateClick     (TObject *Sender);
-    void __fastcall BtnClearClick       (TObject *Sender);
-    void __fastcall BtnReloadClick      (TObject *Sender);
-    
-    void __fastcall PlotTypeSChange     (TObject *Sender);
-    void __fastcall QFlagChange         (TObject *Sender);
-    void __fastcall ObsTypeChange       (TObject *Sender);
-    void __fastcall DopTypeChange       (TObject *Sender);
-    void __fastcall SatListChange       (TObject *Sender);
-    void __fastcall TimeScrollChange    (TObject *Sender);
-    
-    void __fastcall TimerTimer          (TObject *Sender);
-    
-    void __fastcall DispPaint           (TObject *Sender);
-    void __fastcall DispMouseLeave      (TObject *Sender);
-    void __fastcall DispMouseMove       (TObject *Sender, TShiftState Shift,
-                                         int X, int Y);
-    void __fastcall DispMouseDown       (TObject *Sender, TMouseButton Button,
-                                         TShiftState Shift, int X, int Y);
-    void __fastcall DispMouseUp         (TObject *Sender, TMouseButton Button,
-                                         TShiftState Shift, int X, int Y);
-    void __fastcall MouseWheel          (TObject *Sender, TShiftState Shift,
-                                         int WheelDelta, TPoint &MousePos, bool &Handled);
+	TPanel *Panel1;
+	TPanel *Panel10;
+	TPanel *Panel11;
+	TPanel *Panel12;
+	TPanel *Panel2;
+	TPanel *Panel21;
+	TPanel *Panel22;
+	TPanel *StrStatus1;
+	TPanel *StrStatus2;
+	TPaintBox *Disp;
+	
+	TComboBox *PlotTypeS;
+	TComboBox *QFlag;
+	TComboBox *ObsType;
+	TComboBox *DopType;
+	TComboBox *SatList;
+	TListBox *RangeList;
+	TSpeedButton *BtnConnect;
+	TSpeedButton *BtnSol1;
+	TSpeedButton *BtnSol2;
+	TSpeedButton *BtnSol12;
+	TSpeedButton *BtnOn1;
+	TSpeedButton *BtnOn2;
+	TSpeedButton *BtnOn3;
+	TSpeedButton *BtnRangeList;
+	TSpeedButton *BtnFitHoriz;
+	TSpeedButton *BtnFitVert;
+	TSpeedButton *BtnCenterOri;
+	TSpeedButton *BtnFixHoriz;
+	TSpeedButton *BtnFixVert;
+	TSpeedButton *BtnShowTrack;
+	TSpeedButton *BtnShowMap;
+	TSpeedButton *BtnShowPoint;
+	TSpeedButton *BtnAnimate;
+	TSpeedButton *BtnClear;
+	TSpeedButton *BtnReload;
+	TScrollBar *TimeScroll;
+	
+	TLabel *ConnectMsg;
+	TLabel *Message1;
+	TLabel *Message2;
+	TLabel *QL1;
+	TLabel *QL2;
+	TLabel *QL3;
+	TLabel *QL4;
+	TLabel *QL5;
+	TLabel *QL6;
+	TLabel *QL7;
+	TMainMenu *hh;
+	
+	TMenuItem *MenuFile;
+	TMenuItem *MenuOpenSol1;
+	TMenuItem *MenuOpenSol2;
+	TMenuItem *MenuOpenMapImage;
+	TMenuItem *MenuOpenMapPath;
+	TMenuItem *MenuOpenObs;
+	TMenuItem *MenuOpenNav;
+	TMenuItem *MenuOpenElevMask;
+	TMenuItem *MenuConnect;
+	TMenuItem *MenuDisconnect;
+	TMenuItem *MenuPort;
+	TMenuItem *MenuReload;
+	TMenuItem *MenuClear;
+	TMenuItem *MenuQuit;
+	
+	TMenuItem *MenuEdit;
+	TMenuItem *MenuTime;
+	TMenuItem *MenuMapImg;
+	TMenuItem *MenuWaypnt;
+	TMenuItem *MenuSrcSol;
+	TMenuItem *MenuSrcObs;
+	TMenuItem *MenuQcObs;
+	TMenuItem *MenyCopy;
+	TMenuItem *MenuOptions;
+	
+	TMenuItem *MenuView;
+	TMenuItem *MenuToolBar;
+	TMenuItem *MenuStatusBar;
+	TMenuItem *MenuMonitor1;
+	TMenuItem *MenuMonitor2;
+	TMenuItem *MenuCenterOri;
+	TMenuItem *MenuFitHoriz;
+	TMenuItem *MenuFitVert;
+	TMenuItem *MenuShowTrack;
+	TMenuItem *MenuFixHoriz;
+	TMenuItem *MenuFixVert;
+	TMenuItem *MenuShowMap;
+	TMenuItem *MenuShowPoint;
+	TMenuItem *MenuAnimStart;
+	TMenuItem *MenuAnimStop;
+	
+	TMenuItem *MenuHelp;
+	TMenuItem *MenuAbout;
+	
+	TMenuItem *N1;
+	TMenuItem *N2;
+	TMenuItem *N3;
+	TMenuItem *N5;
+	TMenuItem *N6;
+	TMenuItem *N7;
+	TMenuItem *N8;
+	TMenuItem *N9;
+	TMenuItem *N10;
+	TMenuItem *N11;
+	TMenuItem *N12;
+	TMenuItem *N13;
+	
+	TTimer *Timer;
+	
+	TOpenDialog *OpenSolDialog;
+	TOpenDialog *OpenObsDialog;
+	TOpenDialog *OpenElMaskDialog;
+	TOpenDialog *OpenMapPathDialog;
+	TOpenDialog *OpenMapDialog;
+	TMenuItem *MenuFileSel;
+	TMenuItem *N4;
+	TMenuItem *N14;
+	TMenuItem *MenuSaveDop;
+	TSaveDialog *SaveDialog;
+	TMenuItem *MenuSaveImage;
+	TSavePictureDialog *SaveImageDialog;
+	TMenuItem *N15;
+	TMenuItem *MenuGE;
+	TSpeedButton *BtnGE;
+	TComboBox *FrqType;
+	TComboBox *ObsType2;
+	TMenuItem *MenuVisAna;
+	TMenuItem *N16;
+	TSpeedButton *BtnOptions;
+	TSpeedButton *BtnFixCent;
+	TMenuItem *MenuFixCent;
+	TSpeedButton *BtnGM;
+	TMenuItem *MenuSaveSnrMp;
+	TMenuItem *MenuGM;
+	TMenuItem *MenuOpenSkyImage;
+	TMenuItem *MenuSkyImg;
+	TSpeedButton *BtnShowSkyplot;
+	TMenuItem *MenuShowSkyplot;
+	
+	void __fastcall FormCreate			(TObject *Sender);
+	void __fastcall FormShow			(TObject *Sender);
+	void __fastcall FormResize			(TObject *Sender);
+	void __fastcall FormActivate		(TObject *Sender);
+	void __fastcall FormKeyDown			(TObject *Sender, WORD &Key, TShiftState Shift);
+	
+	void __fastcall MenuOpenSol1Click	(TObject *Sender);
+	void __fastcall MenuOpenSol2Click	(TObject *Sender);
+	void __fastcall MenuOpenMapImageClick(TObject *Sender);
+	void __fastcall MenuOpenMapPathClick (TObject *Sender);
+	void __fastcall MenuOpenObsClick	(TObject *Sender);
+	void __fastcall MenuOpenNavClick	(TObject *Sender);
+	void __fastcall MenuOpenElevMaskClick(TObject *Sender);
+	void __fastcall MenuConnectClick	(TObject *Sender);
+	void __fastcall MenuDisconnectClick (TObject *Sender);
+	void __fastcall MenuPortClick		(TObject *Sender);
+	void __fastcall MenuReloadClick		(TObject *Sender);
+	void __fastcall MenuClearClick		(TObject *Sender);
+	void __fastcall MenuQuitClick		(TObject *Sender);
+	
+	void __fastcall MenuTimeClick		(TObject *Sender);
+	void __fastcall MenuMapImgClick		(TObject *Sender);
+	void __fastcall MenuWaypointClick	(TObject *Sender);
+	void __fastcall MenuSrcSolClick		(TObject *Sender);
+	void __fastcall MenuSrcObsClick		(TObject *Sender);
+	void __fastcall MenuQcObsClick		(TObject *Sender);
+	void __fastcall MenyCopyClick		(TObject *Sender);
+	void __fastcall MenuOptionsClick	(TObject *Sender);
+	
+	void __fastcall MenuToolBarClick	(TObject *Sender);
+	void __fastcall MenuStatusBarClick	(TObject *Sender);
+	void __fastcall MenuMonitor1Click	(TObject *Sender);
+	void __fastcall MenuMonitor2Click	(TObject *Sender);
+	void __fastcall MenuCenterOriClick	(TObject *Sender);
+	void __fastcall MenuFitHorizClick	(TObject *Sender);
+	void __fastcall MenuFitVertClick	(TObject *Sender);
+	void __fastcall MenuShowTrackClick	(TObject *Sender);
+	void __fastcall MenuFixHorizClick	(TObject *Sender);
+	void __fastcall MenuFixVertClick	(TObject *Sender);
+	void __fastcall MenuShowMapClick	(TObject *Sender);
+	void __fastcall MenuShowPointClick	(TObject *Sender);
+	void __fastcall MenuAnimStartClick	(TObject *Sender);
+	void __fastcall MenuAnimStopClick	(TObject *Sender);
+	void __fastcall MenuAboutClick		(TObject *Sender);
+	
+	void __fastcall BtnConnectClick		(TObject *Sender);
+	void __fastcall BtnSol1Click		(TObject *Sender);
+	void __fastcall BtnSol2Click		(TObject *Sender);
+	void __fastcall BtnSol12Click		(TObject *Sender);
+	void __fastcall BtnSol1DblClick		(TObject *Sender);
+	void __fastcall BtnSol2DblClick		(TObject *Sender);
+	void __fastcall BtnShowMapClick		(TObject *Sender);
+	void __fastcall BtnOn1Click			(TObject *Sender);
+	void __fastcall BtnOn2Click			(TObject *Sender);
+	void __fastcall BtnOn3Click			(TObject *Sender);
+	void __fastcall BtnRangeListClick	(TObject *Sender);
+	void __fastcall RangeListClick		(TObject *Sender);
+	void __fastcall BtnCenterOriClick	(TObject *Sender);
+	void __fastcall BtnFitHorizClick	(TObject *Sender);
+	void __fastcall BtnFitVertClick		(TObject *Sender);
+	void __fastcall BtnShowTrackClick	(TObject *Sender);
+	void __fastcall BtnFixHorizClick	(TObject *Sender);
+	void __fastcall BtnFixVertClick		(TObject *Sender);
+	void __fastcall BtnShowPointClick	(TObject *Sender);
+	void __fastcall BtnAnimateClick		(TObject *Sender);
+	void __fastcall BtnClearClick		(TObject *Sender);
+	void __fastcall BtnReloadClick		(TObject *Sender);
+	
+	void __fastcall PlotTypeSChange		(TObject *Sender);
+	void __fastcall QFlagChange			(TObject *Sender);
+	void __fastcall ObsTypeChange		(TObject *Sender);
+	void __fastcall DopTypeChange		(TObject *Sender);
+	void __fastcall SatListChange		(TObject *Sender);
+	void __fastcall TimeScrollChange	(TObject *Sender);
+	
+	void __fastcall TimerTimer			(TObject *Sender);
+	
+	void __fastcall DispPaint			(TObject *Sender);
+	void __fastcall DispMouseLeave		(TObject *Sender);
+	void __fastcall DispMouseMove		(TObject *Sender, TShiftState Shift,
+										 int X, int Y);
+	void __fastcall DispMouseDown		(TObject *Sender, TMouseButton Button,
+										 TShiftState Shift, int X, int Y);
+	void __fastcall DispMouseUp			(TObject *Sender, TMouseButton Button,
+										 TShiftState Shift, int X, int Y);
+	void __fastcall MouseWheel			(TObject *Sender, TShiftState Shift,
+										 int WheelDelta, TPoint &MousePos, bool &Handled);
 	void __fastcall FormClose(TObject *Sender, TCloseAction &Action);
+	void __fastcall MenuFileSelClick(TObject *Sender);
+	void __fastcall MenuSaveDopClick(TObject *Sender);
+	void __fastcall MenuSaveImageClick(TObject *Sender);
+	void __fastcall MenuGEClick(TObject *Sender);
+	void __fastcall BtnGEClick(TObject *Sender);
+	void __fastcall MenuVisAnaClick(TObject *Sender);
+	void __fastcall BtnOptionsClick(TObject *Sender);
+	void __fastcall BtnFixCentClick(TObject *Sender);
+	void __fastcall MenuFixCentClick(TObject *Sender);
+	void __fastcall BtnGMClick(TObject *Sender);
+	void __fastcall MenuGMClick(TObject *Sender);
+	void __fastcall MenuSaveSnrMpClick(TObject *Sender);
+	void __fastcall MenuOpenSkyImageClick(TObject *Sender);
+	void __fastcall MenuSkyImgClick(TObject *Sender);
+	void __fastcall MenuShowSkyplotClick(TObject *Sender);
+	void __fastcall BtnShowSkyplotClick(TObject *Sender);
+
 
 protected:
-    void __fastcall CMDialogKey(Messages::TWMKey &Message);
+	void __fastcall CMDialogKey(Messages::TWMKey &Message);
 
 private:
-    Graphics::TBitmap *Buff;
+	Graphics::TBitmap *Buff;
     Graphics::TBitmap *MapImage;
+    Graphics::TBitmap *SkyImageI;
+    Graphics::TBitmap *SkyImageR;
     TGraph *GraphT;
     TGraph *GraphG[3];
     TGraph *GraphR;
     TGraph *GraphS;
+    TGraph *GraphE[2];
     TStrings *OpenFiles;
     TStrings *SolFiles[2];
     TStrings *ObsFiles;
@@ -329,39 +365,43 @@ private:
     obs_t Obs;
     nav_t Nav;
     sta_t Sta;
-    double *Az,*El,ElMaskData[361];
+    double *Az,*El,*Mp[NFREQ+NEXOBS],ElMaskData[361];
     
     gtime_t OEpoch;
     int FormWidth,FormHeight;
     int ConnectState,OpenRaw;
     int NObs,*IndexObs,ObsIndex;
     int Week;
-    int Flush,PlotType,OPosType;
+    int Flush,PlotType;
     int NSolF1,NSolF2,NObsF,NNavF;
-    int SatMask[MAXSAT];
-    double OPos[3],OVel[3];
+    int SatMask[MAXSAT],SatSel[MAXSAT];
     int NMapPath;
+    int SimObs;
     double MapPath[MAXMAPPATH*3];
     
     int Drag,Xn,Yn;
     double X0,Y0,Xc,Yc,Xs,Ys,Xcent,Xcent0;
     
+    int GEState,GEDataState[2];
+    double GEHeading;
+    
     void __fastcall DropFiles    (TWMDropFiles msg);
     
-    void __fastcall ReadSol      (TStrings *files, int sel);
     void __fastcall ReadSolStat  (TStrings *files, int sel);
-    void __fastcall ReadObs      (TStrings *files);
     int  __fastcall ReadObsRnx   (TStrings *files, obs_t *obs, nav_t *nav, sta_t *sta);
-    void __fastcall ReadNav      (TStrings *files);
-    void __fastcall ReadElMaskData(AnsiString file);
-    void __fastcall ReadMapData  (AnsiString file);
     void __fastcall ReadMapTag   (AnsiString file);
     void __fastcall ReadMapPath  (AnsiString file);
+    void __fastcall GenVisData   (void);
+    void __fastcall SaveDop      (AnsiString file);
+    void __fastcall SaveSnrMp    (AnsiString file);
     void __fastcall Connect      (void);
     void __fastcall Disconnect   (void);
     void __fastcall ConnectPath  (const char *path, int ch);
     int  __fastcall CheckObs     (AnsiString file);
     void __fastcall UpdateObs    (int nobs);
+    void __fastcall UpdateMp     (void);
+    void __fastcall ClearObs     (void);
+    void __fastcall ClearSol     (void);
     void __fastcall Clear        (void);
     void __fastcall Refresh      (void);
     void __fastcall Reload       (void);
@@ -372,11 +412,13 @@ private:
     void __fastcall UpdateType   (int type);
     void __fastcall UpdatePlotType(void);
     void __fastcall UpdateSatList(void);
+    void __fastcall UpdateObsType(void);
     void __fastcall UpdateSize   (void);
     void __fastcall UpdateColor  (void);
     void __fastcall UpdateTime   (void);
     void __fastcall UpdateOrigin (void);
     void __fastcall UpdateSatMask(void);
+    void __fastcall UpdateSatSel (void);
     void __fastcall UpdateInfo   (void);
     void __fastcall UpdateTimeSol(void);
     void __fastcall UpdateTimeObs(void);
@@ -413,17 +455,23 @@ private:
     void __fastcall DrawSolPnt   (const TIMEPOS *pos, int level, int style);
     void __fastcall DrawSolStat  (const TIMEPOS *pos, AnsiString unit, int p);
     void __fastcall DrawNsat     (int level);
-    void __fastcall DrawRes      (int level, int frq);
+    void __fastcall DrawRes      (int level);
     void __fastcall DrawPolyS    (TGraph *graph, double *x, double *y, int n,
                                   TColor color, int style);
     
     void __fastcall DrawObs      (int level);
     void __fastcall DrawObsSlip  (double *yp);
     void __fastcall DrawObsEphem (double *yp);
+    void __fastcall DrawSkyImage (int level);
     void __fastcall DrawSky      (int level);
     void __fastcall DrawDop      (int level);
     void __fastcall DrawDopStat  (double *dop, int *ns, int n);
-    void __fastcall DrawSnr      (int level, int frq);
+    void __fastcall DrawSnr      (int level);
+    void __fastcall DrawSnrE     (int level);
+    void __fastcall DrawMpS      (int level);
+    
+    AnsiString __fastcall U2A    (UnicodeString str);
+    UnicodeString __fastcall A2U (AnsiString str);
     
     TIMEPOS * __fastcall SolToPos (solbuf_t *sol, int index, int qflag, int type);
     TIMEPOS * __fastcall SolToNsat(solbuf_t *sol, int index, int qflag);
@@ -435,14 +483,18 @@ private:
                                   double &std, double &rms);
     int __fastcall  FitPos       (gtime_t *time, double *opos, double *ovel);
     
-    int  __fastcall ObsColor     (const obsd_t *obs, double az, double el);
+    AnsiString __fastcall LatLonStr(const double *pos, int ndec);
+    TColor __fastcall ObsColor   (const obsd_t *obs, double az, double el);
+    TColor __fastcall SysColor   (int sat);
+    TColor __fastcall SnrColor   (double snr);
+    TColor __fastcall MpColor    (double mp);
     void __fastcall ReadStaPos   (const char *file, const char *sta, double *rr);
     int  __fastcall SearchPos    (int x, int y);
     void __fastcall TimeSpan     (gtime_t *ts, gtime_t *te, double *tint);
     double __fastcall TimePos    (gtime_t time);
     void __fastcall TimeStr(gtime_t time, int n, int tsys, char *str);
-    void __fastcall ShowMsg      (AnsiString msg);
     int  __fastcall ExecCmd      (AnsiString cmd);
+    void __fastcall ShowMsg      (AnsiString msg);
     void __fastcall ShowLegend   (AnsiString *msgs);
     void __fastcall LoadOpt      (void);
     void __fastcall SaveOpt      (void);
@@ -455,6 +507,9 @@ private:
 public:
     AnsiString IniFile;
     AnsiString MapImageFile;
+    AnsiString SkyImageFile;
+    AnsiString RnxOpts;
+    tle_t TLEData;
     
     // connection settings
     int RtStream[2];
@@ -481,8 +536,13 @@ public:
     double MapScaleX,MapScaleY;
     double MapLat,MapLon;
     
+    // sky image options 
+    int SkySize[2],SkyDestCorr,SkyElMask,SkyRes,SkyFlip;
+    double SkyCent[2],SkyScale,SkyScaleR,SkyFov[3],SkyDest[10];
+    
     // plot options 
     int TimeLabel;
+    int LatLonFmt;
     int ShowStats;
     int ShowSlip;
     int ShowHalfC;
@@ -490,7 +550,7 @@ public:
     double ElMask;
     int ElMaskP;
     int HideLowSat;
-    double MaxDop;
+    double MaxDop,MaxMP;
     int NavSys;
     AnsiString ExSats;
     int ShowErr;
@@ -513,19 +573,33 @@ public:
     int RefCycle;
     int Trace;
     AnsiString QcCmd,QcOpt;
+    AnsiString TLEFile;
+    AnsiString TLESatFile;
     
     AnsiString Title;
     AnsiString PntName[MAXWAYPNT];
     double PntPos[MAXWAYPNT][3];
     int NWayPnt;
+    int OPosType;
+    double OPos[3],OVel[3];
     
     AnsiString StrHistory [10];
     AnsiString StrMntpHist[10];
     
     __fastcall TPlot(TComponent* Owner);
+    void __fastcall ReadSol    (TStrings *files, int sel);
+    void __fastcall ReadObs    (TStrings *files);
+    void __fastcall ReadNav    (TStrings *files);
+    void __fastcall ReadMapData(AnsiString file);
+    void __fastcall ReadSkyData(AnsiString file);
+    void __fastcall ReadSkyTag (AnsiString file);
+    void __fastcall UpdateSky  (void);
+    void __fastcall ReadElMaskData(AnsiString file);
     int __fastcall GetCurrentPos(double *rr);
     int __fastcall GetCenterPos(double *rr);
     void __fastcall UpdatePlot(void);
+    void __fastcall Refresh_GEView(void);
+	void __fastcall Refresh_GMView(void);
 };
 //---------------------------------------------------------------------------
 extern PACKAGE TPlot *Plot;

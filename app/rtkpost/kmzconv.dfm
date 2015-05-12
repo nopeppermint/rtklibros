@@ -4,7 +4,7 @@ object ConvDialog: TConvDialog
   BorderIcons = [biSystemMenu]
   BorderStyle = bsDialog
   Caption = 'Google Earth Converter'
-  ClientHeight = 243
+  ClientHeight = 261
   ClientWidth = 372
   Color = clBtnFace
   Font.Charset = DEFAULT_CHARSET
@@ -14,11 +14,12 @@ object ConvDialog: TConvDialog
   Font.Style = []
   OldCreateOrder = False
   Position = poMainFormCenter
+  OnShow = FormShow
   PixelsPerInch = 96
   TextHeight = 13
   object BtnClose: TButton
     Left = 286
-    Top = 220
+    Top = 239
     Width = 79
     Height = 21
     Caption = '&Close'
@@ -27,7 +28,7 @@ object ConvDialog: TConvDialog
   end
   object BtnConvert: TButton
     Left = 204
-    Top = 220
+    Top = 239
     Width = 79
     Height = 21
     Caption = 'Con&vert'
@@ -38,34 +39,34 @@ object ConvDialog: TConvDialog
     Left = 0
     Top = 0
     Width = 372
-    Height = 217
+    Height = 238
     Align = alTop
     BevelOuter = bvNone
     TabOrder = 2
     object Label1: TLabel
       Left = 12
-      Top = 60
+      Top = 59
       Width = 54
       Height = 13
       Caption = 'Track Color'
     end
     object Label2: TLabel
       Left = 12
-      Top = 84
+      Top = 82
       Width = 57
       Height = 13
       Caption = 'Points Color'
     end
     object Label3: TLabel
       Left = 198
-      Top = 60
+      Top = 59
       Width = 74
       Height = 13
       Caption = 'Output Altitude'
     end
     object Label4: TLabel
       Left = 198
-      Top = 84
+      Top = 82
       Width = 59
       Height = 13
       Caption = 'Output Time'
@@ -81,9 +82,9 @@ object ConvDialog: TConvDialog
     object Label7: TLabel
       Left = 12
       Top = 130
-      Width = 83
+      Width = 121
       Height = 13
-      Caption = 'Input/Output File'
+      Caption = 'Input/Output/GE Exe File'
     end
     object TimeIntF: TCheckBox
       Left = 8
@@ -96,11 +97,10 @@ object ConvDialog: TConvDialog
     end
     object TrackColor: TComboBox
       Left = 98
-      Top = 56
+      Top = 55
       Width = 81
       Height = 21
       Style = csDropDownList
-      ItemHeight = 13
       ItemIndex = 5
       TabOrder = 11
       Text = 'Yellow'
@@ -114,11 +114,10 @@ object ConvDialog: TConvDialog
     end
     object PointColor: TComboBox
       Left = 98
-      Top = 80
+      Top = 78
       Width = 81
       Height = 21
       Style = csDropDownList
-      ItemHeight = 13
       ItemIndex = 5
       TabOrder = 12
       Text = 'By Q-Flag'
@@ -132,11 +131,10 @@ object ConvDialog: TConvDialog
     end
     object OutputAlt: TComboBox
       Left = 284
-      Top = 56
+      Top = 55
       Width = 81
       Height = 21
       Style = csDropDownList
-      ItemHeight = 13
       ItemIndex = 0
       TabOrder = 14
       Text = 'OFF'
@@ -180,11 +178,10 @@ object ConvDialog: TConvDialog
     end
     object OutputTime: TComboBox
       Left = 284
-      Top = 80
+      Top = 78
       Width = 81
       Height = 21
       Style = csDropDownList
-      ItemHeight = 13
       ItemIndex = 0
       TabOrder = 15
       Text = 'OFF'
@@ -249,7 +246,6 @@ object ConvDialog: TConvDialog
       Width = 81
       Height = 21
       Style = csDropDownList
-      ItemHeight = 13
       ItemIndex = 0
       TabOrder = 13
       Text = 'ALL'
@@ -278,8 +274,8 @@ object ConvDialog: TConvDialog
       OnChange = InputFileChange
     end
     object BtnInputFile: TButton
-      Left = 346
-      Top = 128
+      Left = 349
+      Top = 127
       Width = 17
       Height = 17
       Caption = '...'
@@ -293,8 +289,8 @@ object ConvDialog: TConvDialog
       OnClick = BtnInputFileClick
     end
     object Message: TPanel
-      Left = 8
-      Top = 191
+      Left = 9
+      Top = 212
       Width = 357
       Height = 25
       BevelInner = bvRaised
@@ -354,10 +350,33 @@ object ConvDialog: TConvDialog
       TabOrder = 20
       OnClick = CompressClick
     end
+    object GoogleEarthFile: TEdit
+      Left = 8
+      Top = 190
+      Width = 341
+      Height = 21
+      TabOrder = 25
+      OnChange = GoogleEarthFileChange
+    end
+    object BtnGoogleEarthFile: TButton
+      Left = 349
+      Top = 190
+      Width = 17
+      Height = 20
+      Caption = '...'
+      Font.Charset = DEFAULT_CHARSET
+      Font.Color = clWindowText
+      Font.Height = -9
+      Font.Name = 'Tahoma'
+      Font.Style = []
+      ParentFont = False
+      TabOrder = 26
+      OnClick = BtnGoogleEarthFileClick
+    end
   end
   object BtnGoogle: TButton
-    Left = 8
-    Top = 220
+    Left = 7
+    Top = 239
     Width = 79
     Height = 21
     Caption = '&Google Earth'
@@ -367,8 +386,7 @@ object ConvDialog: TConvDialog
   object OpenDialog: TOpenDialog
     Filter = 'All (*.*)|*.*'
     Options = [ofHideReadOnly, ofNoChangeDir, ofEnableSizing]
-    OptionsEx = [ofExNoPlacesBar]
-    Left = 92
-    Top = 210
+    Left = 98
+    Top = 216
   end
 end

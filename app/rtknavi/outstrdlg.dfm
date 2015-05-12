@@ -100,7 +100,6 @@ object OutputStrDialog: TOutputStrDialog
     Width = 103
     Height = 21
     Style = csDropDownList
-    ItemHeight = 13
     ItemIndex = 0
     TabOrder = 3
     Text = 'Serial'
@@ -116,7 +115,7 @@ object OutputStrDialog: TOutputStrDialog
     Left = 241
     Top = 18
     Width = 19
-    Height = 19
+    Height = 20
     Caption = '...'
     Font.Charset = DEFAULT_CHARSET
     Font.Color = clWindowText
@@ -131,7 +130,7 @@ object OutputStrDialog: TOutputStrDialog
     Left = 241
     Top = 40
     Width = 19
-    Height = 19
+    Height = 20
     Caption = '...'
     Font.Charset = DEFAULT_CHARSET
     Font.Color = clWindowText
@@ -148,7 +147,6 @@ object OutputStrDialog: TOutputStrDialog
     Width = 103
     Height = 21
     Style = csDropDownList
-    ItemHeight = 13
     ItemIndex = 0
     TabOrder = 7
     Text = 'Serial'
@@ -166,7 +164,6 @@ object OutputStrDialog: TOutputStrDialog
     Width = 103
     Height = 21
     Style = csDropDownList
-    ItemHeight = 13
     ItemIndex = 0
     TabOrder = 5
     Text = 'Lat/Lon/Height'
@@ -174,7 +171,7 @@ object OutputStrDialog: TOutputStrDialog
       'Lat/Lon/Height'
       'X/Y/Z-ECEF'
       'E/N/U-Baseline'
-      'NMEA-183')
+      'NMEA0183')
   end
   object Format2: TComboBox
     Left = 278
@@ -182,7 +179,6 @@ object OutputStrDialog: TOutputStrDialog
     Width = 103
     Height = 21
     Style = csDropDownList
-    ItemHeight = 13
     ItemIndex = 0
     TabOrder = 9
     Text = 'Lat/Lon/Height'
@@ -190,7 +186,7 @@ object OutputStrDialog: TOutputStrDialog
       'Lat/Lon/Height'
       'X/Y/Z-ECEF'
       'E/N/U-Baseline'
-      'NMEA-183')
+      'NMEA0183')
   end
   object FilePath1: TEdit
     Left = 6
@@ -201,9 +197,9 @@ object OutputStrDialog: TOutputStrDialog
   end
   object BtnFile1: TButton
     Left = 362
-    Top = 80
+    Top = 81
     Width = 17
-    Height = 19
+    Height = 20
     Caption = '...'
     Font.Charset = DEFAULT_CHARSET
     Font.Color = clWindowText
@@ -223,9 +219,9 @@ object OutputStrDialog: TOutputStrDialog
   end
   object BtnFile2: TButton
     Left = 362
-    Top = 102
+    Top = 103
     Width = 17
-    Height = 19
+    Height = 20
     Caption = '...'
     Font.Charset = DEFAULT_CHARSET
     Font.Color = clWindowText
@@ -267,7 +263,6 @@ object OutputStrDialog: TOutputStrDialog
     Top = 129
     Width = 45
     Height = 21
-    ItemHeight = 13
     TabOrder = 15
     Items.Strings = (
       ''
@@ -284,7 +279,6 @@ object OutputStrDialog: TOutputStrDialog
       'All File (*.*)|*.*|Log File (*.log)|*.log|RTCM2 File (*.rtcm2)|*' +
       '.rtcm2|RTCM3 File (*.rtcm3)|*.rtcm3'
     Options = [ofHideReadOnly, ofNoChangeDir, ofEnableSizing]
-    OptionsEx = [ofExNoPlacesBar]
     Title = 'Output File Path'
     Left = 314
     Top = 60

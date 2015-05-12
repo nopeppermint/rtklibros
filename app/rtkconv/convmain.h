@@ -12,7 +12,11 @@
 #include <Graphics.hpp>
 #include <ComCtrls.hpp>
 #include <FileCtrl.hpp>
+#ifdef TCPP
 #include <vcl\inifiles.hpp>
+#else
+#include <inifiles.hpp>
+#endif
 
 #include "rtklib.h"
 //---------------------------------------------------------------------------
@@ -90,6 +94,11 @@ __published:
 	TLabel *LabelTimeUnit;
 	TEdit *TimeUnit;
 	TButton *BtnPost;
+	TCheckBox *OutFileEna7;
+	TEdit *OutFile7;
+	TSpeedButton *BtnOutFileView7;
+	TButton *BtnOutFile7;
+	TSpeedButton *BtnInFileView;
 	
 	void __fastcall FormCreate          (TObject *Sender);
 	void __fastcall FormShow            (TObject *Sender);
@@ -135,6 +144,9 @@ __published:
 	void __fastcall BtnOutDirClick(TObject *Sender);
 	void __fastcall BtnKeyClick(TObject *Sender);
 	void __fastcall BtnPostClick(TObject *Sender);
+	void __fastcall BtnOutFile7Click(TObject *Sender);
+	void __fastcall BtnOutFileView7Click(TObject *Sender);
+	void __fastcall BtnInFileViewClick(TObject *Sender);
 	
 private:
 	AnsiString IniFile,CmdPostExe;
@@ -147,6 +159,7 @@ private:
 		AnsiString key, TStrings *list);
 	void __fastcall AddHist(TComboBox *combo);
 	
+	int  __fastcall AutoFormat(AnsiString File);
 	void __fastcall ConvertFile(void);
 	void __fastcall SetOutFiles(AnsiString infile);
 	void __fastcall UpdateEnable(void);
@@ -164,8 +177,10 @@ public:
 	gtime_t RnxTime;
 	AnsiString RunBy,Marker,MarkerNo,MarkerType,Name[2],Rec[3],Ant[3];
 	AnsiString RnxCode,Comment[2],RcvOption,ExSats;
+	AnsiString CodeMask[6];
 	double AppPos[3],AntDel[3];
 	int RnxVer,RnxFile,NavSys,ObsType,FreqType,TraceLevel,EventEna;
+	int AutoPos,ScanObs,OutIono,OutTime,OutLeaps;
 	
 	__fastcall TMainWindow(TComponent* Owner);
 };

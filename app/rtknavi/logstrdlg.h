@@ -51,6 +51,9 @@ __published:
 	void __fastcall Stream2CClick(TObject *Sender);
 	void __fastcall BtnKeyClick(TObject *Sender);
 	void __fastcall BtnStr3Click(TObject *Sender);
+	void __fastcall BtnFile3Click(TObject *Sender);
+	void __fastcall Stream3CClick(TObject *Sender);
+	void __fastcall Stream3Change(TObject *Sender);
 private:
 	AnsiString __fastcall GetFilePath(AnsiString path);
 	AnsiString __fastcall SetFilePath(AnsiString path);

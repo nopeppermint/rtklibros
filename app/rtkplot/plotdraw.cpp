@@ -6,8 +6,10 @@
 #include "plotmain.h"
 #include "graph.h"
 #include "refdlg.h"
+#include "geview.h"
+#include "gmview.h"
 
-#define ATAN2(x,y)  ((x)==0.0&&(y)==0.0?0.0:atan2(x,y))
+#define ATAN2(x,y)  ((x)*(x)+(y)*(y)>1E-12?atan2(x,y):0.0)
 
 // update plot --------------------------------------------------------------
 void __fastcall TPlot::UpdatePlot(void)
@@ -17,6 +19,8 @@ void __fastcall TPlot::UpdatePlot(void)
     UpdateEnable();
     UpdateInfo();
     Refresh();
+    Refresh_GEView();
+    Refresh_GMView();
 }
 // refresh plot -------------------------------------------------------------
 void __fastcall TPlot::Refresh(void)
@@ -51,22 +55,10 @@ void __fastcall TPlot::UpdateDisp(void)
             case  PLOT_OBS : DrawObs (level);   break;
             case  PLOT_SKY : DrawSky (level);   break;
             case  PLOT_DOP : DrawDop (level);   break;
-            case  PLOT_RES1:
-            case  PLOT_RES2:
-            case  PLOT_RES3:
-            case  PLOT_RES4:
-            case  PLOT_RES5:
-            case  PLOT_RES6:
-                DrawRes(level,PlotType-PLOT_RES1+1);
-                break;
-            case  PLOT_SNR1:
-            case  PLOT_SNR2:
-            case  PLOT_SNR3:
-            case  PLOT_SNR4:
-            case  PLOT_SNR5:
-            case  PLOT_SNR6:
-                DrawSnr(level,PlotType-PLOT_SNR1+1);
-                break;
+            case  PLOT_RES : DrawRes (level);   break;
+            case  PLOT_SNR : DrawSnr (level);   break;
+            case  PLOT_SNRE: DrawSnrE(level);   break;
+            case  PLOT_MPS : DrawMpS (level);   break;
         }
         Buff->SetSize(Disp->ClientWidth,Disp->ClientHeight);
         Buff->Canvas->CopyRect(r,c,r);
@@ -79,7 +71,7 @@ void __fastcall TPlot::UpdateDisp(void)
 // draw track-plot ----------------------------------------------------------
 void __fastcall TPlot::DrawTrk(int level)
 {
-    AnsiString label,header;
+    AnsiString label,header,s;
     TIMEPOS *pos,*pos1,*pos2,*vel;
     gtime_t time1={0},time2={0};
     sol_t *sol;
@@ -90,7 +82,7 @@ void __fastcall TPlot::DrawTrk(int level)
     
     trace(3,"DrawTrk: level=%d\n",level);
     
-    if (BtnShowTrack->Down&&BtnFixHoriz->Down) {
+    if (BtnShowTrack->Down&&BtnFixCent->Down) {
         if (!BtnSol12->Down) {
             pos=SolToPos(SolData+sel,SolIndex[sel],0,0);
             if (pos->n>0) GraphT->SetCent(pos->x[0],pos->y[0]);
@@ -109,11 +101,22 @@ void __fastcall TPlot::DrawTrk(int level)
     if (!BtnSol12->Down&&BtnShowMap->Down) {
         DrawTrkImage(level);
     }
-    if (ShowGLabel>=1) {
-        GraphT->DrawAxis(ShowLabel,ShowGLabel>=2);
+#if 1
+    if (ShowGLabel>=3) {
+        GraphT->XLPos=7; GraphT->YLPos=7;
+        GraphT->DrawCircles(ShowGLabel==4);
     }
+    else if (ShowGLabel>=1) {
+        GraphT->XLPos=2; GraphT->YLPos=4;
+        GraphT->DrawAxis(ShowLabel,ShowGLabel==2);
+    }
+#endif
     if (BtnShowPoint->Down) {
         DrawTrkPath(level);
+    }
+    if (norm(OPos,3)>0.0) {
+        ecef2pos(OPos,opos);
+        header="ORI="+LatLonStr(opos,9)+s.sprintf(" %.4fm",opos[2]);
     }
     if (BtnSol1->Down) {
         pos=SolToPos(SolData,-1,QFlag->ItemIndex,0);
@@ -122,6 +125,7 @@ void __fastcall TPlot::DrawTrk(int level)
             DrawTrkPos(SolData[0].rb,0,"Base Station 1");
         }
         DrawTrkStat(pos,header,p++);
+        header="";
         delete pos;
     }
     if (BtnSol2->Down) {
@@ -212,6 +216,16 @@ void __fastcall TPlot::DrawTrk(int level)
             DrawTrkPos(PntPos[i],0,PntName[i]);
         }
     }
+#if 0
+    if (ShowGLabel>=3) {
+        GraphT->XLPos=7; GraphT->YLPos=7;
+        GraphT->DrawCircles(ShowGLabel==4);
+    }
+    else if (ShowGLabel>=1) {
+        GraphT->XLPos=2; GraphT->YLPos=4;
+        GraphT->DrawAxis(ShowLabel,ShowGLabel==2);
+    }
+#endif
     if (ShowCompass) {
         GraphT->GetPos(p1,p2);
         p1.x+=SIZE_COMP/2+25;
@@ -650,7 +664,7 @@ void __fastcall TPlot::DrawSolStat(const TIMEPOS *pos, AnsiString unit, int p)
     double ave,std,rms,*y,opos[3];
     int i,j=0,k=0,fonth=(int)(Disp->Font->Size*1.5);
     char *u;
-    AnsiString s;
+    AnsiString label,s;
     
     trace(3,"DrawSolStat: p=%d\n",p);
     
@@ -669,9 +683,8 @@ void __fastcall TPlot::DrawSolStat(const TIMEPOS *pos, AnsiString unit, int p)
             
             if (norm(OPos,3)>0.0) {
                 ecef2pos(OPos,opos);
-                s.sprintf("ORI=%.9f" CHARDEG " %.9f" CHARDEG " %.4fm",
-                          opos[0]*R2D,opos[1]*R2D,opos[2]);
-                DrawLabel(GraphG[j],p1,s,2,2);
+                label="ORI="+LatLonStr(opos,9)+s.sprintf(" %.4fm",opos[2]);
+                DrawLabel(GraphG[j],p1,label,2,2);
                 j++; p1.y+=fonth;
             }
         }
@@ -775,7 +788,7 @@ void __fastcall TPlot::DrawObs(int level)
     gtime_t time;
     obsd_t *obs;
     double xs,ys,xt,xl[2],yl[2],tt[MAXSAT]={0},xp,xc,yc,yp[MAXSAT]={0};
-    int i,j,m=0,sats[MAXSAT]={0},ind=ObsIndex,prn,color;
+    int i,j,m=0,sats[MAXSAT]={0},ind=ObsIndex,prn;
     char id[16];
     
     trace(3,"DrawObs: level=%d\n",level);
@@ -834,11 +847,12 @@ void __fastcall TPlot::DrawObs(int level)
         GraphR->GetScale(xs,ys);
         for (i=0;i<Obs.n;i++) {
             obs=&Obs.data[i];
-            if ((color=ObsColor(obs,Az[i],El[i]))<0) continue;
+            TColor col=ObsColor(obs,Az[i],El[i]);
+            if (col==clBlack) continue;
             
             xt=TimePos(obs->time);
             if (fabs(xt-tt[obs->sat-1])/xs>0.9) {
-                GraphR->DrawMark(xt,yp[obs->sat-1],0,PlotStyle<2?MColor[0][color]:CColor[3],
+                GraphR->DrawMark(xt,yp[obs->sat-1],0,PlotStyle<2?col:CColor[3],
                                  PlotStyle<2?MarkSize:0,0);
                 tt[obs->sat-1]=xt;
             }
@@ -857,8 +871,9 @@ void __fastcall TPlot::DrawObs(int level)
         
         for (;i<Obs.n&&timediff(Obs.data[i].time,time)==0.0;i++) {
             obs=&Obs.data[i];
-            if ((color=ObsColor(obs,Az[i],El[i]))<0) continue;
-            GraphR->DrawMark(xl[0],yp[obs->sat-1],0,MColor[0][color],MarkSize*2+2,0);
+            TColor col=ObsColor(obs,Az[i],El[i]);
+            if (col==clBlack) continue;
+            GraphR->DrawMark(xl[0],yp[obs->sat-1],0,col,MarkSize*2+2,0);
         }
         GraphR->DrawMark(xl[0],yl[1]-1E-6,0,CColor[2],5,0);
         if (!BtnFixHoriz->Down) {
@@ -869,21 +884,23 @@ void __fastcall TPlot::DrawObs(int level)
 // draw slip on observation-data-plot ---------------------------------------
 void __fastcall TPlot::DrawObsSlip(double *yp)
 {
+    AnsiString ObsTypeText=ObsType->Text;
     obsd_t *obs;
     TPoint ps[2];
     double gfp[MAXSAT]={0},gf;
-    int i,j,slip,freq1=0,freq2=NFREQ-1;
+    const char *code;
+    int i,j,slip;
     
     trace(3,"DrawObsSlip\n");
     
-    if (ObsType->ItemIndex>=NFREQ+1) return;
-    if (ObsType->ItemIndex) freq1=freq2=ObsType->ItemIndex-1;
+    code=ObsType->ItemIndex?ObsTypeText.c_str()+1:"";
     
     for (i=0;i<Obs.n;i++) {
         if (El[i]<ElMask*D2R) continue;
         if (ElMaskP&&El[i]<ElMaskData[(int)(Az[i]*R2D+0.5)]) continue;
         obs=&Obs.data[i];
-        
+        if (!SatSel[obs->sat-1]) continue;
+            
         if (!GraphR->ToPoint(TimePos(obs->time),yp[obs->sat-1],ps[0])) continue;
         ps[1].x=ps[0].x;
         ps[1].y=ps[0].y+MarkSize*3/2+1;
@@ -891,21 +908,27 @@ void __fastcall TPlot::DrawObsSlip(double *yp)
         
         if (ShowHalfC) {
             slip=0;
-            for (j=freq1;j<=freq2;j++) if (obs->LLI[j]&2) slip=1;
+            for (j=0;j<NFREQ+NEXOBS;j++) {
+                if ((!*code||strstr(code2obs(obs->code[j],NULL),code))&&
+                    (obs->LLI[j]&2)) slip=1;
+            }
             if (slip) GraphR->DrawPoly(ps,2,MColor[0][0],0);
         }
         if (ShowSlip) {
             slip=0;
-            if (ShowSlip==1) { // LG jump (L1-L2)
-                if (freq1<2&&obs->L[0]!=0.0&&obs->L[1]!=0.0&&
+            if (ShowSlip==2) { // LLI
+                for (j=0;j<NFREQ+NEXOBS;j++) {
+                    if ((!*code||strstr(code2obs(obs->code[j],NULL),code))&&
+                        (obs->LLI[j]&1)) slip=1;
+                }
+            }
+            else if (!*code||!strcmp(code,"1")||!strcmp(code,"2")) {
+                if (obs->L[0]!=0.0&&obs->L[1]!=0.0&&
                     satsys(obs->sat,NULL)!=SYS_GLO) {
                     gf=CLIGHT*(obs->L[0]/FREQ1-obs->L[1]/FREQ2);
                     if (fabs(gfp[obs->sat-1]-gf)>THRESLIP) slip=1;
                     gfp[obs->sat-1]=gf;
                 }
-            }
-            else {
-                for (j=freq1;j<=freq2;j++) if (obs->LLI[j]&1) slip=1;
             }
             if (slip) GraphR->DrawPoly(ps,2,MColor[0][5],0);
         }
@@ -915,13 +938,14 @@ void __fastcall TPlot::DrawObsSlip(double *yp)
 void __fastcall TPlot::DrawObsEphem(double *yp)
 {
     TPoint ps[3];
-    int i,j,k,in,off[MAXSAT]={0};
+    int i,j,k,in,svh,off[MAXSAT]={0};
     
     trace(3,"DrawObsEphem\n");
     
     if (!ShowEph) return;
     
     for (i=0;i<MAXSAT;i++) {
+        if (!SatSel[i]) continue;
         for (j=0;j<Nav.n;j++) {
             if (Nav.eph[j].sat!=i+1) continue;
             GraphR->ToPoint(TimePos(Nav.eph[j].ttr),yp[i],ps[0]);
@@ -932,10 +956,12 @@ void __fastcall TPlot::DrawObsEphem(double *yp)
             for (k=0;k<3;k++) ps[k].y+=MarkSize+2+off[Nav.eph[j].sat-1];
             ps[0].y-=2;
             
-            GraphR->DrawPoly(ps,3,Nav.eph[j].svh?MColor[0][5]:CColor[1],0);
+            svh=Nav.eph[j].svh;
+            if (satsys(i+1,NULL)==SYS_QZS) svh&=0xFE; /* mask QZS LEX health */
             
-            if (in) GraphR->DrawMark(ps[2],0,Nav.eph[j].svh?MColor[0][5]:CColor[1],
-                                     Nav.eph[j].svh?4:3,0);
+            GraphR->DrawPoly(ps,3,svh?MColor[0][5]:CColor[1],0);
+            
+            if (in) GraphR->DrawMark(ps[2],0,svh?MColor[0][5]:CColor[1],svh?4:3,0);
         }
         for (j=0;j<Nav.ng;j++) {
             if (Nav.geph[j].sat!=i+1) continue;
@@ -967,25 +993,66 @@ void __fastcall TPlot::DrawObsEphem(double *yp)
         }
     }
 }
+// draw sky-image on sky-plot -----------------------------------------------
+void __fastcall TPlot::DrawSkyImage(int level)
+{
+    TCanvas *c=Disp->Canvas;
+    TPoint p1,p2;
+    double xl[2],yl[2],r,s,mx[190],my[190];
+    
+    trace(3,"DrawSkyImage: level=%d\n",level);
+    
+    if (SkySize[0]<=0||SkySize[1]<=0) return;
+    
+    GraphS->GetLim(xl,yl);
+    r=(xl[1]-xl[0]<yl[1]-yl[0]?xl[1]-xl[0]:yl[1]-yl[0])*0.45;
+    s=r*SkyImageR->Width/2.0/SkyScaleR;
+    GraphS->ToPoint(-s,s,p1);
+    GraphS->ToPoint(s,-s,p2);
+    TRect rect(p1,p2);
+    c->StretchDraw(rect,SkyImageR);
+    
+    if (SkyElMask) { // elevation mask
+        int n=0;
+        
+        mx[n]=0.0;   my[n++]=yl[1];
+        for (int i=0;i<=180;i++) {
+            mx[n  ]=r*sin(i*2.0*D2R);
+            my[n++]=r*cos(i*2.0*D2R);
+        }
+        mx[n]=0.0;   my[n++]=yl[1];
+        mx[n]=xl[0]; my[n++]=yl[1];
+        mx[n]=xl[0]; my[n++]=yl[0];
+        mx[n]=xl[1]; my[n++]=yl[0];
+        mx[n]=xl[1]; my[n++]=yl[1];
+        GraphS->DrawPatch(mx,my,n,CColor[0],CColor[0],0);
+    }
+}
 // draw sky-plot ------------------------------------------------------------
 void __fastcall TPlot::DrawSky(int level)
 {
     TPoint p1,p2;
-    AnsiString s,ss;
+    AnsiString s,ss,ObsTypeText=ObsType->Text;
     obsd_t *obs;
     gtime_t t[MAXSAT]={{0}};
     double p[MAXSAT][2]={{0}},gfp[MAXSAT]={0},p0[MAXSAT][2]={{0}};
     double x,y,xp,yp,xs,ys,dt,dx,dy,xl[2],yl[2],r,gf;
-    int i,j,ind=ObsIndex,type=ObsType->ItemIndex;
-    int hh=(int)(Disp->Font->Size*1.5),prn,color,slip[3];
+    int i,j,ind=ObsIndex;
+    int hh=(int)(Disp->Font->Size*1.5),prn,color,slip;
+    const char *code=ObsType->ItemIndex?ObsTypeText.c_str()+1:"";
     char id[16];
     
     trace(3,"DrawSky: level=%d\n",level);
     
     GraphS->GetLim(xl,yl);
     r=(xl[1]-xl[0]<yl[1]-yl[0]?xl[1]-xl[0]:yl[1]-yl[0])*0.45;
-    GraphS->DrawSkyPlot(0.0,0.0,CColor[1],CColor[2],r*2.0);
     
+    if (BtnShowMap->Down) {
+        DrawSkyImage(level);
+    }
+    if (BtnShowSkyplot->Down) {
+        GraphS->DrawSkyPlot(0.0,0.0,CColor[1],CColor[2],CColor[0],r*2.0);
+    }
     if (!BtnSol1->Down) return;
     
     GraphS->GetScale(xs,ys);
@@ -993,8 +1060,9 @@ void __fastcall TPlot::DrawSky(int level)
     if (PlotStyle<=2) {
         for (i=0;i<Obs.n;i++) {
             obs=&Obs.data[i];
-            if (SatMask[obs->sat-1]||El[i]<=0.0) continue;
-            if ((color=ObsColor(obs,Az[i],El[i]))<0) continue;
+            if (SatMask[obs->sat-1]||!SatSel[obs->sat-1]||El[i]<=0.0) continue;
+            TColor col=ObsColor(obs,Az[i],El[i]);
+            if (col==clBlack) continue;
             
             x =r*sin(Az[i])*(1.0-2.0*El[i]/PI);
             y =r*cos(Az[i])*(1.0-2.0*El[i]/PI);
@@ -1003,7 +1071,7 @@ void __fastcall TPlot::DrawSky(int level)
             
             if ((x-xp)*(x-xp)+(y-yp)*(y-yp)>=xs*xs) {
                 int siz=PlotStyle<2?MarkSize:1;
-                GraphS->DrawMark(x,y,0,PlotStyle<2?MColor[0][color]:CColor[3],siz,0);
+                GraphS->DrawMark(x,y,0,PlotStyle<2?col:CColor[3],siz,0);
                 p[obs->sat-1][0]=x;
                 p[obs->sat-1][1]=y;
             }
@@ -1031,31 +1099,35 @@ void __fastcall TPlot::DrawSky(int level)
         
         for (i=0;i<Obs.n;i++) {
             obs=&Obs.data[i];
-            if (SatMask[obs->sat-1]||El[i]<=0.0) continue;
+            if (SatMask[obs->sat-1]||!SatSel[obs->sat-1]||El[i]<=0.0) continue;
             
-            slip[0]=obs->LLI[0];
-            slip[1]=obs->LLI[1];
-            slip[2]=0;
-            if (obs->L[0]!=0.0&&obs->L[1]!=0.0&&satsys(obs->sat,NULL)!=SYS_GLO) {
-                gf=CLIGHT*(obs->L[0]/FREQ1-obs->L[1]/FREQ2);
-                if (fabs(gfp[obs->sat-1]-gf)>THRESLIP) slip[2]=1;
-                gfp[obs->sat-1]=gf;
+            slip=0;
+            if (ShowSlip==2) { // LLI
+                for (j=0;j<NFREQ+NEXOBS;j++) {
+                    if ((!*code||strstr(code2obs(obs->code[j],NULL),code))&&
+                        (obs->LLI[j]&1)) slip=1;
+                }
+            }
+            else if (!*code||!strcmp(code,"1")||!strcmp(code,"2")) {
+                if (obs->L[0]!=0.0&&obs->L[1]!=0.0&&
+                    satsys(obs->sat,NULL)!=SYS_GLO) {
+                    gf=CLIGHT*(obs->L[0]/FREQ1-obs->L[1]/FREQ2);
+                    if (fabs(gfp[obs->sat-1]-gf)>THRESLIP) slip=1;
+                    gfp[obs->sat-1]=gf;
+                }
             }
             x=r*sin(Az[i])*(1.0-2.0*El[i]/PI);
             y=r*cos(Az[i])*(1.0-2.0*El[i]/PI);
-            
             dt=timediff(obs->time,t[obs->sat-1]);
             dx=x-p[obs->sat-1][0];
             dy=y-p[obs->sat-1][1];
             t[obs->sat-1]=obs->time;
             p[obs->sat-1][0]=x;
             p[obs->sat-1][1]=y;
-            if (dt<-300.0||dt>300.0) continue;
+            if (fabs(dt)>300.0) continue;
             if (El[i]<ElMask*D2R) continue;
             if (ElMaskP&&El[i]<ElMaskData[(int)(Az[i]*R2D+0.5)]) continue;
-            if ((ShowSlip==2&&(type==0||type==1)&&slip[0])||
-                (ShowSlip==2&&(type==0||type==2)&&slip[1])||
-                (ShowSlip==1&&type<=2&&slip[2])) {
+            if (slip) {
                 GraphS->DrawMark(x,y,4,MColor[0][5],MarkSize*3+2,ATAN2(dy,dx)*R2D+90);
             }
         }
@@ -1067,7 +1139,7 @@ void __fastcall TPlot::DrawSky(int level)
             x[i]=r*sin(i*D2R)*(1.0-2.0*ElMaskData[i]/PI);
             y[i]=r*cos(i*D2R)*(1.0-2.0*ElMaskData[i]/PI);
         }
-        GraphS->DrawPoly(x,y,361,CColor[2],0);
+        GraphS->DrawPoly(x,y,361,CColor[1],0);
         delete [] x;
         delete [] y;
     }
@@ -1075,49 +1147,71 @@ void __fastcall TPlot::DrawSky(int level)
         
         for (i=IndexObs[ind];i<Obs.n&&i<IndexObs[ind+1];i++) {
             obs=&Obs.data[i];
-            if (SatMask[obs->sat-1]) continue;
-            if (El[i]<=0.0) continue;
-            if ((color=ObsColor(obs,Az[i],El[i]))<0) continue;
+            if (SatMask[obs->sat-1]||!SatSel[obs->sat-1]||El[i]<=0.0) continue;
+            TColor col=ObsColor(obs,Az[i],El[i]);
+            if (col==clBlack) continue;
             
             x=r*sin(Az[i])*(1.0-2.0*El[i]/PI);
             y=r*cos(Az[i])*(1.0-2.0*El[i]/PI);
             
             satno2id(obs->sat,id);
-            GraphS->DrawMark(x,y,0,MColor[0][color],Disp->Font->Size*2+5,0);
-            GraphS->DrawMark(x,y,1,color==0?MColor[0][0]:CColor[2],Disp->Font->Size*2+5,0);
+            GraphS->DrawMark(x,y,0,col,Disp->Font->Size*2+5,0);
+            GraphS->DrawMark(x,y,1,col==clBlack?MColor[0][0]:CColor[2],Disp->Font->Size*2+5,0);
             GraphS->DrawText(x,y,s=id,CColor[0],0,0,0);
         }
     }
-    if (ShowStats&&BtnShowTrack->Down&&0<=ind&&ind<NObs) { // statistics
+    GraphS->GetPos(p1,p2);
+    p1.x+=10; p1.y+=8; p2.x-=10; p2.y=p1.y;
+    
+    if (ShowStats&&!SimObs) {
+        s.sprintf("MARKER: %s %s",Sta.name,Sta.marker);
+        DrawLabel(GraphS,p1,s,1,2); p1.y+=hh;
+        s.sprintf("REC: %s %s %s",Sta.rectype,Sta.recver,Sta.recsno);
+        DrawLabel(GraphS,p1,s,1,2); p1.y+=hh;
+        s.sprintf("ANT: %s %s",Sta.antdes,Sta.antsno);
+        DrawLabel(GraphS,p1,s,1,2); p1.y+=hh;
+    }
+    // show statistics
+    if (ShowStats&&BtnShowTrack->Down&&0<=ind&&ind<NObs&&!SimObs) {
         
-        GraphS->GetPos(p1,p2);
-        p1.x=p2.x-10;
-        p1.y+=8;
-        s.sprintf("SAT : %-*s %-*s %-*s",NFREQ*2,"OBS",NFREQ*3,"SNR",NFREQ,"LLI");
-        DrawLabel(GraphS,p1,s,2,2);
-        p1.y+=3;
+        s.sprintf("SAT: OBS : SNR : LLI%s",!*code?"":" : CODE");
+        DrawLabel(GraphS,p2,s,2,2);
+        p2.y+=3;
         
         for (i=IndexObs[ind];i<Obs.n&&i<IndexObs[ind+1];i++) {
             obs=&Obs.data[i];
-            if (SatMask[obs->sat-1]) continue;
-            if (El[i]<=0.0) continue;
+            if (SatMask[obs->sat-1]||!SatSel[obs->sat-1]) continue;
             if (HideLowSat&&El[i]<ElMask*D2R) continue;
             if (HideLowSat&&ElMaskP&&El[i]<ElMaskData[(int)(Az[i]*R2D+0.5)]) continue;
             
             satno2id(obs->sat,id);
-            s.sprintf("%-3s : ",id);
-            for (j=0;j<NFREQ;j++) s+=obs->L[j]==0.0?"_":"L";
-            for (j=0;j<NFREQ;j++) s+=obs->P[j]==0.0?"_":"P";
-            s+=" ";
-            for (j=0;j<NFREQ;j++) s+=ss.sprintf("%2.0f ",obs->SNR[j]*0.25);
-            for (j=0;j<NFREQ;j++) s+=ss.sprintf("%d"    ,obs->LLI[j]);
+            s.sprintf("%-3s: ",id);
             
-            color=ObsColor(obs,Az[i],El[i]);
-            p1.y+=hh;
-            GraphS->DrawText(p1,s,MColor[0][color<0?0:color],2,2,0);
+            if (!*code) {
+                for (j=0;j<NFREQ;j++) s+=obs->P[j]==0.0?"-":"C";
+                for (j=0;j<NFREQ;j++) s+=obs->L[j]==0.0?"-":"L";
+                s+=" : ";
+                for (j=0;j<NFREQ;j++) s+=ss.sprintf("%02.0f ",obs->SNR[j]*0.25);
+                s+=": ";
+                for (j=0;j<NFREQ;j++) s+=ss.sprintf("%d",obs->LLI[j]);
+            }
+            else {
+                for (j=0;j<NFREQ+NEXOBS;j++) {
+                    if (strstr(code2obs(obs->code[j],NULL),code)) break;
+                }
+                if (j>=NFREQ+NEXOBS) continue;
+                
+                s+=ss.sprintf("%s%s%s : %04.1f : %d : %s",obs->P[j]==0.0?"-":"C",
+                              obs->L[j]==0.0?"-":"L",obs->D[j]==0.0?"-":"D",
+                              obs->SNR[j]*0.25,obs->LLI[j],
+                              code2obs(obs->code[j],NULL));
+            }
+            TColor col=ObsColor(obs,Az[i],El[i]);
+            p2.y+=hh;
+            GraphS->DrawText(p2,s,col==clBlack?MColor[0][0]:col,2,2,0);
         }
     }
-    if (Nav.n<=0&&Nav.ng<=0) {
+    if (Nav.n<=0&&Nav.ng<=0&&!SimObs) {
         GraphS->GetPos(p1,p2);
         p2.x-=10;
         p2.y-=3;
@@ -1177,7 +1271,7 @@ void __fastcall TPlot::DrawDop(int level)
     for (i=0;i<NObs;i++) {
         ns[n]=0;
         for (j=IndexObs[i];j<Obs.n&&j<IndexObs[i+1];j++) {
-            if (SatMask[Obs.data[j].sat-1]) continue;
+            if (SatMask[Obs.data[j].sat-1]||!SatSel[Obs.data[j].sat-1]) continue;
             if (El[j]<ElMask*D2R) continue;
             if (ElMaskP&&El[j]<ElMaskData[(int)(Az[j]*R2D+0.5)]) continue;
             azel[  ns[n]*2]=Az[j];
@@ -1210,13 +1304,10 @@ void __fastcall TPlot::DrawDop(int level)
         }
         if (level&&PlotStyle<2) {
             for (i=0;i<n;i++) {
-                if (y[i]==0.0) continue;
                 GraphR->DrawMark(x[i],y[i],0,MColor[0][1],MarkSize,0);
             }
         }
     }
-    DrawDopStat(dop,ns,n);
-    
     if (BtnShowTrack->Down&&0<=ind&&ind<NObs) {
         GraphR->GetLim(xl,yl);
         xl[0]=xl[1]=TimePos(Obs.data[IndexObs[ind]].time);
@@ -1225,7 +1316,7 @@ void __fastcall TPlot::DrawDop(int level)
         
         ns[0]=0;
         for (i=IndexObs[ind];i<Obs.n&&i<IndexObs[ind+1];i++) {
-            if (SatMask[Obs.data[i].sat-1]) continue;
+            if (SatMask[Obs.data[i].sat-1]||!SatSel[Obs.data[i].sat-1]) continue;
             if (El[i]<ElMask*D2R) continue;
             if (ElMaskP&&El[i]<ElMaskData[(int)(Az[i]*R2D+0.5)]) continue;
             azel[  ns[0]*2]=Az[i];
@@ -1235,7 +1326,7 @@ void __fastcall TPlot::DrawDop(int level)
         dops(ns[0],azel,ElMask*D2R,dop);
         
         for (i=0;i<4;i++) {
-            if (doptype!=0&&doptype!=i+2) continue;
+            if ((doptype!=0&&doptype!=i+2)||dop[i]<=0.0) continue;
             GraphR->DrawMark(xl[0],dop[i],0,MColor[0][i+2],MarkSize*2+2,0);
         }
         if (doptype==0||doptype==1) {
@@ -1246,7 +1337,10 @@ void __fastcall TPlot::DrawDop(int level)
             GraphR->DrawMark(xl[0],yl[1]-1E-6,1,CColor[2],9,0);
         }
     }
-    if (Nav.n<=0&&Nav.ng<=0&&(doptype==0||doptype>=2)) {
+    else {
+        DrawDopStat(dop,ns,n);
+    }
+    if (Nav.n<=0&&Nav.ng<=0&&(doptype==0||doptype>=2)&&!SimObs) {
         GraphR->GetPos(p1,p2);
         p2.x-=10;
         p2.y-=3;
@@ -1310,21 +1404,21 @@ void __fastcall TPlot::DrawDopStat(double *dop, int *ns, int n)
         DrawLabel(GraphR,p1,s2[i],2,2);
     }
 }
-// draw snr and azimuth/elevation-plot --------------------------------------
-void __fastcall TPlot::DrawSnr(int level, int frq)
+// draw snr, mp and elevation-plot ---------------------------------------------
+void __fastcall TPlot::DrawSnr(int level)
 {
     TSpeedButton *btn[]={BtnOn1,BtnOn2,BtnOn3};
-    AnsiString satid;
-    AnsiString label[]={"SNR (dBHz)","Azimuth (deg)","Elevation (deg)"};
+    AnsiString s,ObsTypeText=ObsType2->Text;
+    AnsiString label[]={"SNR","Multipath","Elevation"};
+    AnsiString unit[]={"dBHz","m",CHARDEG};
     TPoint p1,p2;
+    TColor *col,colp[MAXSAT];
     gtime_t time={0};
-    double *x,*y[3],xl[2],yl[2],off,xc,yc,xp,yp[3][MAXSAT];
-    double sns[]={45.0,40.0,35.0,30.0,25.0};
-    int i,j,k,n,np=0,c,sat,ind=ObsIndex,*color,colorp[MAXSAT];
+    double *x,*y,xl[2],yl[2],off,xc,yc,xp,yp[MAXSAT],ave[3]={0},rms[3]={0};
+    char *code=ObsTypeText.c_str()+1;
+    int i,j,k,l,n,np,c,sat,ind=ObsIndex,nrms[3]={0};
     
-    trace(3,"DrawSnr: level=%d frq=%d\n",level,frq);
-    
-    satid=SatList3->Text;
+    trace(3,"DrawSnr: level=%d\n",level);
     
     if (0<=ind&&ind<NObs&&BtnShowTrack->Down) {
         time=Obs.data[IndexObs[ind]].time;
@@ -1346,59 +1440,80 @@ void __fastcall TPlot::DrawSnr(int level, int frq)
         GraphG[i]->DrawAxis(ShowLabel,ShowLabel);
     }
     if (NObs>0&&BtnSol1->Down) {
-        x    =new double [NObs],
-        y[0] =new double [NObs];
-        y[1] =new double [NObs];
-        y[2] =new double [NObs];
-        color=new int    [NObs];
+        x=new double[NObs],
+        y=new double[NObs];
+        col=new TColor[NObs];
         
-        for (sat=1;sat<=MAXSAT;sat++) {
-            char id[32];
-            if (SatMask[sat-1]) continue;
-            satno2id(sat,id);
-            if (satid!="ALL"&&satid!=id) continue;
-            for (i=n=0;i<Obs.n&&n<NObs;i++) {
-                if (Obs.data[i].sat!=sat) continue;
-                x[n]=TimePos(Obs.data[i].time);
-                y[0][n]=Obs.data[i].SNR[frq-1]*0.25;
-                y[1][n]=Az[i]*R2D;
-                y[2][n]=El[i]*R2D;
-                for (c=1;c<6;c++) if (y[0][n]>sns[c-1]) break;
-                if (c==6) c=7;
-                if (El[i]<ElMask*D2R) c=-1;
-                if (ElMaskP&&El[i]<ElMaskData[(int)(Az[i]*R2D+0.5)]) c=-1;
+        for (i=l=0;i<3;i++) {
+            if (!btn[i]->Down) continue;
+            
+            for (sat=1,np=0;sat<=MAXSAT;sat++) {
+                if (SatMask[sat-1]||!SatSel[sat-1]) continue;
                 
-                if (timediff(time,Obs.data[i].time)==0.0&&np<MAXSAT) {
-                    for (j=0;j<3;j++) yp[j][np]=y[j][n];
-                    colorp[np++]=c;
+                for (j=n=0;j<Obs.n;j++) {
+                    if (Obs.data[j].sat!=sat) continue;
+                    
+                    for (k=0;k<NFREQ+NEXOBS;k++) {
+                        if (strstr(code2obs(Obs.data[j].code[k],NULL),code)) break;
+                    }
+                    if (k>=NFREQ+NEXOBS) continue;
+                    
+                    x[n]=TimePos(Obs.data[j].time);
+                    if (i==0) {
+                        y[n]=Obs.data[j].SNR[k]*0.25;
+                        col[n]=MColor[0][4];
+                    }
+                    else if (i==1) {
+                        if (!Mp[k]||Mp[k][j]==0.0) continue;
+                        y[n]=Mp[k][j];
+                        col[n]=MColor[0][4];
+                    }
+                    else {
+                        y[n]=El[j]*R2D;
+                        if (SimObs) col[n]=SysColor(Obs.data[j].sat);
+                        else col[n]=SnrColor(Obs.data[j].SNR[k]*0.25);
+                        if (El[j]>0.0&&El[j]<ElMask*D2R) col[n]=MColor[0][0];
+                    }
+                    if (timediff(time,Obs.data[j].time)==0.0&&np<MAXSAT) {
+                        yp[np]=y[n];
+                        colp[np++]=col[n];
+                    }
+                    if (n<NObs) n++;
                 }
-                color[n++]=c;
-            }
-            for (i=0;i<3;i++) {
-                if (!btn[i]->Down) continue;
                 if (!level||!(PlotStyle%2)) {
-                    DrawPolyS(GraphG[i],x,y[i],n,CColor[3],0);
+                    for (j=0;j<n;j=k) {
+                        for (k=j+1;k<n;k++) if (fabs(y[k-1]-y[k])>30.0) break;
+                        DrawPolyS(GraphG[i],x+j,y+j,k-j,CColor[3],0);
+                    }
                 }
                 if (level&&PlotStyle<2) {
                     for (j=0;j<n;j++) {
-                        if (y[i][j]<=0.0) continue;
-                        TColor cl=color[j]<0?MColor[0][0]:MColor[0][i==0?4:color[j]];
-                        GraphG[i]->DrawMark(x[j],y[i][j],0,cl,MarkSize,0);
+                        if (i!=1&&y[j]<=0.0) continue;
+                        GraphG[i]->DrawMark(x[j],y[j],0,col[j],MarkSize,0);
                     }
                 }
+                for (j=0;j<n;j++) {
+                    if (y[j]==0.0) continue;
+                    ave[i]+=y[j];
+                    rms[i]+=SQR(y[j]);
+                    nrms[i]++;
+                }
             }
-        }
-        if (BtnShowTrack->Down&&0<=ind&&ind<NObs&&BtnSol1->Down) {
-            
-            for (i=j=0;i<3;i++) {
-                
+            if (level&&i==1&&nrms[i]>0&&ShowStats&&!BtnShowTrack->Down) {
+                ave[i]=ave[i]/nrms[i];
+                rms[i]=sqrt(rms[i]/nrms[i]);
+                GraphG[i]->GetPos(p1,p2);
+                p1.x=p2.x-8; p1.y+=3;
+                DrawLabel(GraphG[i],p1,s.sprintf("AVE=%.4fm RMS=%.4fm",ave[i],
+                          rms[i]),2,2);
+            }
+            if (BtnShowTrack->Down&&0<=ind&&ind<NObs&&BtnSol1->Down) {
                 if (!btn[i]->Down) continue;
-                
                 GraphG[i]->GetLim(xl,yl);
                 xl[0]=xl[1]=TimePos(time);
                 GraphG[i]->DrawPoly(xl,yl,2,CColor[2],0);
                 
-                if (j++==0) {
+                if (l++==0) {
                     GraphG[i]->DrawMark(xl[0],yl[1]-1E-6,0,CColor[2],5,0);
                     
                     if (!BtnFixHoriz->Down) {
@@ -1406,41 +1521,260 @@ void __fastcall TPlot::DrawSnr(int level, int frq)
                     }
                 }
                 for (k=0;k<np;k++) {
-                    GraphG[i]->DrawMark(xl[0],yp[i][k],0,MColor[0][i==0?4:colorp[k]],
-                                        MarkSize*2+2,0);
+                    if (i!=1&&yp[k]<=0.0) continue;
+                    GraphG[i]->DrawMark(xl[0],yp[k],0,CColor[0],MarkSize*2+4,0);
+                    GraphG[i]->DrawMark(xl[0],yp[k],0,colp[k],MarkSize*2+2,0);
                 }
+                if (np<=0||np>1||(i!=1&&yp[0]<=0.0)) continue;
+                
+                GraphG[i]->GetPos(p1,p2);
+                p1.x=p2.x-8; p1.y+=3;
+                DrawLabel(GraphG[i],p1,s.sprintf("%.*f %s",i==1?4:1,yp[0],unit[i]),2,2);
             }
         }
         delete [] x;
-        delete [] y[0];
-        delete [] y[1];
-        delete [] y[2];
-        delete [] color;
+        delete [] y;
+        delete [] col;
     }
     for (i=0;i<3;i++) {
         if (!btn[i]->Down) continue;
         GraphG[i]->GetPos(p1,p2);
         p1.x+=5; p1.y+=3;
-        DrawLabel(GraphG[i],p1,label[i],1,2);
+        DrawLabel(GraphG[i],p1,s.sprintf("%s (%s)",label[i],unit[i]),1,2);
+    }
+}
+// draw snr, mp-elevation-plot ----------------------------------------------
+void __fastcall TPlot::DrawSnrE(int level)
+{
+    TSpeedButton *btn[]={BtnOn1,BtnOn2,BtnOn3};
+    AnsiString s,ObsTypeText=ObsType2->Text;
+    AnsiString label[]={"SNR (dBHz)","Multipath (m)"};
+    TPoint p1,p2;
+    TColor *col[2],colp[2][MAXSAT];
+    gtime_t time={0};
+    double *x[2],*y[2],xl[2]={-0.001,90.0},yl[2][2]={{10.0,65.0},{-10.0,10.0}};
+    double xp[2][MAXSAT],yp[2][MAXSAT],ave=0.0,rms=0.0;
+    char *code=ObsTypeText.c_str()+1;
+    int i,j,k,n[2],np[2]={0},sat,ind=ObsIndex,hh=(int)(Disp->Font->Size*1.5);
+    int nrms=0;
+    
+    trace(3,"DrawSnrE: level=%d\n",level);
+    
+    yl[1][0]=-MaxMP; yl[1][1]=MaxMP;
+    
+    for (i=0;i<2;i++) if (btn[i]->Down) j=i;
+    for (i=0;i<2;i++) {
+        if (!btn[i]->Down) continue;
+        GraphE[i]->XLPos=i==j?1:0;
+        GraphE[i]->YLPos=1;
+        GraphE[i]->SetLim(xl,yl[i]);
+        GraphE[i]->SetTick(0.0,0.0);
+        GraphE[i]->DrawAxis(1,1);
+        
+        GraphE[i]->GetPos(p1,p2);
+        p1.x=Disp->Font->Size;
+        p1.y=(p1.y+p2.y)/2;
+        GraphE[i]->DrawText(p1,label[i],CColor[2],0,0,90);
+        if (i==j) {
+            p2.x-=8; p2.y-=6;
+            GraphE[i]->DrawText(p2,"Elevation (" CHARDEG ")",CColor[2],2,1,0);
+        }
+    }
+    if (0<=ind&&ind<NObs&&BtnShowTrack->Down) {
+        time=Obs.data[IndexObs[ind]].time;
+    }
+    if (NObs>0&&BtnSol1->Down) {
+        for (i=0;i<2;i++) {
+            x[i]=new double[NObs],
+            y[i]=new double[NObs];
+            col[i]=new TColor[NObs];
+        }
+        for (sat=1;sat<=MAXSAT;sat++) {
+            if (SatMask[sat-1]||!SatSel[sat-1]) continue;
+            
+            for (j=n[0]=n[1]=0;j<Obs.n;j++) {
+                if (Obs.data[j].sat!=sat) continue;
+                
+                for (k=0;k<NFREQ+NEXOBS;k++) {
+                    if (strstr(code2obs(Obs.data[j].code[k],NULL),code)) break;
+                }
+                if (k>=NFREQ+NEXOBS) continue;
+                if (El[j]<=0.0) continue;
+                
+                x[0][n[0]]=x[1][n[1]]=El[j]*R2D;
+                
+                y[0][n[0]]=Obs.data[j].SNR[k]*0.25;
+                y[1][n[1]]=!Mp[k]?0.0:Mp[k][j];
+                
+                col[0][n[0]]=col[1][n[1]]=
+                    El[j]>0.0&&El[j]<ElMask*D2R?MColor[0][0]:MColor[0][4];
+                
+                if (y[0][n[0]]>0.0) {
+                    if (timediff(time,Obs.data[j].time)==0.0) {
+                        xp[0][np[0]]=x[0][n[0]];
+                        yp[0][np[0]]=y[0][n[0]];
+                        colp[0][np[0]]=ObsColor(Obs.data+j,Az[j],El[j]);
+                        if (np[0]<MAXSAT&&colp[0][np[0]]!=clBlack) np[0]++;
+                    }
+                    if (n[0]<NObs) n[0]++;
+                }
+                if (y[1][n[1]]!=0.0) {
+                    if (El[j]>=ElMask*D2R) {
+                        ave+=y[1][n[1]];
+                        rms+=SQR(y[1][n[1]]);
+                        nrms++;
+                    }
+                    if (timediff(time,Obs.data[j].time)==0.0) {
+                        xp[1][np[1]]=x[1][n[1]];
+                        yp[1][np[1]]=y[1][n[1]];
+                        colp[1][np[1]]=ObsColor(Obs.data+j,Az[j],El[j]);
+                        if (np[1]<MAXSAT&&colp[1][np[1]]!=clBlack) np[1]++;
+                    }
+                    if (n[1]<NObs) n[1]++;
+                }
+            }
+            if (!level||!(PlotStyle%2)) {
+                for (i=0;i<2;i++) {
+                    if (!btn[i]->Down) continue;
+                    DrawPolyS(GraphE[i],x[i],y[i],n[i],CColor[3],0);
+                }
+            }
+            if (level&&PlotStyle<2) {
+                for (i=0;i<2;i++) {
+                    if (!btn[i]->Down) continue;
+                    for (j=0;j<n[i];j++) {
+                        GraphE[i]->DrawMark(x[i][j],y[i][j],0,col[i][j],MarkSize,0);
+                    }
+                }
+            }
+        }
+        for (i=0;i<2;i++) {
+            delete [] x[i];
+            delete [] y[i];
+            delete [] col[i];
+        }
+        if (BtnShowTrack->Down&&0<=ind&&ind<NObs&&BtnSol1->Down) {
+            
+            for (i=0;i<2;i++) {
+                if (!btn[i]->Down) continue;
+                for (j=0;j<np[i];j++) {
+                    GraphE[i]->DrawMark(xp[i][j],yp[i][j],0,CColor[0],MarkSize*2+8,0);
+                    GraphE[i]->DrawMark(xp[i][j],yp[i][j],1,CColor[2],MarkSize*2+6,0);
+                    GraphE[i]->DrawMark(xp[i][j],yp[i][j],0,colp[i][j],MarkSize*2+2,0);
+                }
+            }
+        }
+    }
+    if (ShowStats) {
+        for (i=0;i<2;i++) if (btn[i]->Down) break;
+        if (i<2) {
+            GraphE[i]->GetPos(p1,p2);
+            p1.x+=8; p1.y+=6;
+            s.sprintf("MARKER: %s %s",Sta.name,Sta.marker);
+            DrawLabel(GraphE[i],p1,s,1,2); p1.y+=hh;
+            s.sprintf("REC: %s %s %s",Sta.rectype,Sta.recver,Sta.recsno);
+            DrawLabel(GraphE[i],p1,s,1,2); p1.y+=hh;
+            s.sprintf("ANT: %s %s",Sta.antdes,Sta.antsno);
+            DrawLabel(GraphE[i],p1,s,1,2); p1.y+=hh;
+        }
+        if (btn[1]->Down&&nrms>0&&!BtnShowTrack->Down) {
+            ave=ave/nrms;
+            rms=sqrt(rms/nrms);
+            GraphE[1]->GetPos(p1,p2);
+            p1.x=p2.x-8; p1.y+=6;
+            DrawLabel(GraphE[1],p1,s.sprintf("AVE=%.4fm RMS=%.4fm",ave,rms),2,2);
+        }
+    }
+}
+// draw mp-skyplot ----------------------------------------------------------
+void __fastcall TPlot::DrawMpS(int level)
+{
+    AnsiString ObsTypeText=ObsType2->Text,s;
+    TColor col;
+    obsd_t *obs;
+    double x,y,xp,yp,xs,ys,xl[2],yl[2],p[MAXSAT][2]={{0}},r;
+    int i,j,sat,ind=ObsIndex;
+    char *code=ObsTypeText.c_str()+1,id[32];
+    
+    trace(3,"DrawSnrS: level=%d\n",level);
+    
+    GraphS->GetLim(xl,yl);
+    r=(xl[1]-xl[0]<yl[1]-yl[0]?xl[1]-xl[0]:yl[1]-yl[0])*0.45;
+    
+    if (BtnShowMap->Down) {
+        DrawSkyImage(level);
+    }
+    if (BtnShowSkyplot->Down) {
+        GraphS->DrawSkyPlot(0.0,0.0,CColor[1],CColor[2],CColor[0],r*2.0);
+    }
+    if (!BtnSol1->Down||NObs<=0||SimObs) return;
+    
+    GraphS->GetScale(xs,ys);
+    
+    for (sat=1;sat<=MAXSAT;sat++) {
+        if (SatMask[sat-1]||!SatSel[sat-1]) continue;
+        
+        for (i=0;i<Obs.n;i++) {
+            if (Obs.data[i].sat!=sat) continue;
+            
+            for (j=0;j<NFREQ+NEXOBS;j++) {
+                if (strstr(code2obs(Obs.data[i].code[j],NULL),code)) break;
+            }
+            if (j>=NFREQ+NEXOBS) continue;
+            if (El[i]<=0.0) continue;
+            
+            x=r*sin(Az[i])*(1.0-2.0*El[i]/PI);
+            y=r*cos(Az[i])*(1.0-2.0*El[i]/PI);
+            xp=p[sat-1][0];
+            yp=p[sat-1][1];
+            col=MpColor(!Mp[j]?0.0:Mp[j][i]);
+            
+            if ((x-xp)*(x-xp)+(y-yp)*(y-yp)>=xs*xs) {
+                int siz=PlotStyle<2?MarkSize:1;
+                GraphS->DrawMark(x,y,0,col,siz,0);
+                GraphS->DrawMark(x,y,0,PlotStyle<2?col:CColor[3],siz,0);
+                p[sat-1][0]=x;
+                p[sat-1][1]=y;
+            }
+        }
+    }
+    if (BtnShowTrack->Down&&0<=ind&&ind<NObs) {
+        
+        for (i=IndexObs[ind];i<Obs.n&&i<IndexObs[ind+1];i++) {
+            obs=&Obs.data[i];
+            if (SatMask[obs->sat-1]||!SatSel[obs->sat-1]||El[i]<=0.0) continue;
+            for (j=0;j<NFREQ+NEXOBS;j++) {
+                if (strstr(code2obs(obs->code[j],NULL),code)) break;
+            }
+            if (j>=NFREQ+NEXOBS) continue;
+            col=MpColor(!Mp[j]?0.0:Mp[j][i]);
+            
+            x=r*sin(Az[i])*(1.0-2.0*El[i]/PI);
+            y=r*cos(Az[i])*(1.0-2.0*El[i]/PI);
+            
+            satno2id(obs->sat,id);
+            GraphS->DrawMark(x,y,0,col,Disp->Font->Size*2+5,0);
+            GraphS->DrawMark(x,y,1,CColor[2],Disp->Font->Size*2+5,0);
+            GraphS->DrawText(x,y,s=id,CColor[0],0,0,0);
+        }
     }
 }
 // draw residuals and snr/elevation plot ------------------------------------
-void __fastcall TPlot::DrawRes(int level, int frq)
+void __fastcall TPlot::DrawRes(int level)
 {
     AnsiString label[]={
         "Pseudorange Residuals (m)",
         "Carrier-Phase Residuals (m)",
         "Elevation Angle (deg) / Signal Strength (dBHz)"
     };
-    AnsiString satid,str;
+    AnsiString str;
     TSpeedButton *btn[]={BtnOn1,BtnOn2,BtnOn3};
     TPoint p1,p2;
     double xc,yc,xl[2],yl[2],res[2],sum[2]={0},sum2[2]={0};
     int i,j,sel=!BtnSol1->Down&&BtnSol2->Down?1:0,ind=SolIndex[sel];
+    int frq=FrqType->ItemIndex+1;
     
-    trace(3,"DrawRes: level=%d frq=%d\n",level,frq);
-    
-    satid=sel?SatList2->Text:SatList1->Text;
+    trace(3,"DrawRes: level=%d\n",level);
     
     if (0<=ind&&ind<SolData[sel].n&&BtnShowTrack->Down&&BtnFixHoriz->Down) {
         
@@ -1448,7 +1782,7 @@ void __fastcall TPlot::DrawRes(int level, int frq)
         
         for (i=0;i<3;i++) {
             if (BtnFixHoriz->Down) {
-                double xl[2],yl[2],off;
+                double off;
                 GraphG[i]->GetLim(xl,yl);
                 off=Xcent*(xl[1]-xl[0])/2.0;
                 GraphG[i]->GetCent(xc,yc);
@@ -1486,7 +1820,7 @@ void __fastcall TPlot::DrawRes(int level, int frq)
         for (int sat=1;sat<=MAXSAT;sat++) {
             char id[32];
             satno2id(sat,id);
-            if (SatMask[sat-1]||(satid!="ALL"&&satid!=id)) continue;
+            if (SatMask[sat-1]||!SatSel[sat-1]) continue;
             m=0;
             for (int i=0;i<n;i++) {
                 solstat_t *p=SolStat[sel].data+i;
@@ -1498,7 +1832,7 @@ void __fastcall TPlot::DrawRes(int level, int frq)
                 y[2][m]=p->el*R2D;
                 y[3][m]=p->snr*0.25;
                 if      (!(p->flag>>5))  q[m]=0; // invalid
-                else if ((p->flag&7)==1) q[m]=2; // float
+                else if ((p->flag&7)<=1) q[m]=2; // float
                 else if ((p->flag&7)<=3) q[m]=1; // fixed
                 else                     q[m]=6; // ppp
                 s[m++]=(p->flag>>3)&0x3;         // slip
@@ -1595,22 +1929,110 @@ void __fastcall TPlot::DrawPolyS(TGraph *graph, double *x, double *y, int n,
 void __fastcall TPlot::DrawLabel(TGraph *g, TPoint p, AnsiString label, int ha,
     int va)
 {
-    TPoint p1;
-    p1=p; p1.x--; g->DrawText(p1,label,CColor[0],ha,va,0);
-    p1=p; p1.x++; g->DrawText(p1,label,CColor[0],ha,va,0);
-    p1=p; p1.y--; g->DrawText(p1,label,CColor[0],ha,va,0);
-    p1=p; p1.y++; g->DrawText(p1,label,CColor[0],ha,va,0);
-    g->DrawText(p,label,CColor[2],ha,va,0);
+    g->DrawText(p,label,CColor[2],CColor[0],ha,va,0);
 }
 // draw mark with hemming ---------------------------------------------------
 void __fastcall TPlot::DrawMark(TGraph *g, TPoint p, int mark, TColor color,
     int size, int rot)
 {
-    TPoint p1;
-    p1=p; p1.x--; g->DrawMark(p1,mark,CColor[0],size,rot);
-    p1=p; p1.x++; g->DrawMark(p1,mark,CColor[0],size,rot);
-    p1=p; p1.y--; g->DrawMark(p1,mark,CColor[0],size,rot);
-    p1=p; p1.y++; g->DrawMark(p1,mark,CColor[0],size,rot);
-    g->DrawMark(p,mark,color,size,rot);
+    g->DrawMark(p,mark,color,CColor[0],size,rot);
 }
-//---------------------------------------------------------------------------
+// refresh google earth view --------------------------------------------------
+void __fastcall TPlot::Refresh_GEView(void)
+{
+    AnsiString func;
+    TIMEPOS *vel;
+    sol_t *sol;
+    double pos[3]={0},heading,ddeg;
+    int i,opts[12],sel=!BtnSol1->Down&&BtnSol2->Down?1:0;
+    
+    // get ge options
+    GoogleEarthView->GetOpts(opts);
+    
+    if (BtnShowTrack->Down) {
+        
+        // update mark
+        if (BtnSol2->Down&&SolData[1].n>0) {
+            sol=getsol(SolData+1,SolIndex[1]);
+            ecef2pos(sol->rr,pos);
+            pos[2]-=geoidh(pos);
+            GoogleEarthView->SetMark(2,pos);
+            GoogleEarthView->ShowMark(2);
+            GoogleMapView->SetMark(2,pos);
+            GoogleMapView->ShowMark(2);
+        }
+        else {
+            GoogleEarthView->HideMark(2);
+            GoogleMapView->HideMark(2);
+        }
+        if (BtnSol1->Down&&SolData[0].n>0) {
+            sol=getsol(SolData,SolIndex[0]);
+            ecef2pos(sol->rr,pos);
+            pos[2]-=geoidh(pos);
+            GoogleEarthView->SetMark(1,pos);
+            GoogleEarthView->ShowMark(1);
+            GoogleMapView->SetMark(1,pos);
+            GoogleMapView->ShowMark(1);
+        }
+        else {
+            GoogleEarthView->HideMark(1);
+            GoogleMapView->HideMark(1);
+        }
+        // update heading
+        if (opts[10]&&norm(pos,3)>0.0) {
+            vel=SolToPos(SolData+sel,SolIndex[sel],0,1);
+            heading=ATAN2(vel->x[0],vel->y[0])*R2D;
+            
+            // filter
+            if (vel->x[0]*vel->x[0]+vel->y[0]*vel->y[0]>0.5) {
+                ddeg=heading-GEHeading;
+                if      (ddeg<-180.0) ddeg+=360.0;
+                else if (ddeg> 180.0) ddeg-=360.0;
+                GEHeading+=0.5*ddeg;
+                if      (GEHeading<-180.0) GEHeading+=360.0;
+                else if (GEHeading> 180.0) GEHeading-=360.0;
+            }
+            GoogleEarthView->SetHeading(GEHeading);
+            
+            delete vel;
+        }
+    }
+    else {
+        GoogleEarthView->HideMark(1);
+        GoogleEarthView->HideMark(2);
+        GoogleMapView->HideMark(1);
+        GoogleMapView->HideMark(2);
+    }
+    // update track
+    if (BtnSol1->Down&&!BtnConnect->Down) {
+        if (!GEDataState[0]) {
+            GoogleEarthView->HideTrack(1);
+            GEDataState[0]=GoogleEarthView->UpdateTrack(1,SolData);
+        }
+        GoogleEarthView->ShowTrack(1);
+    }
+    else {
+        GoogleEarthView->HideTrack(1);
+    }
+    if (BtnSol2->Down&&!BtnConnect->Down) {
+        if (!GEDataState[1]) {
+            GoogleEarthView->HideTrack(2);
+            GEDataState[1]=GoogleEarthView->UpdateTrack(2,SolData+1);
+        }
+        GoogleEarthView->ShowTrack(2);
+    }
+    else {
+        GoogleEarthView->HideTrack(2);
+    }
+    // update points
+    if (BtnShowPoint->Down) {
+        GoogleEarthView->ShowPoint();
+    }
+    else {
+        GoogleEarthView->HidePoint();
+    }
+}
+// refresh google map view -----------------------------------------------------
+void __fastcall TPlot::Refresh_GMView(void)
+{
+}

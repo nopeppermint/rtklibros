@@ -1,7 +1,7 @@
 object MainForm: TMainForm
   Left = 0
   Top = 0
-  Caption = 'NTRIP Source Table Browser'
+  Caption = 'NTRIP Browser'
   ClientHeight = 322
   ClientWidth = 634
   Color = clBtnFace
@@ -61,9 +61,9 @@ object MainForm: TMainForm
     end
     object TypeStr: TSpeedButton
       Left = 250
-      Top = 1
+      Top = 0
       Width = 25
-      Height = 20
+      Height = 22
       GroupIndex = 1
       Down = True
       Caption = 'STR'
@@ -73,9 +73,9 @@ object MainForm: TMainForm
     end
     object TypeCas: TSpeedButton
       Left = 276
-      Top = 1
+      Top = 0
       Width = 27
-      Height = 20
+      Height = 22
       GroupIndex = 1
       Caption = 'CAS'
       Flat = True
@@ -84,9 +84,9 @@ object MainForm: TMainForm
     end
     object TypeNet: TSpeedButton
       Left = 304
-      Top = 1
+      Top = 0
       Width = 25
-      Height = 20
+      Height = 22
       GroupIndex = 1
       Caption = 'NET'
       Flat = True
@@ -95,14 +95,23 @@ object MainForm: TMainForm
     end
     object TypeSrc: TSpeedButton
       Left = 330
-      Top = 1
+      Top = 0
       Width = 25
-      Height = 20
+      Height = 22
       GroupIndex = 1
       Caption = 'SRC'
       Flat = True
       Spacing = 2
       OnClick = TypeSrcClick
+    end
+    object BtnMap: TSpeedButton
+      Left = 356
+      Top = 0
+      Width = 25
+      Height = 22
+      Caption = 'MAP'
+      Flat = True
+      OnClick = BtnMapClick
     end
     object Address: TComboBox
       Left = 22
@@ -110,24 +119,49 @@ object MainForm: TMainForm
       Width = 187
       Height = 21
       DropDownCount = 40
-      ItemHeight = 13
       TabOrder = 0
       OnChange = AddressChange
       OnKeyPress = AddressKeyPress
     end
-  end
-  object StatusBar: TStatusBar
-    Left = 0
-    Top = 304
-    Width = 634
-    Height = 18
-    Font.Charset = DEFAULT_CHARSET
-    Font.Color = clGray
-    Font.Height = -11
-    Font.Name = 'Tahoma'
-    Font.Style = []
-    Panels = <>
-    UseSystemFont = False
+    object StaMask: TCheckBox
+      Left = 463
+      Top = 3
+      Width = 71
+      Height = 17
+      Caption = 'STA'
+      TabOrder = 1
+      Visible = False
+      OnClick = StaMaskClick
+    end
+    object BtnSta: TButton
+      Left = 501
+      Top = 1
+      Width = 22
+      Height = 21
+      Caption = '...'
+      Font.Charset = DEFAULT_CHARSET
+      Font.Color = clWindowText
+      Font.Height = -9
+      Font.Name = 'Tahoma'
+      Font.Style = []
+      ParentFont = False
+      TabOrder = 2
+      Visible = False
+      OnClick = BtnStaClick
+    end
+    object FiltFmt: TComboBox
+      Left = 390
+      Top = 0
+      Width = 66
+      Height = 21
+      TabOrder = 3
+      Visible = False
+      Items.Strings = (
+        ''
+        'RTCM 3'
+        'RTCM 2'
+        'RAW')
+    end
   end
   object Table2: TStringGrid
     Left = 0
@@ -244,9 +278,10 @@ object MainForm: TMainForm
     DefaultRowHeight = 15
     FixedCols = 0
     RowCount = 100
-    Options = [goFixedVertLine, goFixedHorzLine, goVertLine, goColSizing, goEditing, goAlwaysShowEditor]
+    Options = [goFixedVertLine, goFixedHorzLine, goVertLine, goColSizing, goEditing]
     TabOrder = 1
     OnMouseDown = Table0MouseDown
+    OnSelectCell = Table0SelectCell
     ColWidths = (
       74
       117
@@ -267,17 +302,41 @@ object MainForm: TMainForm
       43
       623)
   end
+  object Panel2: TPanel
+    Left = 0
+    Top = 304
+    Width = 634
+    Height = 18
+    Align = alBottom
+    BevelOuter = bvNone
+    TabOrder = 5
+    object Panel3: TPanel
+      Left = 0
+      Top = 0
+      Width = 634
+      Height = 18
+      Align = alClient
+      BevelInner = bvLowered
+      BevelOuter = bvNone
+      BorderWidth = 1
+      TabOrder = 0
+      object Message: TLabel
+        Left = 4
+        Top = 2
+        Width = 3
+        Height = 13
+      end
+    end
+  end
   object SaveDialog: TSaveDialog
     Filter = 'All File (*.*)|*.*'
-    Options = [ofOverwritePrompt, ofHideReadOnly, ofNoChangeDir, ofEnableSizing]
-    OptionsEx = [ofExNoPlacesBar]
+    Options = [ofOverwritePrompt, ofHideReadOnly, ofEnableSizing]
     Left = 558
     Top = 274
   end
   object OpenDialog: TOpenDialog
     Filter = 'All File (*.*)|*.*'
     Options = [ofHideReadOnly, ofNoChangeDir, ofEnableSizing]
-    OptionsEx = [ofExNoPlacesBar]
     Left = 526
     Top = 274
   end
@@ -293,7 +352,7 @@ object MainForm: TMainForm
       end
       object MenuSave: TMenuItem
         Caption = '&Save Source Table...'
-        ShortCut = 16470
+        ShortCut = 16467
         OnClick = MenuSaveClick
       end
       object N1: TMenuItem
@@ -327,19 +386,16 @@ object MainForm: TMainForm
         AutoCheck = True
         Caption = '&Stream List'
         Checked = True
-        ShortCut = 16467
         OnClick = MenuViewStrClick
       end
       object MenuViewCas: TMenuItem
         AutoCheck = True
         Caption = '&Caster List'
-        ShortCut = 16451
         OnClick = MenuViewCasClick
       end
       object MenuViewNet: TMenuItem
         AutoCheck = True
         Caption = '&Network List'
-        ShortCut = 16462
         OnClick = MenuViewNetClick
       end
       object N3: TMenuItem
@@ -348,7 +404,6 @@ object MainForm: TMainForm
       object MenuViewSrc: TMenuItem
         AutoCheck = True
         Caption = '&Source Table'
-        ShortCut = 16468
         OnClick = MenuViewSrcClick
       end
     end
@@ -359,5 +414,12 @@ object MainForm: TMainForm
         OnClick = MenuAboutClick
       end
     end
+  end
+  object Timer: TTimer
+    Enabled = False
+    Interval = 100
+    OnTimer = TimerTimer
+    Left = 468
+    Top = 276
   end
 end

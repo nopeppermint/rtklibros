@@ -3,21 +3,38 @@
 #include <vcl.h>
 #pragma hdrstop
 //---------------------------------------------------------------------------
-USEFORM("..\appcmn\serioptdlg.cpp", SerialOptDialog);
-USEFORM("..\appcmn\cmdoptdlg.cpp", CmdOptDialog);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 USEFORM("..\appcmn\tcpoptdlg.cpp", TcpOptDialog);
+USEFORM("..\appcmn\serioptdlg.cpp", SerialOptDialog);
 USEFORM("..\appcmn\refdlg.cpp", RefDialog);
 USEFORM("..\appcmn\viewer.cpp", TextViewer);
+USEFORM("..\rtknavi\logstrdlg.cpp", LogStrDialog);
+USEFORM("..\rtknavi\instrdlg.cpp", InputStrDialog);
 USEFORM("..\appcmn\vieweropt.cpp", ViewerOptDialog);
-USEFORM("..\appcmn\confdlg.cpp", ConfDialog);
+USEFORM("..\appcmn\cmdoptdlg.cpp", CmdOptDialog);
 USEFORM("..\appcmn\aboutdlg.cpp", AboutDialog);
+USEFORM("..\appcmn\confdlg.cpp", ConfDialog);
+USEFORM("..\appcmn\maskoptdlg.cpp", MaskOptDialog);
 USEFORM("..\appcmn\keydlg.cpp", KeyDialog);
 USEFORM("..\appcmn\ftpoptdlg.cpp", FtpOptDialog);
-USEFORM("..\rtknavi\instrdlg.cpp", InputStrDialog);
-USEFORM("..\rtknavi\logstrdlg.cpp", LogStrDialog);
-USEFORM("..\rtknavi\mondlg.cpp", MonitorDialog);
-USEFORM("..\rtknavi\navimain.cpp", MainForm);
 USEFORM("..\rtknavi\naviopt.cpp", OptDialog);
+USEFORM("..\rtknavi\navimain.cpp", MainForm);
+USEFORM("..\rtknavi\mondlg.cpp", MonitorDialog);
 USEFORM("..\rtknavi\outstrdlg.cpp", OutputStrDialog);
 USEFORM("..\rtknavi\rcvoptdlg.cpp", RcvOptDialog);
 //---------------------------------------------------------------------------
@@ -43,6 +60,7 @@ WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		Application->CreateForm(__classid(TKeyDialog), &KeyDialog);
 		Application->CreateForm(__classid(TFtpOptDialog), &FtpOptDialog);
 		Application->CreateForm(__classid(TRcvOptDialog), &RcvOptDialog);
+		Application->CreateForm(__classid(TMaskOptDialog), &MaskOptDialog);
 		Application->Run();
 	}
 	catch (Exception &exception)

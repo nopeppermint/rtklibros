@@ -80,33 +80,6 @@ object MonitorDialog: TMonitorDialog
       Font.Style = []
       ParentFont = False
     end
-    object BtnAsc: TSpeedButton
-      Left = 162
-      Top = 2
-      Width = 33
-      Height = 19
-      Hint = 'Ascii View'
-      GroupIndex = 1
-      Down = True
-      Caption = 'ASC'
-      Flat = True
-      ParentShowHint = False
-      ShowHint = True
-      Visible = False
-    end
-    object BtnHex: TSpeedButton
-      Left = 196
-      Top = 2
-      Width = 33
-      Height = 19
-      Hint = 'Hex View'
-      GroupIndex = 1
-      Caption = 'HEX'
-      Flat = True
-      ParentShowHint = False
-      ShowHint = True
-      Visible = False
-    end
     object BtnPause: TSpeedButton
       Left = 116
       Top = 2
@@ -216,10 +189,10 @@ object MonitorDialog: TMonitorDialog
       BevelOuter = bvNone
       TabOrder = 1
       object BtnClose: TButton
-        Left = 2
-        Top = 0
-        Width = 51
-        Height = 21
+        Left = 1
+        Top = -1
+        Width = 53
+        Height = 23
         Caption = '&Close'
         ModalResult = 1
         TabOrder = 0
@@ -228,13 +201,12 @@ object MonitorDialog: TMonitorDialog
     end
     object Type: TComboBox
       Left = 2
-      Top = 2
-      Width = 93
+      Top = 1
+      Width = 92
       Height = 21
       AutoComplete = False
       Style = csDropDownList
-      DropDownCount = 28
-      ItemHeight = 13
+      DropDownCount = 40
       ItemIndex = 0
       TabOrder = 0
       TabStop = False
@@ -242,15 +214,23 @@ object MonitorDialog: TMonitorDialog
       OnChange = TypeChange
       Items.Strings = (
         'RTK'
-        'Satellites'
-        'States'
-        'Covariance'
         'Obs Data'
-        'Nav GPS/GAL/QZS'
+        'Nav GPS'
         'Nav GLONASS'
+        'Nav Galileo'
+        'Nav QZSS'
+        'Nav BeiDou'
         'Nav GEO'
         'Time/Iono'
         'Streams'
+        'Sat GPS'
+        'Sat GLONASS'
+        'Sat Galileo'
+        'Sat QZSS'
+        'Sat BeiDou'
+        'Sat GEO'
+        'States'
+        'Covariance'
         'SBAS Msgs'
         'SBAS Long'
         'SBAS Iono'
@@ -271,12 +251,11 @@ object MonitorDialog: TMonitorDialog
     end
     object SelEph: TComboBox
       Left = 162
-      Top = 2
+      Top = 1
       Width = 66
       Height = 21
       Hint = 'Stream'
       Style = csDropDownList
-      ItemHeight = 13
       ItemIndex = 0
       TabOrder = 2
       Text = 'Current'
@@ -287,12 +266,11 @@ object MonitorDialog: TMonitorDialog
     end
     object SelStr: TComboBox
       Left = 95
-      Top = 2
-      Width = 82
+      Top = 1
+      Width = 80
       Height = 21
       Hint = 'Stream'
       Style = csDropDownList
-      ItemHeight = 13
       ItemIndex = 0
       TabOrder = 3
       Text = '(1) Rover'
@@ -300,16 +278,16 @@ object MonitorDialog: TMonitorDialog
       Items.Strings = (
         '(1) Rover'
         '(2) Base Station'
-        '(3) Correction')
+        '(3) Correction'
+        '(0) Combined')
     end
     object SelSat: TComboBox
       Left = 95
-      Top = 2
+      Top = 1
       Width = 66
       Height = 21
       Hint = 'Stream'
       Style = csDropDownList
-      ItemHeight = 13
       ItemIndex = 0
       TabOrder = 4
       Text = 'All'
@@ -325,7 +303,6 @@ object MonitorDialog: TMonitorDialog
       Height = 21
       Hint = 'Stream'
       Style = csDropDownList
-      ItemHeight = 13
       ItemIndex = 0
       TabOrder = 5
       Text = 'OFF'
@@ -340,6 +317,39 @@ object MonitorDialog: TMonitorDialog
         'QZS Broadcast'
         'QZS LEX')
     end
+    object SelObs: TComboBox
+      Left = 95
+      Top = 1
+      Width = 80
+      Height = 21
+      Hint = 'Stream'
+      Style = csDropDownList
+      ItemIndex = 0
+      TabOrder = 6
+      Text = 'Normal'
+      Visible = False
+      OnChange = SelObsChange
+      Items.Strings = (
+        'Normal'
+        'Extended')
+    end
+    object SelFmt: TComboBox
+      Left = 171
+      Top = 1
+      Width = 93
+      Height = 21
+      Hint = 'Stream'
+      Style = csDropDownList
+      DropDownCount = 32
+      ItemIndex = 0
+      TabOrder = 7
+      Text = 'HEX'
+      Visible = False
+      OnChange = SelFmtChange
+      Items.Strings = (
+        'HEX'
+        'ASCII')
+    end
   end
   object Scroll: TScrollBar
     Left = 447
@@ -347,8 +357,14 @@ object MonitorDialog: TMonitorDialog
     Width = 17
     Height = 259
     Align = alRight
+    Ctl3D = True
+    DoubleBuffered = False
     Kind = sbVertical
     PageSize = 0
+    ParentCtl3D = False
+    ParentDoubleBuffered = False
+    ParentShowHint = False
+    ShowHint = False
     TabOrder = 2
     TabStop = False
     Visible = False

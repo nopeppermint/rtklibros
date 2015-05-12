@@ -9,6 +9,13 @@
 #pragma resource "*.dfm"
 TConvDialog *ConvDialog;
 //---------------------------------------------------------------------------
+static double str2dbl(AnsiString str)
+{
+	double val=0.0;
+	sscanf(str.c_str(),"%lf",&val);
+	return val;
+}
+//---------------------------------------------------------------------------
 __fastcall TConvDialog::TConvDialog(TComponent* Owner)
 	: TForm(Owner)
 {
@@ -21,12 +28,22 @@ __fastcall TConvDialog::TConvDialog(TComponent* Owner)
 //---------------------------------------------------------------------------
 void __fastcall TConvDialog::FormShow(TObject *Sender)
 {
+	AnsiString s;
+	Conversion->Checked=ConvEna;
+	InFormat ->ItemIndex=ConvInp;
+	OutFormat->ItemIndex=ConvOut;
+	OutMsgs->Text=ConvMsg;
+	Options->Text=ConvOpt;
 	UpdateEnable();
 }
 //---------------------------------------------------------------------------
 void __fastcall TConvDialog::BtnOkClick(TObject *Sender)
 {
-	;	
+	ConvEna=Conversion->Checked;
+	ConvInp=InFormat->ItemIndex;
+	ConvOut=OutFormat->ItemIndex;
+	ConvMsg=OutMsgs->Text;
+	ConvOpt=Options->Text;
 }
 //---------------------------------------------------------------------------
 void __fastcall TConvDialog::ConversionClick(TObject *Sender)
@@ -38,9 +55,8 @@ void __fastcall TConvDialog::UpdateEnable(void)
 {
 	InFormat ->Enabled=Conversion->Checked;
 	OutFormat->Enabled=Conversion->Checked;
-	LabelConv->Enabled=Conversion->Checked;
-	GroupBox1->Enabled=Conversion->Checked;
-	GroupBox2->Enabled=Conversion->Checked;
+	OutMsgs  ->Enabled=Conversion->Checked;
+	Options  ->Enabled=Conversion->Checked;
 }
 //---------------------------------------------------------------------------
 

@@ -11,6 +11,7 @@
 #include <ExtCtrls.hpp>
 #include <ComCtrls.hpp>
 #include "plotmain.h"
+#include <Vcl.Buttons.hpp>
 //---------------------------------------------------------------------------
 class TPlotOptDialog : public TForm
 {
@@ -116,6 +117,21 @@ __published:
 	TPanel *MColor10;
 	TPanel *MColor11;
 	TPanel *MColor12;
+	TLabel *Label15;
+	TComboBox *LatLonFmt;
+	TLabel *Label33;
+	TEdit *RnxOpts;
+	TLabel *Label34;
+	TEdit *TLEFile;
+	TButton *BtnTLEFile;
+	TLabel *Label35;
+	TEdit *TLESatFile;
+	TButton *BtnTLESatFile;
+	TLabel *Label36;
+	TSpeedButton *BtnTLEView;
+	TSpeedButton *BtnTLESatView;
+	TLabel *Label37;
+	TComboBox *MaxMP;
 	void __fastcall BtnOKClick(TObject *Sender);
 	void __fastcall FormShow(TObject *Sender);
 	void __fastcall BtnColor1Click(TObject *Sender);
@@ -127,8 +143,12 @@ __published:
 	void __fastcall AutoScaleChange(TObject *Sender);
 	void __fastcall MColorClick(TObject *Sender);
 	void __fastcall BtnFontClick(TObject *Sender);
-	void __fastcall BtnQcCmdClick(TObject *Sender);
 	void __fastcall RcvPosChange(TObject *Sender);
+	void __fastcall BtnTLEFileClick(TObject *Sender);
+	void __fastcall BtnQcCmdClick(TObject *Sender);
+	void __fastcall BtnTLESatFileClick(TObject *Sender);
+	void __fastcall BtnTLEViewClick(TObject *Sender);
+	void __fastcall BtnTLESatViewClick(TObject *Sender);
 private:
 	TFont *FontOpt;
 	void __fastcall UpdateFont(void);

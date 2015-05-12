@@ -25,17 +25,17 @@ __published:
 	TSpeedButton *BtnExpand;
 	TSpeedButton *BtnShrink;
 	TSpeedButton *BtnGraph;
+	void __fastcall FormShow(TObject *Sender);
+	void __fastcall FormResize(TObject *Sender);
+	void __fastcall DispPaint(TObject *Sender);
 	void __fastcall BtnCloseClick(TObject *Sender);
 	void __fastcall BtnShrinkClick(TObject *Sender);
 	void __fastcall BtnExpandClick(TObject *Sender);
-	void __fastcall FormResize(TObject *Sender);
-	void __fastcall DispPaint(TObject *Sender);
 	void __fastcall BtnPntDlgClick(TObject *Sender);
-	void __fastcall PntListChange(TObject *Sender);
 	void __fastcall BtnCenterClick(TObject *Sender);
 	void __fastcall BtnTrackClick(TObject *Sender);
-	void __fastcall FormShow(TObject *Sender);
 	void __fastcall BtnPntClick(TObject *Sender);
+	void __fastcall PntListChange(TObject *Sender);
 	void __fastcall DispMouseDown(TObject *Sender, TMouseButton Button,
           TShiftState Shift, int X, int Y);
 	void __fastcall DispMouseMove(TObject *Sender, TShiftState Shift, int X,
@@ -47,6 +47,7 @@ private:
 	AnsiString RefName;
 	double CentPos0[3];
 	int Scale,PntIndex,Drag,X0,Y0;
+	
 	void __fastcall DrawVertGraph(const double *sol,
 		const int *stat, int psol, int psols, int psole, int nsol, int currentstat);
 	TPoint __fastcall PosToPoint(const double *pos);
@@ -67,6 +68,7 @@ private:
 	void __fastcall UpdateEnable(void);
 public:
 	double CurrentPos[3],RefPos[3],CentPos[3];
+	
 	void __fastcall ResetRef(void);
 	void __fastcall UpdateMap(const double *sol, const double *solref,
 		const double *vel, const int *stat, int psol, int psols, int psole,
